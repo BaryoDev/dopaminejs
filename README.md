@@ -121,6 +121,28 @@ Pre-loaded satisfying sound effects (generated synthetically or minimal assets).
 soundManager.playSuccess();
 ```
 
+### 🎧 Audio Customization (New in v1.1.0)
+You can replace the default synthesized sounds with your own audio files (`.mp3`, `.wav`, etc.).
+
+```javascript
+// 1. Register custom sounds
+soundManager.registerSound('jump', '/assets/audio/jump_v2.mp3');
+soundManager.registerSound('win', '/assets/audio/epic_win.wav');
+
+// 2. Play them (auto-loads on first play if not preloaded)
+soundManager.play('jump');
+
+// 3. Or pass them in initial config
+const app = new Dopamine({
+    sound: {
+        customSounds: {
+            'click': '/assets/ui_click.mp3',
+            'level_up': '/assets/level_up.mp3'
+        }
+    }
+});
+```
+
 ### 🎨 Game UI
 Built-in UI components to show progress without coding HTML/CSS.
 - **Notifications**: "Achievement Unlocked", "Level Up", etc.
