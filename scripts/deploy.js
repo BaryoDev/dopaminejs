@@ -44,8 +44,8 @@ const main = () => {
 
     // 6. Publish
     console.log('📦 Publishing to npm...');
-    // run('npm publish'); // Commented out for safety, uncomment to actually publish
-    console.log('npm publish command skipped for safety. Run manually if needed.');
+    run('npm publish');
+
 
     console.log(`✅ Successfully released v${newVersion}!`);
 };
