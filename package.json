@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "A lightweight library for adding juice, rewards, and feedback to HTML5 games.",
     "main": "dist/dopamine.umd.js",
     "module": "dist/dopamine.mjs",
@@ -24,6 +24,7 @@
         "build": "vite build",
         "preview": "vite preview",
         "test": "vitest",
+        "release": "node scripts/deploy.js",
         "prepublishOnly": "npm run build"
     },
     "keywords": [
