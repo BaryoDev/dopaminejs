@@ -143,6 +143,57 @@ const app = new Dopamine({
 });
 ```
 
+### 🎨 Visual Customization (New in v1.2.0)
+
+#### Custom Sprites
+Use your own images instead of shapes.
+
+```javascript
+// 1. Register sprite
+particleSystem.registerSprite('gold_coin', '/assets/coin.png');
+
+// 2. Emit particles using that sprite
+particleSystem.emit({
+    x: 100, y: 100,
+    sprite: 'gold_coin',
+    count: 10,
+    size: 20,
+    gravity: 0.5
+});
+```
+
+#### Custom Effects
+Create reusable effects that you can call anywhere.
+
+```javascript
+// Define "Blood Splatter"
+particleSystem.registerEffect('blood', (x, y) => {
+    particleSystem.emit({
+        x, y,
+        count: 15,
+        color: ['#8a0303', '#ff0000'],
+        speed: 4,
+        gravity: 0.3,
+        decay: 0.05
+    });
+});
+
+// Use it
+particleSystem.play('blood', 200, 300);
+```
+
+#### Multi-Screen Support
+Target a specific game container instead of the whole screen.
+
+```javascript
+const app = new Dopamine({
+    particles: {
+        container: '#game-board', // Selector or HTMLElement
+        zIndex: 10
+    }
+});
+```
+
 ### 🎨 Game UI
 Built-in UI components to show progress without coding HTML/CSS.
 - **Notifications**: "Achievement Unlocked", "Level Up", etc.
