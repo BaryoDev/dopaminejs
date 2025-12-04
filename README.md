@@ -1,84 +1,106 @@
-# DopamineJS 🧠✨
+# 🧠 DopamineJS
 
-A lightweight, modular JavaScript library for adding "juice", rewards, and satisfying feedback to your HTML5 games.
+A lightweight, customizable framework for adding juice, rewards, and feedback to HTML5 games.
 
 ## Features
 
--   **Reward System**: XP, Levels, Achievements, and Daily Streaks.
--   **Game UI**: Beautiful, animated overlays for level-ups, notifications, and HUDs.
--   **Particle Effects**: Confetti, sparkles, fire, and coin showers.
--   **Sound Manager**: Synthesized retro sound effects (no external assets needed).
--   **Data Persistence**: Automatic local storage management.
+- **Reward System**: XP, Levels, Achievements, and Daily Streaks.
+- **Particle Effects**: Confetti, Sparkles, Fire, and more.
+- **Sound Manager**: Synthesized sound effects (no assets required).
+- **Game UI**: Ready-to-use overlays for level ups, achievements, and notifications.
+- **Extensible**: Built with a modular architecture and event system.
 
 ## Installation
 
-### Via npm (Coming Soon)
 ```bash
 npm install dopaminejs
 ```
 
-### Direct Include
-Include the built script and CSS in your HTML:
-```html
-<link rel="stylesheet" href="dist/dopamine.css">
-<script src="dist/dopamine.js"></script>
-```
+## Usage
 
-## Quick Start
+### Basic Setup
 
 ```javascript
 import Dopamine from 'dopaminejs';
 
-// Initialize
-const game = new Dopamine();
-await game.init();
+// Initialize with default config
+const app = new Dopamine();
+const { rewardSystem, particleSystem, soundManager, gameUI } = await app.init();
 
-// Access modules
-const { rewardSystem, particleSystem, soundManager, gameUI } = game;
+// Award XP
+rewardSystem.addXP(100, 'Completed Level 1');
 
-// 1. Award XP
-await rewardSystem.addXP(100, 'Enemy Defeated');
-
-// 2. Show Visual Feedback
-particleSystem.confetti(window.innerWidth / 2, window.innerHeight / 2);
-
-// 3. Play Sound
+// Play Sound
 soundManager.playSuccess();
 
-// 4. Show Notification
-gameUI.showNotification('Level Up!', 'legendary');
+// Show Effect
+particleSystem.confetti(x, y);
 ```
 
-## Modules
+### Configuration
 
-### RewardSystem
-Manages player progression.
--   `addXP(amount, reason)`
--   `recordGame(gameId, result)`
--   `unlockAchievement(id)`
+You can customize almost everything by passing a config object:
 
-### ParticleSystem
-Visual effects on a dedicated canvas layer.
--   `confetti(x, y)`
--   `sparkle(x, y)`
--   `fire(x, y)`
--   `coinShower(x, y)`
+```javascript
+const app = new Dopamine({
+    rewards: {
+        achievements: {
+            'my_custom_achievement': {
+                name: 'Super Player',
+                description: 'Score 1000 points',
+                icon: '🏆',
+                xp: 500,
+                check: (player, gameName, result) => result.score >= 1000
+            }
+        }
+    },
+    sound: {
+        storageKey: 'my_game_muted'
+    },
+    particles: {
+        zIndex: '10000'
+    }
+});
+```
 
-### SoundManager
-Synthesized audio effects.
--   `playJump()`
--   `playScore()`
--   `playGameOver()`
--   `toggleMute()`
+### Recording Games
 
-### GameUI
-Overlay system for feedback.
--   `showNotification(msg, type)`
--   `showLevelUp(oldLvl, newLvl)`
--   `showSummary(data)`
+Use `recordGame` to automatically handle stats, high scores, and achievements:
+
+```javascript
+await rewardSystem.recordGame('my_game_id', {
+    score: 1500,
+    enemiesDefeated: 50
+});
+```
+
+## Development
+
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/BaryoDev/dopaminejs.git
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Run dev server:
+    ```bash
+    npm run dev
+    ```
+4.  Run tests:
+    ```bash
+    npm test
+    ```
+
+## Deployment
+
+To release a new version (bumps version, builds, tags, and pushes):
+
+```bash
+npm run release -- [patch|minor|major]
+```
 
 ## License
-MIT
 
-## Support
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/T6T01CQT4R)
+MIT
