@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DopamineJS Demo</title>
+    <link rel="stylesheet" href="dist/style.css">
+    <style>
+        body {
+            background: #1a1a2e;
+            color: white;
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 600px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        button {
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            background: #4ecca3;
+            color: #1a1a2e;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        h1 {
+            margin-bottom: 40px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🧠 DopamineJS Demo</h1>
+
+    <div class="grid">
+        <button onclick="testXP()">Add 100 XP</button>
+        <button onclick="testLevelUp()">Force Level Up</button>
+        <button onclick="testConfetti()">Confetti Explosion</button>
+        <button onclick="testCoins()">Coin Shower</button>
+        <button onclick="testSound()">Play Success Sound</button>
+        <button onclick="testNotification()">Show Notification</button>
+    </div>
+
+    <!-- Ko-fi Widget -->
+    <div style="margin-top: 40px;">
+        <script type='text/javascript' src='https://storage.ko-fi.com/cdn/widget/Widget_2.js'></script>
+        <script
+            type='text/javascript'>kofiwidget2.init('Support me on Ko-fi', '#72a4f2', 'T6T01CQT4R'); kofiwidget2.draw();</script>
+    </div>
+
+    <script type="module">
+        import Dopamine from './src/index.js';
+
+        const app = new Dopamine({
+            rewards: {
+                achievements: {
+                    'demo_clicker': {
+                        name: 'Demo Clicker',
+                        description: 'Clicked the XP button 5 times',
+                        icon: '🖱️',
+                        xp: 50,
+                        check: (player) => player.stats['demo_clicks'] >= 5
+                    }
+                }
+            }
+        });
+        
+        const { rewardSystem, particleSystem, soundManager, gameUI } = await app.init();
+
+        // Expose for buttons
+        window.testXP = async () => {
+            // Simulate a game "demo"
+            await rewardSystem.recordGame('demo', { score: 100, demo_clicks: 1 });
+            soundManager.playClick();
+        };
+
+        window.testLevelUp = () => {
+            // Manually trigger for demo purposes
+            const { level } = rewardSystem.player;
+            gameUI.showLevelUp(level, level + 1);
+            soundManager.playSuccess();
+        };
+
+        window.testConfetti = () => {
+            particleSystem.confetti(window.innerWidth / 2, window.innerHeight / 2);
+            soundManager.playScore();
+        };
+
+        window.testCoins = () => {
+            particleSystem.coinShower(window.innerWidth / 2, window.innerHeight / 2);
+            soundManager.playScore();
+        };
+
+        window.testSound = () => {
+            soundManager.playSuccess();
+        };
+
+        window.testNotification = () => {
+            gameUI.showNotification('Awesome!', 'legendary');
+            soundManager.playJump();
+        };
+    </script>
+</body>
+
+</html>
