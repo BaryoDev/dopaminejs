@@ -14,7 +14,7 @@
  * ```
  */
 
-import { WebGLParticleSystem } from '../dopamine/effects/WebGLParticleSystem.js';
+import { WebGLParticleSystem } from './WebGLParticleSystem.js';
 
 export const WebGLParticlePlugin = {
     name: 'webgl-particles',
