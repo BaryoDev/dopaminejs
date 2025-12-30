@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ParticleSystem } from '../src/effects/ParticleSystem.js';
+import { ParticleSystem } from '../src/dopamine/effects/ParticleSystem.js';
 
 describe('ParticleSystem', () => {
     let particleSystem;

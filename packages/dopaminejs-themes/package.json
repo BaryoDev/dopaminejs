@@ -1,0 +1,38 @@
+{
+    "name": "dopaminejs-themes",
+    "version": "1.0.0",
+    "description": "Official themes for DopamineJS - Cyberpunk, Neon, Retro, and more",
+    "type": "module",
+    "main": "./dist/themes.umd.js",
+    "module": "./dist/themes.mjs",
+    "exports": {
+        ".": {
+            "import": "./dist/themes.mjs",
+            "require": "./dist/themes.umd.js"
+        }
+    },
+    "files": [
+        "dist",
+        "src"
+    ],
+    "scripts": {
+        "build": "vite build"
+    },
+    "peerDependencies": {
+        "dopaminejs": "^2.0.0"
+    },
+    "keywords": [
+        "dopaminejs-theme",
+        "game",
+        "ui",
+        "theme",
+        "css"
+    ],
+    "author": "BaryoDev",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/BaryoDev/dopaminejs.git",
+        "directory": "packages/dopaminejs-themes"
+    }
+}

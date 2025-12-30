@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SoundManager } from '../src/audio/SoundManager.js';
+import { SoundManager } from '../src/dopamine/audio/SoundManager.js';
 
 // Mock Web Audio API
 class AudioContextMock {

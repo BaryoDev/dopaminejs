@@ -1,56 +1,33 @@
 {
-    "name": "dopaminejs",
-    "version": "1.2.0",
-    "description": "A lightweight library for adding juice, rewards, and feedback to HTML5 games.",
-    "main": "dist/dopamine.umd.js",
-    "module": "dist/dopamine.mjs",
-    "style": "dist/style.css",
-    "files": [
-        "dist",
-        "src",
-        "README.md",
-        "LICENSE",
-        "CHANGELOG.md",
-        "ARCHITECTURE.md"
+    "name": "dopaminejs-monorepo",
+    "version": "2.0.0",
+    "private": true,
+    "description": "DopamineJS monorepo - Game Feel Engine for the web",
+    "workspaces": [
+        "packages/*"
     ],
-    "exports": {
-        ".": {
-            "import": "./dist/dopamine.mjs",
-            "require": "./dist/dopamine.umd.js",
-            "default": "./dist/dopamine.umd.js"
-        },
-        "./style.css": "./dist/style.css"
-    },
     "scripts": {
-        "dev": "vite",
-        "build": "vite build",
-        "preview": "vite preview",
-        "test": "vitest",
-        "release": "node scripts/deploy.js",
-        "prepublishOnly": "npm run build"
-    },
-    "keywords": [
-        "game-dev",
-        "html5",
-        "rewards",
-        "particles",
-        "feedback",
-        "juice",
-        "gamification"
-    ],
-    "author": "Gemini",
-    "license": "MIT",
-    "devDependencies": {
-        "jsdom": "^27.2.0",
-        "vite": "^5.0.0",
-        "vitest": "^4.0.15"
+        "build": "npm run build --workspaces --if-present",
+        "test": "npm run test --workspaces --if-present",
+        "dev": "npm run dev --workspace=dopaminejs",
+        "clean": "rm -rf packages/*/dist packages/*/node_modules"
     },
     "repository": {
         "type": "git",
         "url": "https://github.com/BaryoDev/dopaminejs.git"
     },
-    "bugs": {
-        "url": "https://github.com/BaryoDev/dopaminejs/issues"
-    },
-    "homepage": "https://github.com/BaryoDev/dopaminejs#readme"
+    "keywords": [
+        "game",
+        "gamedev",
+        "game-feel",
+        "juice",
+        "feedback",
+        "rewards"
+    ],
+    "author": "BaryoDev",
+    "license": "MPL-2.0",
+    "devDependencies": {
+        "vite": "^5.0.0",
+        "vitest": "^1.0.0"
+    }
 }

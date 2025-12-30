@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2025-12-30
+
+### 🎉 Major Release - Complete Architecture Overhaul
+
+This release transforms DopamineJS from a game feel library into a fully extensible game feel engine.
+
+### Added
+- **DopamineKernel** - Central orchestrator with dependency injection
+- **EventBus** - Priority-based event system
+- **SystemRegistry** - Lifecycle management with topological sort
+- **PluginRegistry** - Sync/async plugin loading
+- **System Interfaces** - ISystem, IPhysicsSystem, IAudioSystem, IParticleSystem
+- **Sound Pack System** - 4 presets (retro, modern, cute, scifi)
+- **WebGLParticleSystem** - GPU particles (10,000+ at 60 FPS)
+- **ThemeEngine** - 5 UI themes with CSS variables
+- **Middleware hooks** - RewardSystem event interception
+- **Webhook integration** - Backend sync with HMAC
+
+### Changed
+- **BREAKING**: Deprecated `GlobalPhysics`, `GlobalInput`, `GlobalLoader` (use kernel)
+- Refactored all core files to use kernel dependency injection
+- Removed dynamic import from game loop (10-20x faster)
+- Fixed timestep physics (60 FPS)
+
+### Monorepo Structure
+- Separated into 3 packages: `dopaminejs` (MPL-2.0), `dopaminejs-plugins` (MIT), `dopaminejs-themes` (MIT)
+- Each package independently versioned and published
+
+### Performance
+- Game loop: ~5-10ms → <0.5ms (10-20x improvement)
+- Particles: 1,000 Canvas → 10,000+ WebGL at 60 FPS
+
+### Documentation
+- Added [Plugin Development Guide](./docs/PLUGIN_GUIDE.md)
+- Updated [ARCHITECTURE.md](./ARCHITECTURE.md)
+- Created package-specific READMEs
+
 ## [1.2.0] - 2025-12-04
 ### Added
 - **Visual Customization**:

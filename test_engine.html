@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Engine Verification</title>
+    <style>
+        body {
+            margin: 0;
+            background: #222;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container"></div>
+    <script type="module">
+        import { Game, Scene, GlobalLoader } from './src/index.js';
+
+        class TestScene extends Scene {
+            constructor() {
+                super();
+                this.x = 0;
+                this.speed = 100;
+                this.dir = 1;
+            }
+
+            render(ctx) {
+                // Draw a moving box
+                ctx.fillStyle = '#ff0055';
+                ctx.fillRect(this.x, 250, 50, 50);
+
+                ctx.font = '20px monospace';
+                ctx.fillStyle = '#fff';
+                ctx.fillText(`Dopamine Engine v2.0 - Running`, 20, 30);
+                ctx.fillText(`X: ${Math.floor(this.x)}`, 20, 60);
+            }
+
+            update(dt) {
+                this.x += this.speed * dt * this.dir;
+                if (this.x > 750 || this.x < 0) this.dir *= -1;
+            }
+        }
+
+        const game = new Game({
+            parent: '#game-container',
+            width: 800,
+            height: 600,
+            backgroundColor: '#111'
+        });
+
+        game.setScene(new TestScene());
+        game.start();
+
+        console.log('Engine Started');
+    </script>
+</body>
+
+</html>

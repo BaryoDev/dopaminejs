@@ -2,6 +2,7 @@
  * Sound Manager Module
  * Handles synthesized sound effects using Web Audio API
  */
+import { getSoundPack, listSoundPacks } from './SoundPacks.js';
 
 export class SoundManager {
     constructor(config = {}) {
@@ -11,8 +12,11 @@ export class SoundManager {
 
         // Asset management
         this.assets = new Map(); // key -> AudioBuffer
-        this.soundPack = config.soundPack || 'synth'; // 'synth' or custom
         this.customSounds = config.customSounds || {}; // key -> url
+
+        // Sound pack system
+        this.currentPack = config.soundPack || 'modern';
+        this.packConfig = getSoundPack(this.currentPack);
 
         // Preload custom sounds if provided
         if (Object.keys(this.customSounds).length > 0) {
@@ -31,6 +35,26 @@ export class SoundManager {
         if (this.audioContext.state === 'suspended') {
             this.audioContext.resume();
         }
+    }
+
+    /**
+     * Set the active sound pack
+     * @param {string} packName - Name of the pack (retro, modern, cute, scifi)
+     */
+    setSoundPack(packName) {
+        const pack = getSoundPack(packName);
+        if (pack) {
+            this.currentPack = packName;
+            this.packConfig = pack;
+        }
+    }
+
+    /**
+     * Get list of available sound packs
+     * @returns {string[]} Array of pack names
+     */
+    getAvailablePacks() {
+        return listSoundPacks();
     }
 
     /**
@@ -88,8 +112,8 @@ export class SoundManager {
     }
 
     /**
-     * Play a sound by key (custom) or fallback to synth
-     * @param {string} key - 'jump', 'score', 'success', etc.
+     * Play a sound by key (custom) or fallback to sound pack
+     * @param {string} key - 'xp', 'levelUp', 'achievement', 'coin', 'error', etc.
      */
     async play(key) {
         if (this.muted) return;
@@ -110,19 +134,36 @@ export class SoundManager {
             }
         }
 
-        // 3. Fallback to synth based on key name
-        // Map common keys to synth methods
-        const synthMap = {
-            'jump': () => this.playJump(true), // true = force synth
-            'score': () => this.playScore(true),
-            'success': () => this.playSuccess(true),
-            'click': () => this.playClick(true),
-            'error': () => this.playError(true),
-            'gameover': () => this.playGameOver(true)
-        };
+        // 3. Fallback to sound pack
+        const soundConfig = this.packConfig[key];
+        if (soundConfig) {
+            this._playSoundConfig(soundConfig);
+        }
+    }
 
-        if (synthMap[key]) {
-            synthMap[key]();
+    /**
+     * Play a sound from pack configuration
+     * @private
+     */
+    _playSoundConfig(config) {
+        if (config.type === 'tone') {
+            this.playTone(config.frequency, config.duration, config.waveform, config.volume);
+        } else if (config.type === 'sequence') {
+            this._playSequence(config.notes, config.waveform, config.volume);
+        }
+    }
+
+    /**
+     * Play a sequence of tones
+     * @private
+     */
+    _playSequence(notes, waveform, volume) {
+        let delay = 0;
+        for (const note of notes) {
+            setTimeout(() => {
+                this.playTone(note.frequency, note.duration, waveform, volume);
+            }, delay * 1000);
+            delay += note.duration;
         }
     }
 

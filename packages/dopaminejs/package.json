@@ -1,0 +1,48 @@
+{
+    "name": "dopaminejs",
+    "version": "2.0.0",
+    "description": "Lightweight Game Feel Engine - Add juice, rewards, and feedback to HTML5 games",
+    "type": "module",
+    "main": "./dist/dopamine.umd.js",
+    "module": "./dist/dopamine.mjs",
+    "exports": {
+        ".": {
+            "import": "./dist/dopamine.mjs",
+            "require": "./dist/dopamine.umd.js"
+        },
+        "./style.css": "./dist/style.css"
+    },
+    "files": [
+        "dist",
+        "src"
+    ],
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "test": "vitest",
+        "preview": "vite preview"
+    },
+    "keywords": [
+        "game",
+        "gamedev",
+        "game-feel",
+        "juice",
+        "feedback",
+        "rewards",
+        "particles",
+        "sound",
+        "xp",
+        "achievements"
+    ],
+    "author": "BaryoDev",
+    "license": "MPL-2.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/BaryoDev/dopaminejs.git",
+        "directory": "packages/dopaminejs"
+    },
+    "bugs": {
+        "url": "https://github.com/BaryoDev/dopaminejs/issues"
+    },
+    "homepage": "https://github.com/BaryoDev/dopaminejs#readme"
+}

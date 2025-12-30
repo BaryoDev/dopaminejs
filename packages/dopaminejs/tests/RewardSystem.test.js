@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { RewardSystem } from '../src/core/RewardSystem';
-import { DataService } from '../src/core/DataService';
+import { RewardSystem } from '../src/dopamine/core/RewardSystem.js';
+import { DataService } from '../src/dopamine/core/DataService.js';
 
 describe('RewardSystem', () => {
     let rewardSystem;

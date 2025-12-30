@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DataService } from '../src/core/DataService';
+```javascript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { DataService } from '../src/dopamine/core/DataService.js';
 
 describe('DataService', () => {
     let dataService;
