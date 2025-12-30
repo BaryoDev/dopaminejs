@@ -150,6 +150,7 @@ export const HowlerAudioPlugin = {
         if (typeof window !== 'undefined' && typeof window.Howl === 'undefined') {
             try {
                 // Try to dynamically import Howler.js
+                /* @vite-ignore */
                 const { Howl, Howler } = await import('howler');
                 window.Howl = Howl;
                 window.Howler = Howler;
