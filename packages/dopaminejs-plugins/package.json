@@ -1,22 +1,18 @@
 {
     "name": "dopaminejs-plugins",
-    "version": "1.0.2",
-    "description": "Official plugins for DopamineJS - Howler.js audio, WebGL particles, and more",
+    "version": "1.0.3",
+    "description": "Official plugins for DopamineJS - WebGL particles, debug tools, and ecosystem extensions",
     "type": "module",
-    "main": "./dist/plugins.umd.js",
+    "main": "./dist/plugins.umd.cjs",
     "module": "./dist/plugins.mjs",
     "exports": {
         ".": {
             "import": "./dist/plugins.mjs",
-            "require": "./dist/plugins.umd.js"
-        },
-        "./howler": "./dist/howler.mjs",
-        "./webgl": "./dist/webgl.mjs",
-        "./ecosystem": "./dist/ecosystem.mjs"
+            "require": "./dist/plugins.umd.cjs"
+        }
     },
     "files": [
-        "dist",
-        "src"
+        "dist"
     ],
     "scripts": {
         "build": "vite build",
@@ -28,10 +24,9 @@
     "keywords": [
         "dopaminejs-plugin",
         "game",
-        "audio",
         "particles",
         "webgl",
-        "howler"
+        "debug"
     ],
     "author": "BaryoDev",
     "license": "MIT",

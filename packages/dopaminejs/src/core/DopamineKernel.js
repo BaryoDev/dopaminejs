@@ -43,7 +43,14 @@ export class DopamineKernel {
         });
 
         // Renderer
-        this.systems.register('renderer', new Renderer(config.renderer || {}), {
+        const rendererOptions = {
+            width: config.width,
+            height: config.height,
+            backgroundColor: config.backgroundColor,
+            canvas: config.canvas,
+            ...config.renderer
+        };
+        this.systems.register('renderer', new Renderer(rendererOptions), {
             priority: 90
         });
 

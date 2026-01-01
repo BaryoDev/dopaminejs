@@ -3,8 +3,8 @@
  */
 export class Scene {
     constructor() {
-        this.children = [];
-        this.game = null;
+        this.gameObjects = [];
+        this.kernel = null; // Injected by Game
     }
 
     /**
@@ -12,30 +12,19 @@ export class Scene {
      */
     onEnter() { }
 
-    onExit() { }
-
     /**
-     * Update loop for the scene.
-     * @param {number} dt 
+     * Called when the scene is removed from the Game.
      */
-    update(dt) {
-        // Update all children (GameObjects)
-        for (const child of this.children) {
-            if (child.update) child.update(dt);
-        }
-    }
-
-    /**
-        this.gameObjects = [];
-        this.kernel = null; // Injected by Game
-    }
+    onExit() { }
 
     /**
      * Add a GameObject to the scene.
      * @param {GameObject} gameObject 
      */
     add(gameObject) {
-        gameObject.kernel = this.kernel; // Inject kernel
+        if (this.kernel) {
+            gameObject.kernel = this.kernel; // Inject kernel
+        }
         this.gameObjects.push(gameObject);
         return gameObject;
     }
@@ -51,12 +40,20 @@ export class Scene {
         }
     }
 
+    /**
+     * Update loop for the scene.
+     * @param {number} dt 
+     */
     update(dt) {
         for (const obj of this.gameObjects) {
             obj.update(dt);
         }
     }
 
+    /**
+     * Render loop for the scene.
+     * @param {CanvasRenderingContext2D} ctx 
+     */
     render(ctx) {
         for (const obj of this.gameObjects) {
             obj.render(ctx);

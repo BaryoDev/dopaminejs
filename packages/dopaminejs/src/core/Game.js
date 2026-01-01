@@ -16,6 +16,7 @@ export class Game {
 
         // Initialize Director
         this.director = new Director(this);
+        this.kernel.systems.register('director', this.director);
 
         // Bind to kernel tick event for scene updates
         this.kernel.events.on(EventBus.Events.TICK, this._update.bind(this), 10);

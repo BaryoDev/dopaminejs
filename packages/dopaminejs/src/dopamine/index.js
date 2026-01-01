@@ -24,7 +24,6 @@ export default class Dopamine {
 
     async init() {
         await this.rewardSystem.init();
-        console.log('DopamineJS Initialized 🚀');
         return {
             rewardSystem: this.rewardSystem,
             gameUI: this.gameUI,

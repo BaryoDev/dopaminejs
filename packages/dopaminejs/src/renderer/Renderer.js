@@ -7,17 +7,25 @@ export class Renderer {
         this.height = options.height || 600;
         this.backgroundColor = options.backgroundColor || '#000000';
 
-        this.canvas = document.createElement('canvas');
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
+        // Use existing canvas if provided, otherwise create new one
+        if (options.canvas) {
+            this.canvas = options.canvas;
+            this.canvas.width = this.width;
+            this.canvas.height = this.height;
+        } else {
+            this.canvas = document.createElement('canvas');
+            this.canvas.width = this.width;
+            this.canvas.height = this.height;
+
+            // Append to body or specified container
+            const parent = options.parent ?
+                (typeof options.parent === 'string' ? document.querySelector(options.parent) : options.parent)
+                : document.body;
+
+            parent.appendChild(this.canvas);
+        }
+
         this.ctx = this.canvas.getContext('2d');
-
-        // Append to body or specified container
-        const parent = options.parent ?
-            (typeof options.parent === 'string' ? document.querySelector(options.parent) : options.parent)
-            : document.body;
-
-        parent.appendChild(this.canvas);
     }
 
     /**

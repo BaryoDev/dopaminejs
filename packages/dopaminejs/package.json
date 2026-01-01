@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "description": "Lightweight Game Feel Engine - Add juice, rewards, and feedback to HTML5 games",
     "type": "module",
     "main": "./dist/dopamine.umd.cjs",

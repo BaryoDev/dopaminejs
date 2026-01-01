@@ -1,12 +1,12 @@
 import { defineConfig } from 'vite';
+import { resolve } from 'path';
 
 export default defineConfig({
     build: {
         lib: {
-            entry: 'src/index.js',
-            name: 'DopaminePlugins',
-            formats: ['es', 'umd'],
-            fileName: (format) => `plugins.${format === 'es' ? 'mjs' : 'umd.cjs'}`
+            entry: resolve(__dirname, 'src/index.js'),
+            name: 'DopamineFeedbackEffects',
+            fileName: (format) => `plugin-feedback-effects.${format}.js`
         },
         rollupOptions: {
             external: ['dopaminejs'],

@@ -3,9 +3,7 @@
  * Official plugin collection (MIT License)
  */
 
-// Audio Plugins
-// Note: HowlerAudioPlugin requires 'howler' package to be installed separately
-// export { HowlerAudioPlugin, HowlerAudioPluginExample } from './HowlerAudioPlugin.js';
+// Audio Utilities
 export { getSoundPack, listSoundPacks, SoundPacks } from './SoundPacks.js';
 
 // Visual Plugins

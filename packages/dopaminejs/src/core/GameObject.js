@@ -14,7 +14,23 @@ export class GameObject {
         this.components = [];
         this.children = [];
         this.parent = null;
-        this.kernel = null; // Injected by Scene or Game
+        this._kernel = null;
+    }
+
+    get kernel() {
+        return this._kernel;
+    }
+
+    set kernel(value) {
+        this._kernel = value;
+        // Propagate to components
+        for (const comp of this.components) {
+            comp.kernel = value;
+        }
+        // Propagate to children
+        for (const child of this.children) {
+            child.kernel = value;
+        }
     }
 
     /**

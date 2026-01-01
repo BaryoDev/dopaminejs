@@ -60,7 +60,7 @@ export class PluginRegistry {
                 version: plugin.version
             });
 
-            console.log(`[PluginRegistry] Loaded plugin: ${plugin.name}${plugin.version ? ` v${plugin.version}` : ''}`);
+            // Plugin loaded successfully
         } catch (error) {
             console.error(`[PluginRegistry] Failed to initialize plugin "${plugin.name}":`, error);
             this._plugins.delete(plugin.name);
@@ -106,7 +106,7 @@ export class PluginRegistry {
                 version: plugin.version
             });
 
-            console.log(`[PluginRegistry] Loaded plugin: ${plugin.name}${plugin.version ? ` v${plugin.version}` : ''}`);
+            // Plugin loaded successfully
         } catch (error) {
             console.error(`[PluginRegistry] Failed to initialize plugin "${plugin.name}":`, error);
             this._plugins.delete(plugin.name);

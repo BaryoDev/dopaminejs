@@ -4,16 +4,14 @@ export default defineConfig({
     build: {
         lib: {
             entry: 'src/index.js',
-            name: 'DopaminePlugins',
+            name: 'WebGLParticlePlugin',
             formats: ['es', 'umd'],
-            fileName: (format) => `plugins.${format === 'es' ? 'mjs' : 'umd.cjs'}`
+            fileName: (format) => `index.${format === 'es' ? 'mjs' : 'umd.cjs'}`
         },
         rollupOptions: {
             external: ['dopaminejs'],
             output: {
-                globals: {
-                    dopaminejs: 'Dopamine'
-                }
+                globals: { dopaminejs: 'Dopamine' }
             }
         }
     }

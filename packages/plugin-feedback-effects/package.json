@@ -1,0 +1,37 @@
+{
+    "name": "dopaminejs-plugin-feedback-effects",
+    "version": "1.0.1",
+    "description": "Feedback and eye-candy effects plugin for DopamineJS",
+    "main": "./dist/plugin-feedback-effects.umd.js",
+    "module": "./dist/plugin-feedback-effects.es.js",
+    "exports": {
+        ".": {
+            "import": "./dist/plugin-feedback-effects.es.js",
+            "require": "./dist/plugin-feedback-effects.umd.js"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "keywords": [
+        "dopaminejs",
+        "plugin",
+        "feedback",
+        "effects",
+        "confetti",
+        "ui"
+    ],
+    "author": "Baryo",
+    "license": "MIT",
+    "peerDependencies": {
+        "dopaminejs": "^2.0.1"
+    },
+    "devDependencies": {
+        "vite": "^5.0.0"
+    }
+}

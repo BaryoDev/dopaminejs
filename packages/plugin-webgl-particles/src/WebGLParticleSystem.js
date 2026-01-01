@@ -28,6 +28,7 @@ export class WebGLParticleSystem {
         this.registeredEffects = new Map();
     }
 
+    // ISystem interface
     init(kernel) {
         this.kernel = kernel;
         this._initWebGL();
@@ -103,6 +104,12 @@ export class WebGLParticleSystem {
             spread = 50
         } = config;
 
+        console.log('[WebGLParticles] emit() called:', {
+            x, y, count,
+            canvasWidth: this.canvas.width,
+            canvasHeight: this.canvas.height
+        });
+
         for (let i = 0; i < count; i++) {
             if (this.particleCount >= this.maxParticles) break;
 
@@ -176,8 +183,15 @@ export class WebGLParticleSystem {
     _initWebGL() {
         // Create overlay canvas
         this.canvas = document.createElement('canvas');
+
+        // Find parent container or fallback to body
+        const container = document.getElementById('game-container') || document.body;
+        const isBody = container === document.body;
+
+        // CRITICAL: Both canvases MUST use the same CSS scaling to remain aligned.
+        // We use width/height 100% so they both shrink/grow with the container.
         this.canvas.style.cssText = `
-            position: fixed;
+            position: ${isBody ? 'fixed' : 'absolute'};
             top: 0;
             left: 0;
             width: 100%;
@@ -185,9 +199,14 @@ export class WebGLParticleSystem {
             pointer-events: none;
             z-index: 9999;
         `;
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-        document.body.appendChild(this.canvas);
+
+        // IMPORTANT: Use fixed 800x600 resolution to match game canvas coordinate system
+        this.canvas.width = 800;
+        this.canvas.height = 600;
+
+
+
+        container.appendChild(this.canvas);
 
         // Get WebGL context
         this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
@@ -202,8 +221,8 @@ export class WebGLParticleSystem {
 
         // Handle resize
         window.addEventListener('resize', () => {
-            this.canvas.width = window.innerWidth;
-            this.canvas.height = window.innerHeight;
+            this.canvas.width = container.clientWidth || 800;
+            this.canvas.height = container.clientHeight || 600;
             this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         });
     }
