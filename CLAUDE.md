@@ -19,6 +19,17 @@ This document provides comprehensive guidance for AI assistants working with the
 - Vitest for testing
 - Zero runtime dependencies in core package
 
+## Architecture Review
+
+For a comprehensive analysis of the codebase architecture, design patterns, performance considerations, security concerns, and improvement recommendations, see **[ARCHITECTURE_REVIEW.md](./ARCHITECTURE_REVIEW.md)**.
+
+**Key Findings**:
+- ⭐⭐⭐⭐ Overall architecture (4/5)
+- Excellent plugin system and extensibility
+- Strong performance optimizations with some bottlenecks
+- Security and error handling need significant improvement
+- Test coverage is sparse (needs expansion to 80%+)
+
 ---
 
 ## Repository Structure
