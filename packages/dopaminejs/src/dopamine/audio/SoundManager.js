@@ -3,15 +3,22 @@
  * Handles synthesized sound effects using Web Audio API
  */
 
+import { resolveStorage } from '../utils/storage.js';
+
 export class SoundManager {
     constructor(config = {}) {
         this.audioContext = null;
         this.storageKey = config.storageKey || 'dopamineSoundsMuted';
-        this.muted = localStorage.getItem(this.storageKey) === 'true';
+        this.storage = config.storage || resolveStorage();
+        this.muted = this.storage.getItem(this.storageKey) === 'true';
 
         // Asset management
         this.assets = new Map(); // key -> AudioBuffer
         this.customSounds = config.customSounds || {}; // key -> url
+
+        // Master gain, created with the AudioContext on first use.
+        this.masterGain = null;
+        this._volume = config.volume ?? 1;
 
         // Preload custom sounds if provided
         if (Object.keys(this.customSounds).length > 0) {
@@ -24,12 +31,53 @@ export class SoundManager {
      */
     initAudio() {
         if (!this.audioContext) {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            this.audioContext = new AudioContext();
+            const Ctor = typeof window !== 'undefined'
+                ? (window.AudioContext || window.webkitAudioContext)
+                : undefined;
+
+            // No Web Audio API: SSR, a worker, or a very old browser. Stay
+            // silent rather than taking the whole game down.
+            if (!Ctor) return false;
+
+            this.audioContext = new Ctor();
+            this.masterGain = this.audioContext.createGain();
+            this.masterGain.gain.value = this._volume;
+            this.masterGain.connect(this.audioContext.destination);
         }
+
         if (this.audioContext.state === 'suspended') {
             this.audioContext.resume();
         }
+
+        return true;
+    }
+
+    /**
+     * Set master output volume.
+     * @param {number} value - 0..1
+     */
+    setVolume(value) {
+        this._volume = Math.max(0, Math.min(1, value));
+        if (this.masterGain) {
+            this.masterGain.gain.value = this._volume;
+        }
+        return this._volume;
+    }
+
+    /**
+     * Current master output volume.
+     * @returns {number}
+     */
+    getVolume() {
+        return this._volume;
+    }
+
+    /**
+     * Node every sound routes through, so volume and mute apply uniformly.
+     * @private
+     */
+    _output() {
+        return this.masterGain || this.audioContext.destination;
     }
 
     /**
@@ -38,7 +86,7 @@ export class SoundManager {
      */
     toggleMute() {
         this.muted = !this.muted;
-        localStorage.setItem(this.storageKey, this.muted);
+        this.storage.setItem(this.storageKey, this.muted);
         return this.muted;
     }
 
@@ -92,7 +140,7 @@ export class SoundManager {
      */
     async play(key) {
         if (this.muted) return;
-        this.initAudio();
+        if (!this.initAudio()) return;
 
         // 1. Try custom asset first
         if (this.assets.has(key)) {
@@ -127,7 +175,7 @@ export class SoundManager {
     _playBuffer(buffer) {
         const source = this.audioContext.createBufferSource();
         source.buffer = buffer;
-        source.connect(this.audioContext.destination);
+        source.connect(this._output());
         source.start(0);
     }
 
@@ -136,18 +184,20 @@ export class SoundManager {
      */
     playTone(frequency, duration, type = 'sine', volume = 0.3) {
         if (this.muted) return;
-        this.initAudio();
+        if (!this.initAudio()) return;
 
         const oscillator = this.audioContext.createOscillator();
         const gainNode = this.audioContext.createGain();
 
         oscillator.connect(gainNode);
-        gainNode.connect(this.audioContext.destination);
+        gainNode.connect(this._output());
 
         oscillator.frequency.value = frequency;
         oscillator.type = type;
 
-        gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
+        // exponentialRampToValueAtTime cannot reach or start from zero.
+        const peak = Math.max(0.0001, volume);
+        gainNode.gain.setValueAtTime(peak, this.audioContext.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
 
         oscillator.start(this.audioContext.currentTime);

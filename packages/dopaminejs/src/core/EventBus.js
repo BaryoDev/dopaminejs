@@ -60,12 +60,14 @@ export class EventBus {
     off(event, callback) {
         const listeners = this._listeners.get(event);
         if (listeners) {
-            // Find and remove the listener with matching callback
-            for (const listener of listeners) {
+            // Remove every registration of this callback. on() stores a fresh
+            // wrapper object per call, so the same function can be in here
+            // more than once and stopping at the first match would leave a
+            // live listener behind.
+            for (const listener of [...listeners]) {
                 if (listener.callback === callback) {
                     listeners.delete(listener);
                     this._sortedCache.delete(event);
-                    break;
                 }
             }
         }
@@ -89,16 +91,37 @@ export class EventBus {
 
         // Call regular listeners
         for (let i = 0; i < listeners.length; i++) {
-            listeners[i].callback(data);
+            this._invoke(listeners[i].callback, data, event);
         }
 
-        // Call and remove once listeners
+        // Call and remove once listeners.
         const onceListeners = this._onceListeners.get(event);
         if (onceListeners && onceListeners.size > 0) {
-            for (const callback of onceListeners) {
-                callback(data);
-            }
+            // Snapshot and clear *before* dispatching. Iterating the live Set
+            // would pick up any listener a callback registers for this same
+            // event, firing it immediately and then clearing it unfired.
+            const batch = [...onceListeners];
             onceListeners.clear();
+
+            for (const callback of batch) {
+                this._invoke(callback, data, event);
+            }
+        }
+    }
+
+    /**
+     * Call one listener without letting it abort the dispatch.
+     *
+     * A throwing listener used to take out every lower-priority listener for
+     * that event, which on 'tick' means the game silently stops updating.
+     *
+     * @private
+     */
+    _invoke(callback, data, event) {
+        try {
+            callback(data);
+        } catch (error) {
+            console.error(`[DopamineJS] Listener for "${event}" threw:`, error);
         }
     }
 
@@ -150,7 +173,7 @@ export class EventBus {
     hasListeners(event) {
         const listeners = this._listeners.get(event);
         const onceListeners = this._onceListeners.get(event);
-        return (listeners && listeners.size > 0) || (onceListeners && onceListeners.size > 0);
+        return Boolean(listeners?.size) || Boolean(onceListeners?.size);
     }
 }
 
