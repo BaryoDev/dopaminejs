@@ -130,6 +130,11 @@ failure is safe: already-published packages are skipped.
 To preview without publishing, run the workflow manually from the Actions tab
 with **dry run** left checked.
 
+> The filename `publish.yml` is load-bearing. npm matches the OIDC request
+> against the exact workflow filename registered on each package's Trusted
+> Publisher config, so renaming this file breaks publishing until all eight
+> packages are reconfigured on npmjs.com.
+
 ---
 
 ## 📝 Licensing
