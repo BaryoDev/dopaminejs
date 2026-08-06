@@ -121,7 +121,8 @@ git tag v2.1.0
 git push origin v2.1.0
 ```
 
-The `Release` workflow verifies manifests, runs the tests, builds every
+The `Publish` workflow (`.github/workflows/publish.yml`, the filename npm's
+Trusted Publisher config is pinned to) verifies manifests, runs the tests, builds every
 package, checks the tag matches `dopaminejs`'s version, then publishes only
 those packages whose version is not already on npm. Re-running after a partial
 failure is safe: already-published packages are skipped.
