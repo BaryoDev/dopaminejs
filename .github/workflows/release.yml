@@ -31,14 +31,19 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          node-version: 24
           registry-url: https://registry.npmjs.org
+          # Deliberately no `cache: npm`. That path writes an .npmrc carrying
+          # `always-auth` and an `_authToken=${NODE_AUTH_TOKEN}` line. With no
+          # NPM_TOKEN secret, NODE_AUTH_TOKEN expands to setup-node's literal
+          # placeholder, npm sees a credential, and it never attempts the OIDC
+          # exchange. The publish then 404s.
 
-      # Trusted Publishing needs npm >= 11.5.1, newer than what ships with
-      # Node 22. Provenance attestation also comes from this path.
+      # Trusted Publishing needs npm >= 11.5.1.
       - name: Use a Trusted-Publishing-capable npm
-        run: npm install -g npm@latest
+        run: |
+          npm install -g npm@latest
+          npm --version
 
       - run: npm ci
 
@@ -69,4 +74,8 @@ jobs:
           echo "Tag $TAG matches dopaminejs@$CORE"
 
       - name: Publish changed packages
+        # NODE_AUTH_TOKEN is cleared so npm cannot fall back to a bogus
+        # credential and skip the OIDC exchange.
+        env:
+          NODE_AUTH_TOKEN: ''
         run: node scripts/publish-changed.js ${{ inputs.dry_run && '--dry-run' || '' }}

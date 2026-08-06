@@ -84,7 +84,12 @@ for (const { dir, name, version } of toPublish) {
     try {
         // --access public: these are unscoped, but being explicit keeps the
         // intent obvious and survives a future move to a scope.
-        execFileSync('npm', ['publish', '--access', 'public', '--provenance'], {
+        //
+        // No --provenance: under Trusted Publishing npm attaches provenance
+        // automatically. Passing it explicitly makes npm sign before it has
+        // established credentials, which buries the real auth failure under a
+        // successful-looking signing step.
+        execFileSync('npm', ['publish', '--access', 'public'], {
             cwd: dir,
             stdio: 'inherit'
         });
