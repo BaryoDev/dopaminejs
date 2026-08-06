@@ -69,6 +69,31 @@ jobs:
           fi
           echo "Tag $TAG matches dopaminejs@$CORE"
 
+      # TEMPORARY diagnostic. Asks the registry directly why an OIDC exchange
+      # is accepted or rejected, per package. npm's publish path collapses
+      # every trusted-publishing mismatch into ENEEDAUTH without naming the
+      # field, so this is the only way to see the actual reason.
+      - name: Diagnose OIDC exchange per package
+        run: |
+          AUD="npm:registry.npmjs.org"
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUD" | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).value')
+
+          echo "=== OIDC claims this run presents ==="
+          echo "$TOKEN" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null \
+            | node -pe 'const c=JSON.parse(require("fs").readFileSync(0,"utf8"));JSON.stringify({repository:c.repository,job_workflow_ref:c.job_workflow_ref,ref:c.ref,environment:c.environment},null,2)'
+
+          for PKG in dopaminejs dopaminejs-themes dopaminejs-plugin-webgl-particles; do
+            echo
+            echo "=== $PKG ==="
+            curl -sS -o /tmp/body -w 'HTTP %{http_code}\n' \
+              -X POST \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/$(node -pe "encodeURIComponent('$PKG')")"
+            head -c 600 /tmp/body; echo
+          done
+
       - name: Publish changed packages
         run: |
           # npm only attempts the OIDC exchange when NO credential is
