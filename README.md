@@ -130,6 +130,15 @@ failure is safe: already-published packages are skipped.
 To preview without publishing, run the workflow manually from the Actions tab
 with **dry run** left checked.
 
+If a publish fails with `ENEEDAUTH`, run the workflow manually with **dry run**
+checked. That runs a per-package OIDC diagnostic and prints the registry's
+actual response, which `npm publish` hides:
+
+- `HTTP 201` - trusted publishing is configured correctly for that package
+- `HTTP 404 "package not found"` - no Trusted Publisher record exists for that
+  package name, even though the package itself is on npm. Configure it at
+  `npmjs.com/package/<name>/access`.
+
 > The filename `publish.yml` is load-bearing. npm matches the OIDC request
 > against the exact workflow filename registered on each package's Trusted
 > Publisher config, so renaming this file breaks publishing until all eight

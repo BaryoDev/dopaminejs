@@ -69,11 +69,16 @@ jobs:
           fi
           echo "Tag $TAG matches dopaminejs@$CORE"
 
-      # TEMPORARY diagnostic. Asks the registry directly why an OIDC exchange
-      # is accepted or rejected, per package. npm's publish path collapses
-      # every trusted-publishing mismatch into ENEEDAUTH without naming the
-      # field, so this is the only way to see the actual reason.
+      # Runs only on a manual dry run, so a real publish stays quiet.
+      #
+      # npm's publish path collapses every trusted-publishing problem into
+      # ENEEDAUTH without naming the cause, which is close to undebuggable.
+      # This asks the registry directly, per package. Responses seen so far:
+      #   HTTP 201  token issued, trusted publishing is configured correctly
+      #   HTTP 404  "package not found" = no trusted publisher record for that
+      #             package, even though the package itself exists on npm
       - name: Diagnose OIDC exchange per package
+        if: inputs.dry_run
         run: |
           AUD="npm:registry.npmjs.org"
           TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
