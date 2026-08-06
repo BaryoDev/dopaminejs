@@ -7,6 +7,7 @@ export class Ticker {
         this.running = false;
         this.lastTime = 0;
         this.callbacks = new Set();
+        this._frameHandle = null;
         this._tick = this._tick.bind(this);
     }
 
@@ -33,7 +34,14 @@ export class Ticker {
         if (this.running) return;
         this.running = true;
         this.lastTime = performance.now();
-        requestAnimationFrame(this._tick);
+
+        // Cancel first: a frame queued before the last stop() may still be
+        // pending, and letting it through would leave two live loops running
+        // the game at double speed.
+        if (this._frameHandle !== null) {
+            cancelAnimationFrame(this._frameHandle);
+        }
+        this._frameHandle = requestAnimationFrame(this._tick);
     }
 
     /**
@@ -41,9 +49,16 @@ export class Ticker {
      */
     stop() {
         this.running = false;
+
+        if (this._frameHandle !== null) {
+            cancelAnimationFrame(this._frameHandle);
+            this._frameHandle = null;
+        }
     }
 
     _tick(time) {
+        this._frameHandle = null;
+
         if (!this.running) return;
 
         const dt = (time - this.lastTime) / 1000; // Delta time in seconds
@@ -52,10 +67,14 @@ export class Ticker {
         // Cap dt to prevent huge jumps if tab was inactive
         const safeDt = Math.min(dt, 0.1);
 
-        for (const callback of this.callbacks) {
+        // Snapshot: a callback may add or remove callbacks mid-frame.
+        for (const callback of [...this.callbacks]) {
             callback(safeDt);
         }
 
-        requestAnimationFrame(this._tick);
+        // A callback may have called stop(); don't queue another frame if so.
+        if (this.running) {
+            this._frameHandle = requestAnimationFrame(this._tick);
+        }
     }
 }

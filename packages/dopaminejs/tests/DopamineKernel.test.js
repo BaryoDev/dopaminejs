@@ -42,6 +42,23 @@ describe('DopamineKernel', () => {
         expect(kernel.renderer).toBeDefined();
         expect(kernel.ticker).toBeDefined();
     });
+
+    it('should register its update callback only once across restarts', () => {
+        kernel.start();
+        kernel.stop();
+        kernel.start();
+        kernel.stop();
+
+        expect(kernel.ticker.callbacks.size).toBe(1);
+    });
+
+    it('should detach from the ticker on destroy', () => {
+        kernel.start();
+        const ticker = kernel.ticker;
+        kernel.destroy();
+
+        expect(ticker.callbacks.size).toBe(0);
+    });
 });
 
 describe('EventBus', () => {

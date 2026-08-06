@@ -61,7 +61,8 @@ describe('SoundManager', () => {
 
     it('should initialize with default config', () => {
         expect(soundManager.muted).toBe(false);
-        expect(soundManager.soundPack).toBe('synth');
+        expect(soundManager.assets.size).toBe(0);
+        expect(soundManager.customSounds).toEqual({});
     });
 
     it('should toggle mute', () => {

@@ -18,7 +18,8 @@ export class RewardSystem extends EventEmitter {
      * @returns {Promise<Object>} Player data
      */
     async init() {
-        this.player = await this.dataService.load('player', this._getDefaultPlayer());
+        const saved = await this.dataService.load('player', null);
+        this.player = this._migrate(saved);
 
         // Check daily streak
         this._updateDailyStreak();
@@ -53,6 +54,33 @@ export class RewardSystem extends EventEmitter {
     }
 
     /**
+     * Merge a persisted player record onto the current default shape.
+     *
+     * Saves written by older versions are missing whatever fields were added
+     * since. Without this the first property access on a new field throws
+     * before the game has drawn a frame.
+     *
+     * @param {Object|null} saved - Previously persisted player, if any
+     * @returns {Object} Player object guaranteed to have every field
+     * @private
+     */
+    _migrate(saved) {
+        const defaults = this._getDefaultPlayer();
+
+        if (!saved || typeof saved !== 'object') {
+            return defaults;
+        }
+
+        return {
+            ...defaults,
+            ...saved,
+            streak: { ...defaults.streak, ...(saved.streak || {}) },
+            achievements: saved.achievements || {},
+            stats: saved.stats || {}
+        };
+    }
+
+    /**
      * Save player data
      */
     async save() {
@@ -69,6 +97,12 @@ export class RewardSystem extends EventEmitter {
      * @returns {Object} { leveledUp: boolean, newLevel: number, xpGained: number }
      */
     async addXP(amount, reason = '') {
+        if (!Number.isFinite(amount)) {
+            // Adding undefined/NaN here would poison player.xp permanently:
+            // NaN survives every subsequent arithmetic op and gets persisted.
+            throw new TypeError(`[DopamineJS] addXP expects a finite number, received ${amount}`);
+        }
+
         const oldLevel = this.player.level;
         this.player.xp += amount;
 
@@ -96,9 +130,9 @@ export class RewardSystem extends EventEmitter {
      * Calculate level from XP (exponential curve)
      */
     _calculateLevel(xp) {
-        // Formula: XP = 50 * level * (level - 1)
-        // Solving for level: level = (1 + sqrt(1 + 8*XP/50)) / 2
-        const level = Math.floor((1 + Math.sqrt(1 + 8 * xp / 50)) / 2);
+        // Curve: XP = 50 * level * (level - 1)
+        // 50L² - 50L - xp = 0  =>  L = (1 + sqrt(1 + 4*xp/50)) / 2
+        const level = Math.floor((1 + Math.sqrt(1 + 4 * xp / 50)) / 2);
         return Math.max(1, level);
     }
 
@@ -175,8 +209,17 @@ export class RewardSystem extends EventEmitter {
             // Skip if already unlocked
             if (this.player.achievements[id]) continue;
 
-            // Check if achievement condition is met
-            if (achievement.check(this.player, gameName, result)) {
+            // Check conditions are user-supplied; one throwing must not stop
+            // the others from ever unlocking.
+            let met = false;
+            try {
+                met = achievement.check(this.player, gameName, result);
+            } catch (error) {
+                console.error(`[DopamineJS] Achievement "${id}" check threw:`, error);
+                continue;
+            }
+
+            if (met) {
                 await this.unlockAchievement(id);
                 unlockedAchievements.push(achievement);
             }
@@ -198,8 +241,9 @@ export class RewardSystem extends EventEmitter {
             seen: false
         };
 
-        // Award XP
-        await this.addXP(achievement.xp, `Achievement: ${achievement.name}`);
+        // Award XP. `xp` is optional in a user-defined achievement.
+        await this.addXP(Number.isFinite(achievement.xp) ? achievement.xp : 0,
+            `Achievement: ${achievement.name}`);
 
         this.emit('achievement_unlocked', achievement);
         await this.save();
@@ -278,19 +322,37 @@ export class RewardSystem extends EventEmitter {
     }
 
     /**
-     * Get today's date as YYYY-MM-DD string
+     * Format a Date as a YYYY-MM-DD string in the player's local timezone.
+     *
+     * Deliberately not toISOString(), which formats in UTC. For anyone east or
+     * west of Greenwich that shifts the calendar day for part of every day and
+     * makes streaks reset or double-count.
+     *
+     * @param {Date} date
+     * @returns {string}
+     * @private
      */
-    _getTodayDateString() {
-        return new Date().toISOString().split('T')[0];
+    _toLocalDateString(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
     /**
-     * Get yesterday's date as YYYY-MM-DD string
+     * Get today's local date as YYYY-MM-DD string
+     */
+    _getTodayDateString() {
+        return this._toLocalDateString(new Date());
+    }
+
+    /**
+     * Get yesterday's local date as YYYY-MM-DD string
      */
     _getYesterdayDateString() {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        return yesterday.toISOString().split('T')[0];
+        return this._toLocalDateString(yesterday);
     }
 
     /**

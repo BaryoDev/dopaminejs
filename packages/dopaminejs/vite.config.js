@@ -15,5 +15,13 @@ export default defineConfig({
                 globals: {}
             }
         }
+    },
+    test: {
+        // Pinned to a non-UTC zone so date handling is exercised the way real
+        // players experience it. CI runners default to UTC, which hides
+        // local-vs-UTC calendar bugs entirely.
+        env: {
+            TZ: 'Asia/Manila'
+        }
     }
 });
