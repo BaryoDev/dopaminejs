@@ -75,6 +75,20 @@ describe('RewardSystem', () => {
         expect(needed).toBe(150); // 300 total for level 3, minus 150 held
     });
 
+    it('should clamp progress for a save whose level outran its XP', async () => {
+        // Saves written before the curve fix banked levels at half the XP.
+        // Those players keep their level; the bar must not go negative.
+        mockDataService.load = vi.fn().mockResolvedValue({ xp: 50, level: 2 });
+
+        const system = new RewardSystem(mockDataService);
+        await system.init();
+
+        const { progress, needed } = system.getXPForNextLevel();
+
+        expect(progress).toBe(0);
+        expect(needed).toBe(250);
+    });
+
     it('should emit events when adding XP', async () => {
         const spy = vi.fn();
         rewardSystem.on('xp_gained', spy);

@@ -143,10 +143,19 @@ export class RewardSystem extends EventEmitter {
         const nextLevel = this.player.level + 1;
         const xpNeeded = 50 * nextLevel * (nextLevel - 1);
         const currentLevelXP = 50 * this.player.level * (this.player.level - 1);
+        const band = xpNeeded - currentLevelXP;
+
+        // Clamped: a save written before the curve fix banked levels at half
+        // the XP, so player.xp can sit below its own level's floor. Those
+        // players keep the level they earned and start the band at 0.
+        const progress = band > 0
+            ? Math.max(0, Math.min(1, (this.player.xp - currentLevelXP) / band))
+            : 0;
+
         return {
             total: xpNeeded,
-            needed: xpNeeded - this.player.xp,
-            progress: (this.player.xp - currentLevelXP) / (xpNeeded - currentLevelXP)
+            needed: Math.max(0, xpNeeded - this.player.xp),
+            progress
         };
     }
 

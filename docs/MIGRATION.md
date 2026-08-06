@@ -58,7 +58,7 @@ game.kernel.plugins.use(MyPlugin);
 
 ```javascript
 import { Game } from 'dopaminejs';
-import { WebGLParticlePlugin } from 'dopaminejs-plugins';
+import { WebGLParticlePlugin } from 'dopaminejs-plugin-webgl-particles';
 
 const game = new Game();
 game.kernel.plugins.use(WebGLParticlePlugin);
@@ -66,11 +66,15 @@ game.kernel.plugins.use(WebGLParticlePlugin);
 
 ### 2. Sound Packs
 
+Sound packs left core in 2.0.2. Install
+`dopaminejs-plugin-sound-packs` and register the pack's sounds:
+
 ```javascript
 import { SoundManager } from 'dopaminejs';
+import { getSoundPack } from 'dopaminejs-plugin-sound-packs';
 
 const soundManager = new SoundManager({
-    soundPack: 'retro'  // or 'modern', 'cute', 'scifi'
+    customSounds: getSoundPack('retro')  // or 'modern', 'cute', 'scifi'
 });
 
 // Switch packs dynamically
@@ -131,12 +135,26 @@ npm install dopaminejs
 # Core only
 npm install dopaminejs
 
-# With plugins
-npm install dopaminejs dopaminejs-plugins
+# With plugins (one package per plugin)
+npm install dopaminejs dopaminejs-plugin-webgl-particles
 
 # With themes
 npm install dopaminejs dopaminejs-themes
 ```
+
+### Moving off `dopaminejs-plugins`
+
+The bundled package was unpublished from npm on 2026-01-01 and removed from the
+repo in 2.1.0. Replace the single import with the package that owns each export:
+
+| Was imported from `dopaminejs-plugins` | Now install |
+|---|---|
+| `WebGLParticlePlugin`, `WebGLParticleSystem` | `dopaminejs-plugin-webgl-particles` |
+| `HowlerAudioPlugin` | `dopaminejs-plugin-howler-audio` |
+| `getSoundPack`, `listSoundPacks`, `SoundPacks` | `dopaminejs-plugin-sound-packs` |
+| `BattlePassPlugin`, `LeaderboardPlugin`, `RewardMiddleware`, `WebhookIntegration` | `dopaminejs-plugin-ecosystem` |
+| `DebugOverlayPlugin` | `dopaminejs-plugin-debug-overlay` |
+| `CustomPhysicsPlugin` | Not published. It was always an example; copy it from `examples/plugins/CustomPhysicsPlugin.js`. |
 
 ## Deprecation Timeline
 

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # `ci` over `install` so a lockfile that drifts from package.json fails
+      # here rather than silently resolving something different.
+      - run: npm ci
+
+      - name: Test
+        run: npm run test:ci
+
+      - name: Check manifests
+        run: node scripts/check-versions.js
+
+      - name: Build all packages
+        run: npm run build --workspaces --if-present
+
+      # After the build, so declared entry points can be checked against what
+      # the build actually emitted.
+      - name: Check every entry point resolves
+        run: node scripts/check-versions.js --dist

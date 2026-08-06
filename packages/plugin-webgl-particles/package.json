@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs-plugin-webgl-particles",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "WebGL particle system plugin for DopamineJS",
     "type": "module",
     "main": "./dist/index.umd.cjs",
@@ -21,5 +21,14 @@
         "dopaminejs": "^2.0.0"
     },
     "author": "BaryoDev",
-    "license": "MIT"
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/BaryoDev/dopaminejs.git",
+        "directory": "packages/plugin-webgl-particles"
+    },
+    "bugs": {
+        "url": "https://github.com/BaryoDev/dopaminejs/issues"
+    },
+    "homepage": "https://github.com/BaryoDev/dopaminejs#readme"
 }

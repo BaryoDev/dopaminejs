@@ -4,13 +4,13 @@ This document provides comprehensive guidance for AI assistants working with the
 
 ## Project Overview
 
-**DopamineJS** is a Game Feel Engine for the web that adds "juice," rewards, and feedback to HTML5 games. It's organized as an **npm workspaces monorepo** with three main distribution packages:
+**DopamineJS** is a Game Feel Engine for the web that adds "juice," rewards, and feedback to HTML5 games. It's organized as an **npm workspaces monorepo**. Published packages:
 
 - **dopaminejs** (MPL-2.0) - Core engine with plugin architecture
-- **dopaminejs-plugins** (MIT) - Official plugins collection
+- **dopaminejs-plugin-\*** (MIT) - Official plugins, one package each
 - **dopaminejs-themes** (MIT) - UI theming system
 
-**Current Version**: 2.0.x (major architecture overhaul from v1.x)
+**Current Version**: 2.1.x (2.0 was a major architecture overhaul from v1.x)
 
 **Key Technology Stack**:
 - Pure vanilla JavaScript (ES6+) - **NO TypeScript**
@@ -70,12 +70,13 @@ dopaminejs/
 │   │   ├── package.json
 │   │   └── vite.config.js
 │   │
-│   ├── dopaminejs-plugins/               # Unified plugins (MIT)
+│   ├── dopaminejs-themes/                # Themes (MIT)
 │   │   ├── src/
-│   │   │   └── index.js                  # Re-exports all plugins
+│   │   │   ├── index.js
+│   │   │   └── ThemeEngine.js            # CSS variable themes
 │   │   └── package.json
 │   │
-│   ├── plugin-webgl-particles/           # Individual plugins (MIT)
+│   ├── plugin-webgl-particles/           # One package per plugin (MIT)
 │   ├── plugin-howler-audio/
 │   ├── plugin-debug-overlay/
 │   ├── plugin-feedback-effects/
@@ -303,12 +304,9 @@ npm run preview
 
 ### Working on Plugins
 
-```bash
-# Build unified plugins package
-cd packages/dopaminejs-plugins
-npm run build
+Each plugin is a standalone package under `packages/plugin-*`:
 
-# Work on individual plugin
+```bash
 cd packages/plugin-webgl-particles
 npm run build
 ```
@@ -601,7 +599,7 @@ export const MyPlugin = {
 ```
 
 4. Add `vite.config.js` (copy from existing plugin)
-5. Add to `packages/dopaminejs-plugins/src/index.js` if official plugin
+5. Add the package name to the Trusted Publisher list in README.md if it should be published
 
 ### Adding a New Component
 
@@ -790,7 +788,7 @@ Plugins depend on core being built:
 cd packages/dopaminejs && npm run build
 
 # Then test plugins
-cd ../dopaminejs-plugins && npm run test
+cd ../plugin-webgl-particles && npm run test
 ```
 
 ### 9. Vite Library Mode
@@ -827,7 +825,7 @@ build: {
 
 ### MIT (Plugins & Themes)
 
-**Files affected**: `packages/dopaminejs-plugins/`, `packages/dopaminejs-themes/`, and all `packages/plugin-*/`
+**Files affected**: `packages/dopaminejs-themes/` and all `packages/plugin-*/`
 
 **What this means**:
 - Maximum freedom: Can be modified and used commercially
@@ -1025,12 +1023,10 @@ import {
   PluginRegistry,    // Plugin manager
 } from 'dopaminejs';
 
-// Plugin exports
-import {
-  WebGLParticlePlugin,
-  HowlerAudioPlugin,
-  DebugOverlayPlugin,
-} from 'dopaminejs-plugins';
+// Plugin exports - one package per plugin
+import { WebGLParticlePlugin } from 'dopaminejs-plugin-webgl-particles';
+import { HowlerAudioPlugin } from 'dopaminejs-plugin-howler-audio';
+import { DebugOverlayPlugin } from 'dopaminejs-plugin-debug-overlay';
 
 // Theme exports
 import { themeEngine } from 'dopaminejs-themes';

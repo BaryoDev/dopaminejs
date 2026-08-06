@@ -1,7 +1,8 @@
 {
     "name": "dopaminejs-monorepo",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "private": true,
+    "type": "module",
     "description": "DopamineJS monorepo - Game Feel Engine for the web",
     "workspaces": [
         "packages/*"
@@ -9,6 +10,7 @@
     "scripts": {
         "build": "npm run build --workspaces --if-present",
         "test": "npm run test --workspaces --if-present",
+        "test:ci": "vitest run --root packages/dopaminejs",
         "dev": "npm run dev --workspace=dopaminejs",
         "clean": "rm -rf packages/*/dist packages/*/node_modules"
     },
@@ -27,7 +29,8 @@
     "author": "BaryoDev",
     "license": "MPL-2.0",
     "devDependencies": {
+        "jsdom": "^27.0.0",
         "vite": "^5.0.0",
-        "vitest": "^1.0.0"
+        "vitest": "^1.6.1"
     }
 }

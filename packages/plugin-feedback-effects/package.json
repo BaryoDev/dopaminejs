@@ -33,5 +33,14 @@
     },
     "devDependencies": {
         "vite": "^5.0.0"
-    }
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/BaryoDev/dopaminejs.git",
+        "directory": "packages/plugin-feedback-effects"
+    },
+    "bugs": {
+        "url": "https://github.com/BaryoDev/dopaminejs/issues"
+    },
+    "homepage": "https://github.com/BaryoDev/dopaminejs#readme"
 }

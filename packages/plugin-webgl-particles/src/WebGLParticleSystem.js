@@ -6,8 +6,16 @@
  */
 
 export class WebGLParticleSystem {
+    /**
+     * @param {Object} [config]
+     * @param {number} [config.maxParticles=10000]
+     * @param {HTMLElement|string} [config.container=document.body] - Element or
+     *   selector the overlay canvas is appended to. The drawing buffer is sized
+     *   to this element, so particle coordinates share its coordinate space.
+     */
     constructor(config = {}) {
         this.maxParticles = config.maxParticles || 10000;
+        this.container = config.container || null;
         this.kernel = null;
 
         // WebGL context and resources
@@ -66,6 +74,10 @@ export class WebGLParticleSystem {
     }
 
     destroy() {
+        if (this._onResize) {
+            window.removeEventListener('resize', this._onResize);
+            this._onResize = null;
+        }
         if (this.gl) {
             this.gl.deleteProgram(this.program);
             this.gl.deleteBuffer(this.particleBuffer);
@@ -103,12 +115,6 @@ export class WebGLParticleSystem {
             velocity = { x: 0, y: -100 },
             spread = 50
         } = config;
-
-        console.log('[WebGLParticles] emit() called:', {
-            x, y, count,
-            canvasWidth: this.canvas.width,
-            canvasHeight: this.canvas.height
-        });
 
         for (let i = 0; i < count; i++) {
             if (this.particleCount >= this.maxParticles) break;
@@ -184,12 +190,14 @@ export class WebGLParticleSystem {
         // Create overlay canvas
         this.canvas = document.createElement('canvas');
 
-        // Find parent container or fallback to body
-        const container = document.getElementById('game-container') || document.body;
+        // Resolve the host element. Previously this looked for a hardcoded
+        // '#game-container' id, which only worked for the one game it was
+        // written against.
+        const container = this._resolveContainer();
         const isBody = container === document.body;
 
-        // CRITICAL: Both canvases MUST use the same CSS scaling to remain aligned.
-        // We use width/height 100% so they both shrink/grow with the container.
+        // The overlay must scale with its host so the two canvases stay
+        // aligned; 100%/100% does that regardless of the backing store size.
         this.canvas.style.cssText = `
             position: ${isBody ? 'fixed' : 'absolute'};
             top: 0;
@@ -200,13 +208,13 @@ export class WebGLParticleSystem {
             z-index: 9999;
         `;
 
-        // IMPORTANT: Use fixed 800x600 resolution to match game canvas coordinate system
-        this.canvas.width = 800;
-        this.canvas.height = 600;
+        if (!isBody && window.getComputedStyle(container).position === 'static') {
+            container.style.position = 'relative';
+        }
 
-
-
+        this._container = container;
         container.appendChild(this.canvas);
+        this._resizeCanvas();
 
         // Get WebGL context
         this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
@@ -219,12 +227,38 @@ export class WebGLParticleSystem {
         this.gl.enable(this.gl.BLEND);
         this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
 
-        // Handle resize
-        window.addEventListener('resize', () => {
-            this.canvas.width = container.clientWidth || 800;
-            this.canvas.height = container.clientHeight || 600;
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+
+        // Named so destroy() can detach it.
+        this._onResize = () => {
+            this._resizeCanvas();
             this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        });
+        };
+        window.addEventListener('resize', this._onResize);
+    }
+
+    /**
+     * @returns {HTMLElement}
+     * @private
+     */
+    _resolveContainer() {
+        if (typeof this.container === 'string') {
+            return document.querySelector(this.container) || document.body;
+        }
+        return this.container || document.body;
+    }
+
+    /**
+     * Size the drawing buffer to the host element.
+     * @private
+     */
+    _resizeCanvas() {
+        const host = this._container;
+        const width = host === document.body ? window.innerWidth : host.clientWidth;
+        const height = host === document.body ? window.innerHeight : host.clientHeight;
+
+        this.canvas.width = Math.max(1, width);
+        this.canvas.height = Math.max(1, height);
     }
 
     _createShaders() {

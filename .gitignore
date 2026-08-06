@@ -2,4 +2,7 @@ node_modules
 dist
 .DS_Store
 .env
-ARCHITECTURE.md
+
+# Build artifacts
+*.tgz
+coverage
