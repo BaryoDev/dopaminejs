@@ -32,18 +32,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
-          # Deliberately no `cache: npm`. That path writes an .npmrc carrying
-          # `always-auth` and an `_authToken=${NODE_AUTH_TOKEN}` line. With no
-          # NPM_TOKEN secret, NODE_AUTH_TOKEN expands to setup-node's literal
-          # placeholder, npm sees a credential, and it never attempts the OIDC
-          # exchange. The publish then 404s.
+          # No `cache: npm`: that path also writes `always-auth`, which npm 11
+          # rejects as an unknown config.
 
       # Trusted Publishing needs npm >= 11.5.1.
       - name: Use a Trusted-Publishing-capable npm
         run: |
           npm install -g npm@latest
-          npm --version
+          echo "node $(node --version) / npm $(npm --version)"
 
       - run: npm ci
 
@@ -74,8 +70,19 @@ jobs:
           echo "Tag $TAG matches dopaminejs@$CORE"
 
       - name: Publish changed packages
-        # NODE_AUTH_TOKEN is cleared so npm cannot fall back to a bogus
-        # credential and skip the OIDC exchange.
+        run: |
+          # npm only attempts the OIDC exchange when NO credential is
+          # configured for the registry. setup-node's registry-url writes an
+          # npmrc containing `_authToken=${NODE_AUTH_TOKEN}`; with no NPM_TOKEN
+          # secret that expanded first to a literal placeholder (E404, npm
+          # published as nobody) and then, once cleared, to an empty string
+          # (ENEEDAUTH). Either way the key is present and OIDC is skipped, so
+          # the line has to be absent, not empty. registry.npmjs.org is the
+          # default, so a bare registry line is all that is needed.
+          printf 'registry=https://registry.npmjs.org/\n' > "$RUNNER_TEMP/.npmrc"
+          echo "--- npmrc npm will read ---"
+          cat "$RUNNER_TEMP/.npmrc"
+          echo "--- OIDC available: ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}${ACTIONS_ID_TOKEN_REQUEST_URL:-no} ---"
+          node scripts/publish-changed.js ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
-          NODE_AUTH_TOKEN: ''
-        run: node scripts/publish-changed.js ${{ inputs.dry_run && '--dry-run' || '' }}
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/.npmrc
