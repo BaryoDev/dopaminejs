@@ -6,7 +6,10 @@
 
 /* ==================== TOP BAR (XP, Level, Streak) ==================== */
 
-#game-ui-overlay {
+/* The id is kept so existing `#game-ui-overlay` overrides still win on
+   specificity; the class is what every instance actually carries. */
+#game-ui-overlay,
+.game-ui-overlay {
     position: fixed;
     top: 0;
     left: 0;

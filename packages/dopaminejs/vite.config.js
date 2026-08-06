@@ -15,5 +15,11 @@ export default defineConfig({
                 globals: {}
             }
         }
+    },
+    test: {
+        // The suite must run in a non-UTC zone or the streak date tests are
+        // vacuous. That is set at process start by scripts/run-tests.js, not
+        // here: `test.env` is applied after Node has cached the zone.
+        globals: false
     }
 });

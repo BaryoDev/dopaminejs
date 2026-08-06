@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would publish, publish nothing'
+        type: boolean
+        default: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # Required for npm Trusted Publishing: lets the runner mint the OIDC
+      # token npm exchanges for short-lived publish credentials. No NPM_TOKEN
+      # secret exists in this repo.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted Publishing needs npm >= 11.5.1, newer than what ships with
+      # Node 22. Provenance attestation also comes from this path.
+      - name: Use a Trusted-Publishing-capable npm
+        run: npm install -g npm@latest
+
+      - run: npm ci
+
+      - name: Verify manifests
+        run: node scripts/check-versions.js
+
+      - name: Test
+        run: npm run test:ci
+
+      - name: Build all packages
+        run: npm run build --workspaces --if-present
+
+      # Nothing is published until every declared entry point exists on disk.
+      - name: Check every entry point resolves
+        run: node scripts/check-versions.js --dist
+
+      - name: Confirm tag matches the core package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          CORE=$(node -p "require('./packages/dopaminejs/package.json').version")
+          if [ "$TAG" != "v$CORE" ]; then
+            echo "Tag $TAG does not match dopaminejs@$CORE" >&2
+            echo "Bump packages/dopaminejs/package.json or retag." >&2
+            exit 1
+          fi
+          echo "Tag $TAG matches dopaminejs@$CORE"
+
+      - name: Publish changed packages
+        run: node scripts/publish-changed.js ${{ inputs.dry_run && '--dry-run' || '' }}

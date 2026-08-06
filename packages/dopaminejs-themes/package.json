@@ -1,14 +1,14 @@
 {
     "name": "dopaminejs-themes",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Official themes for DopamineJS - Cyberpunk, Neon, Retro, and more",
     "type": "module",
-    "main": "./dist/themes.umd.js",
+    "main": "./dist/themes.umd.cjs",
     "module": "./dist/themes.mjs",
     "exports": {
         ".": {
             "import": "./dist/themes.mjs",
-            "require": "./dist/themes.umd.js"
+            "require": "./dist/themes.umd.cjs"
         }
     },
     "files": [
@@ -36,6 +36,6 @@
         "directory": "packages/dopaminejs-themes"
     },
     "devDependencies": {
-        "vite": "^7.3.0"
+        "vite": "^5.0.0"
     }
 }

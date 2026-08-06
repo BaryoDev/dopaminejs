@@ -22,5 +22,14 @@
         "howler": "^2.2.0"
     },
     "author": "BaryoDev",
-    "license": "MIT"
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/BaryoDev/dopaminejs.git",
+        "directory": "packages/plugin-howler-audio"
+    },
+    "bugs": {
+        "url": "https://github.com/BaryoDev/dopaminejs/issues"
+    },
+    "homepage": "https://github.com/BaryoDev/dopaminejs#readme"
 }

@@ -17,6 +17,10 @@ export class DopamineKernel {
     constructor(config = {}) {
         this.config = config;
 
+        // Bound once. Binding inside start() would hand the ticker a new
+        // function object on every restart, stacking duplicate update loops.
+        this._boundUpdate = this._update.bind(this);
+
         // Core registries
         this.events = new EventBus();
         this.systems = new SystemRegistry(this);
@@ -76,7 +80,7 @@ export class DopamineKernel {
     start() {
         const ticker = this.systems.get('ticker');
         if (ticker) {
-            ticker.add(this._update.bind(this));
+            ticker.add(this._boundUpdate);
             ticker.start();
         }
 
@@ -153,6 +157,12 @@ export class DopamineKernel {
      */
     destroy() {
         this.stop();
+
+        const ticker = this.systems.get('ticker');
+        if (ticker) {
+            ticker.remove(this._boundUpdate);
+        }
+
         this.plugins.clear();
         this.systems.clear();
         this.events.clear();

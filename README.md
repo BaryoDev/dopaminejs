@@ -4,8 +4,8 @@
 
 This is a monorepo containing:
 - **dopaminejs** (MPL-2.0) - Core engine
-- **dopaminejs-plugins** (MIT) - Official plugins
 - **dopaminejs-themes** (MIT) - Official themes
+- **dopaminejs-plugin-\*** (MIT) - Official plugins, one package each
 
 ## 📦 Packages
 
@@ -25,18 +25,26 @@ The core engine with:
 
 ---
 
-### Plugins Package (MIT)
+### Plugin Packages (MIT)
+
+Install only what you use. Each plugin is its own package.
+
+| Package | Provides |
+|---|---|
+| `dopaminejs-plugin-webgl-particles` | `WebGLParticlePlugin` - GPU particles (10,000+) |
+| `dopaminejs-plugin-howler-audio` | `HowlerAudioPlugin` - Advanced audio (Howler.js) |
+| `dopaminejs-plugin-sound-packs` | Sound packs (retro, modern, cute, scifi) |
+| `dopaminejs-plugin-ecosystem` | `BattlePassPlugin`, `LeaderboardPlugin`, webhooks |
+| `dopaminejs-plugin-feedback-effects` | Floating text and confetti feedback |
+| `dopaminejs-plugin-debug-overlay` | `DebugOverlayPlugin` - FPS and system inspector |
 
 ```bash
-npm install dopaminejs-plugins
+npm install dopaminejs-plugin-webgl-particles
 ```
 
-Official plugins:
-- `HowlerAudioPlugin` - Advanced audio (Howler.js)
-- `WebGLParticlePlugin` - GPU particles (10,000+)
-- `BattlePassPlugin` - Tier progression
-- `LeaderboardPlugin` - Backend sync
-- Sound packs (retro, modern, cute, scifi)
+> The bundled `dopaminejs-plugins` package was retired in 2.1.0 and unpublished
+> from npm. Install the individual packages above instead; see
+> [docs/MIGRATION.md](./docs/MIGRATION.md).
 
 **License**: MIT (use freely, even commercially)
 
@@ -61,7 +69,7 @@ UI themes:
 
 ```javascript
 import { Game } from 'dopaminejs';
-import { WebGLParticlePlugin } from 'dopaminejs-plugins';
+import { WebGLParticlePlugin } from 'dopaminejs-plugin-webgl-particles';
 import { themeEngine } from 'dopaminejs-themes';
 
 const game = new Game();
@@ -98,6 +106,31 @@ npm run dev
 
 ---
 
+## 🚢 Releasing
+
+Publishing is automated. There is no manual `npm publish` step and no npm token
+in this repository; GitHub Actions authenticates via npm Trusted Publishing
+(OIDC), which also attaches a provenance attestation to every release.
+
+1. Bump the version of each package you want to publish.
+2. Update `CHANGELOG.md`.
+3. Tag with the core package's version and push:
+
+```bash
+git tag v2.1.0
+git push origin v2.1.0
+```
+
+The `Release` workflow verifies manifests, runs the tests, builds every
+package, checks the tag matches `dopaminejs`'s version, then publishes only
+those packages whose version is not already on npm. Re-running after a partial
+failure is safe: already-published packages are skipped.
+
+To preview without publishing, run the workflow manually from the Actions tab
+with **dry run** left checked.
+
+---
+
 ## 📝 Licensing
 
 ### Why Different Licenses?
@@ -125,7 +158,7 @@ npm run dev
 ## 📄 License
 
 - **dopaminejs**: MPL-2.0
-- **dopaminejs-plugins**: MIT
 - **dopaminejs-themes**: MIT
+- **dopaminejs-plugin-\***: MIT
 
 See individual package LICENSE files for details.

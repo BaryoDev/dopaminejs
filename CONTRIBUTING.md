@@ -9,9 +9,11 @@ DopamineJS uses a monorepo with npm workspaces:
 ```
 dopaminejs/
 ├── packages/
-│   ├── dopaminejs/          # Core (MPL-2.0)
-│   ├── dopaminejs-plugins/  # Plugins (MIT)
-│   └── dopaminejs-themes/   # Themes (MIT)
+│   ├── dopaminejs/            # Core (MPL-2.0)
+│   ├── dopaminejs-themes/     # Themes (MIT)
+│   └── plugin-*/              # One package per plugin (MIT)
+├── examples/                  # Reference code, not published
+└── scripts/                   # Release tooling
 ```
 
 ## 🚀 Getting Started
@@ -54,8 +56,10 @@ npm run dev
 
 ### Working on Plugins
 
+Each plugin is its own package under `packages/plugin-*`:
+
 ```bash
-cd packages/dopaminejs-plugins
+cd packages/plugin-webgl-particles
 npm run build
 ```
 
@@ -154,7 +158,7 @@ describe('MyFeature', () => {
 By contributing to `packages/dopaminejs`, you agree to license your contributions under MPL-2.0.
 
 ### Plugin/Theme Contributions (MIT)
-By contributing to `packages/dopaminejs-plugins` or `packages/dopaminejs-themes`, you agree to license your contributions under MIT.
+By contributing to `packages/dopaminejs-themes` or any `packages/plugin-*`, you agree to license your contributions under MIT.
 
 ## 🎨 Creating Plugins
 

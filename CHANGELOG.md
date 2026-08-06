@@ -2,6 +2,102 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-08-06
+
+Stabilisation release. No API removals; the level curve correction changes
+numbers players can see, so it is a minor rather than a patch.
+
+### Fixed
+
+- **Level curve** - `_calculateLevel` inverted `XP = 50 * L * (L - 1)` with the
+  wrong coefficient, so every level was reached at half the XP that
+  `getXPForNextLevel()` advertised, and `progress` went negative at the start of
+  each level. Levels now land exactly on the documented thresholds.
+  Saves written before this fix keep the level they earned; their progress is
+  clamped to 0 rather than reported negative.
+- **Streaks in non-UTC timezones** - date keys used `toISOString()` (UTC), so
+  players east or west of Greenwich lost or double-counted days. A UTC+8
+  player's morning session did not register at all. Now uses the local calendar
+  day.
+- **Crash loading an older save** - `init()` read `player.streak` off whatever
+  was persisted, throwing before first frame for any save predating that field.
+  Loaded saves are now merged onto the current default shape.
+- **Permanent save corruption from `NaN` XP** - `addXP(undefined)` wrote `NaN`
+  to `player.xp` and persisted it. `addXP` now rejects non-finite input, and an
+  achievement that omits `xp` awards 0 instead of poisoning the save.
+- **One bad achievement blocked all others** - a throwing `check()` aborted the
+  whole loop. Failures are logged and the remaining achievements still run.
+- **Game ran at double speed after a restart** - `Ticker.stop()` left its
+  `requestAnimationFrame` queued, and `DopamineKernel.start()` bound a fresh
+  update function on every call, stacking duplicate loops.
+- **`EventBus`** - `off()` removed only the first registration of a callback; a
+  throwing listener aborted every lower-priority listener for that event (on
+  `tick`, that silently stops the game); `once()` listeners registered during
+  their own event fired immediately then were cleared unfired; `hasListeners()`
+  returned `undefined` instead of `false`.
+- **XSS in `GameUI`** - achievement name/description and summary score/metrics
+  were interpolated into `innerHTML`. They now go in as text.
+  `achievement.icon` still accepts HTML, as documented.
+- **`GameUI.showSummary` under a CSP** - emitted inline `onclick` attributes,
+  blocked by any `script-src` policy without `unsafe-inline`, and hardcoded
+  `index.html` as the exit target.
+- **Two UI instances collided** - `GameUI` and `ParticleSystem` looked elements
+  up by global id, so a second instance rebound the first one's nodes and
+  shared its canvas. Lookups are now instance-scoped.
+- **Import under SSR, workers, and Safari private mode** - `DataService` and
+  `SoundManager` touched `window`/`localStorage` in their constructors. Storage
+  now falls back to an in-memory store.
+- **`dopaminejs-themes@1.0.0` was unusable from CommonJS** - `main` and
+  `exports.require` pointed at `dist/themes.umd.js` while the build emits
+  `dist/themes.umd.cjs`, so every `require('dopaminejs-themes')` threw
+  `MODULE_NOT_FOUND`. Fixed in 1.0.1. It also pinned `vite ^7` against the
+  repo's `^5`, which forced a broken nested install and failed its own build on
+  a clean checkout. `scripts/check-versions.js --dist` now fails CI if any
+  declared entry point is missing from the build output.
+- **`dopaminejs-plugin-webgl-particles` shipped a debug build** - it logged on
+  every `emit()`, looked for a hardcoded `#game-container` element, and forced
+  an 800x600 backing store. The container is now configurable and defaults to
+  `document.body`.
+
+### Added
+
+- `GameUI.destroy()` and `ParticleSystem.destroy()` - tear down DOM nodes,
+  pending timers, resize listeners, and observers.
+- `SoundManager.setVolume()` / `getVolume()` - all output routes through a
+  master gain node, so volume and mute apply uniformly.
+- Particle canvas is backed by `devicePixelRatio` device pixels, so it is no
+  longer soft on HiDPI displays. Drawing coordinates stay in CSS pixels.
+- `showSummary` accepts `onReplay` / `onExit` callbacks.
+- CI on Node 20 and 22, and an automated release workflow using npm Trusted
+  Publishing with provenance attestation.
+- Test suites for `EventBus`, `Ticker`, `GameUI`, and non-browser environments.
+
+### Changed
+
+- **`dopaminejs-plugins` is retired.** The bundled package was unpublished from
+  npm on 2026-01-01; five of its six modules were duplicates of the standalone
+  `dopaminejs-plugin-*` packages and had drifted apart. Install the individual
+  packages instead. `CustomPhysicsPlugin`, which was only ever an example, moved
+  to `examples/plugins/`.
+- `jsdom` is now a declared devDependency. It previously resolved only because
+  a stale lockfile remembered it, so a fresh lockfile would have broken five
+  test files.
+
+### Removed
+
+- `packages/dopaminejs/src/dopamine/effects/WebGLParticleSystem.js` - dead code,
+  exported by nothing, and a third drifted copy of the same file.
+- `scripts/deploy.js` - v1-era release script, superseded by the workflow.
+- `dopaminejs-1.0.0.tgz` - stale build artifact committed at the repo root.
+
+## [2.0.2] - 2026-01-01
+
+### Changed
+- Reorganised plugin exports into unscoped `dopaminejs-plugin-*` packages.
+- Removed sound pack support from core `SoundManager`; it now lives in
+  `dopaminejs-plugin-sound-packs`.
+- Unpublished the bundled `dopaminejs-plugins` package.
+
 ## [2.0.0] - 2025-12-30
 
 ### 🎉 Major Release - Complete Architecture Overhaul

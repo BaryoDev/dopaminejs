@@ -3,9 +3,11 @@
  * Handles local storage persistence
  */
 
+import { resolveStorage } from '../utils/storage.js';
+
 export class DataService {
     constructor(config = {}) {
-        this.storage = config.storage || window.localStorage;
+        this.storage = config.storage || resolveStorage();
         this.prefix = config.prefix || 'dopamine_';
     }
 
