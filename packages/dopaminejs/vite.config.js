@@ -17,11 +17,9 @@ export default defineConfig({
         }
     },
     test: {
-        // Pinned to a non-UTC zone so date handling is exercised the way real
-        // players experience it. CI runners default to UTC, which hides
-        // local-vs-UTC calendar bugs entirely.
-        env: {
-            TZ: 'Asia/Manila'
-        }
+        // The suite must run in a non-UTC zone or the streak date tests are
+        // vacuous. That is set at process start by scripts/run-tests.js, not
+        // here: `test.env` is applied after Node has cached the zone.
+        globals: false
     }
 });

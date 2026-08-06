@@ -10,7 +10,7 @@
     "scripts": {
         "build": "npm run build --workspaces --if-present",
         "test": "npm run test --workspaces --if-present",
-        "test:ci": "vitest run --root packages/dopaminejs",
+        "test:ci": "node scripts/run-tests.js",
         "dev": "npm run dev --workspace=dopaminejs",
         "clean": "rm -rf packages/*/dist packages/*/node_modules"
     },

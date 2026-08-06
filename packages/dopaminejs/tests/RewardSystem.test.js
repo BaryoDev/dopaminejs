@@ -101,6 +101,16 @@ describe('RewardSystem', () => {
         }));
     });
 
+    it('should run in a non-UTC zone so the date tests below mean something', () => {
+        // On UTC the local-vs-UTC distinction is unobservable and the two
+        // tests that follow would pass against the old toISOString() code.
+        // scripts/run-tests.js pins the zone; `npm run test:ci` uses it.
+        expect(
+            new Date().getTimezoneOffset(),
+            'Run via `npm run test:ci`, which pins TZ. A bare vitest run on a UTC machine cannot detect timezone regressions.'
+        ).not.toBe(0);
+    });
+
     it('should use the local calendar day, not the UTC day', () => {
         // 20:00 UTC on Aug 6 is already Aug 7 in Asia/Manila (UTC+8).
         vi.useFakeTimers();
