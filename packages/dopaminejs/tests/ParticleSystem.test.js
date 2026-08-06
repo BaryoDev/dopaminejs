@@ -24,7 +24,8 @@ describe('ParticleSystem', () => {
             lineTo: vi.fn(),
             closePath: vi.fn(),
             drawImage: vi.fn(),
-            scale: vi.fn()
+            scale: vi.fn(),
+            setTransform: vi.fn()
         }));
 
         // Mock requestAnimationFrame
@@ -89,6 +90,53 @@ describe('ParticleSystem', () => {
         particleSystem.play('blood', 50, 50, 'arg1');
 
         expect(effectSpy).toHaveBeenCalledWith(50, 50, 'arg1');
+    });
+
+    it('should give each instance its own canvas', () => {
+        particleSystem = new ParticleSystem();
+        const second = new ParticleSystem();
+
+        expect(second.canvas).not.toBe(particleSystem.canvas);
+
+        second.destroy();
+    });
+
+    it('should back the canvas with device pixels on a HiDPI screen', () => {
+        vi.stubGlobal('devicePixelRatio', 2);
+        vi.stubGlobal('innerWidth', 800);
+        vi.stubGlobal('innerHeight', 600);
+
+        particleSystem = new ParticleSystem();
+
+        expect(particleSystem.canvas.width).toBe(1600);
+        expect(particleSystem.canvas.height).toBe(1200);
+        expect(particleSystem.canvas.style.width).toBe('800px');
+        expect(particleSystem.canvas.style.height).toBe('600px');
+    });
+
+    it('should remove its canvas and resize listener on destroy', () => {
+        const removeSpy = vi.spyOn(window, 'removeEventListener');
+        particleSystem = new ParticleSystem();
+        const canvas = particleSystem.canvas;
+
+        particleSystem.destroy();
+
+        expect(canvas.parentNode).toBeNull();
+        expect(removeSpy).toHaveBeenCalledWith('resize', expect.any(Function));
+
+        removeSpy.mockRestore();
+        particleSystem = null;
+    });
+
+    it('should stop animating on destroy', () => {
+        particleSystem = new ParticleSystem();
+        particleSystem.emit({ x: 0, y: 0, count: 3 });
+        expect(particleSystem.isAnimating).toBe(true);
+
+        particleSystem.destroy();
+
+        expect(particleSystem.isAnimating).toBe(false);
+        particleSystem = null;
     });
 
     it('should recycle particles (object pooling)', () => {

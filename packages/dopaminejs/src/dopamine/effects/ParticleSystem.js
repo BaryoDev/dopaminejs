@@ -10,31 +10,33 @@ export class ParticleSystem {
             : document.body;
 
         this.canvasId = config.canvasId || 'dopamine-particle-canvas';
-        this.canvas = document.getElementById(this.canvasId);
 
-        if (!this.canvas) {
-            this.canvas = document.createElement('canvas');
+        // Each instance owns its canvas. Sharing one by id meant two systems
+        // cleared each other's frames every tick.
+        this.canvas = document.createElement('canvas');
+        this.canvas.classList.add('dopamine-particle-canvas');
+        if (!document.getElementById(this.canvasId)) {
             this.canvas.id = this.canvasId;
-            this.canvas.style.pointerEvents = 'none';
-            this.canvas.style.zIndex = config.zIndex || '9999';
-
-            if (this.container === document.body) {
-                this.canvas.style.position = 'fixed';
-                this.canvas.style.top = '0';
-                this.canvas.style.left = '0';
-            } else {
-                this.canvas.style.position = 'absolute';
-                this.canvas.style.top = '0';
-                this.canvas.style.left = '0';
-                // Ensure container is positioned
-                const style = window.getComputedStyle(this.container);
-                if (style.position === 'static') {
-                    this.container.style.position = 'relative';
-                }
-            }
-
-            this.container.appendChild(this.canvas);
         }
+        this.canvas.style.pointerEvents = 'none';
+        this.canvas.style.zIndex = config.zIndex || '9999';
+
+        if (this.container === document.body) {
+            this.canvas.style.position = 'fixed';
+            this.canvas.style.top = '0';
+            this.canvas.style.left = '0';
+        } else {
+            this.canvas.style.position = 'absolute';
+            this.canvas.style.top = '0';
+            this.canvas.style.left = '0';
+            // Ensure container is positioned
+            const style = window.getComputedStyle(this.container);
+            if (style.position === 'static') {
+                this.container.style.position = 'relative';
+            }
+        }
+
+        this.container.appendChild(this.canvas);
 
         this.ctx = this.canvas.getContext('2d');
         this.particles = [];
@@ -43,23 +45,44 @@ export class ParticleSystem {
         this.customEffects = new Map(); // key -> callback
         this.isAnimating = false;
 
+        // Kept on the instance so destroy() can actually detach them. An
+        // inline arrow passed to addEventListener can never be removed.
+        this._onResize = () => this._resize();
+        this._resizeObserver = null;
+        this._frameHandle = null;
+
         this._resize();
         // Use ResizeObserver for container resizing if supported, fallback to window resize
         if (window.ResizeObserver && this.container !== document.body) {
-            new ResizeObserver(() => this._resize()).observe(this.container);
+            this._resizeObserver = new ResizeObserver(this._onResize);
+            this._resizeObserver.observe(this.container);
         } else {
-            window.addEventListener('resize', () => this._resize());
+            window.addEventListener('resize', this._onResize);
         }
     }
 
     _resize() {
-        if (this.container === document.body) {
-            this.canvas.width = window.innerWidth;
-            this.canvas.height = window.innerHeight;
-        } else {
-            this.canvas.width = this.container.clientWidth;
-            this.canvas.height = this.container.clientHeight;
-        }
+        const cssWidth = this.container === document.body
+            ? window.innerWidth
+            : this.container.clientWidth;
+        const cssHeight = this.container === document.body
+            ? window.innerHeight
+            : this.container.clientHeight;
+
+        // Back the canvas with device pixels but keep the drawing coordinate
+        // system in CSS pixels, so particle positions stay in page units and
+        // nothing looks soft on a HiDPI display.
+        const dpr = window.devicePixelRatio || 1;
+
+        this.width = cssWidth;
+        this.height = cssHeight;
+
+        this.canvas.width = Math.round(cssWidth * dpr);
+        this.canvas.height = Math.round(cssHeight * dpr);
+        this.canvas.style.width = `${cssWidth}px`;
+        this.canvas.style.height = `${cssHeight}px`;
+
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     /**
@@ -237,7 +260,9 @@ export class ParticleSystem {
     }
 
     _animate() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this._frameHandle = null;
+        // CSS pixels: the context is pre-scaled by devicePixelRatio.
+        this.ctx.clearRect(0, 0, this.width, this.height);
 
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
@@ -288,7 +313,7 @@ export class ParticleSystem {
         }
 
         if (this.particles.length > 0) {
-            requestAnimationFrame(() => this._animate());
+            this._frameHandle = requestAnimationFrame(() => this._animate());
         } else {
             this.isAnimating = false;
         }
@@ -322,6 +347,33 @@ export class ParticleSystem {
         // Recycle all
         this.particles.forEach(p => this._recycleParticle(p));
         this.particles = [];
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.clearRect(0, 0, this.width, this.height);
+    }
+
+    /**
+     * Stop animating, detach resize handling, and remove the canvas.
+     *
+     * Without this the resize listener and canvas outlive the instance, which
+     * matters in any single-page app that mounts and unmounts a game view.
+     */
+    destroy() {
+        this.clear();
+        this.isAnimating = false;
+
+        if (this._frameHandle !== null) {
+            cancelAnimationFrame(this._frameHandle);
+            this._frameHandle = null;
+        }
+
+        if (this._resizeObserver) {
+            this._resizeObserver.disconnect();
+            this._resizeObserver = null;
+        }
+        window.removeEventListener('resize', this._onResize);
+
+        this.canvas.remove();
+        this.sprites.clear();
+        this.customEffects.clear();
+        this.pool = [];
     }
 }
