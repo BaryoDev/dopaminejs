@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs-monorepo",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "private": true,
     "type": "module",
     "description": "DopamineJS monorepo - Game Feel Engine for the web",
@@ -12,7 +12,8 @@
         "test": "npm run test --workspaces --if-present",
         "test:ci": "node scripts/run-tests.js",
         "dev": "npm run dev --workspace=dopaminejs",
-        "clean": "rm -rf packages/*/dist packages/*/node_modules"
+        "clean": "rm -rf packages/*/dist packages/*/node_modules",
+        "typecheck": "tsc -p packages/dopaminejs/tsconfig.json"
     },
     "repository": {
         "type": "git",
@@ -30,6 +31,7 @@
     "license": "MPL-2.0",
     "devDependencies": {
         "jsdom": "^27.0.0",
+        "typescript": "^7.0.2",
         "vite": "^5.0.0",
         "vitest": "^1.6.1"
     }

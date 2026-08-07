@@ -12,6 +12,12 @@ export { PluginRegistry } from './core/PluginRegistry.js';
 // Export System Interfaces
 export * from './interfaces/index.js';
 
+// The emitter RewardSystem extends, so consumers can type their listeners.
+export { EventEmitter } from './dopamine/core/EventEmitter.js';
+
+// Storage resolution, useful for tests and for SSR where localStorage is absent.
+export { createMemoryStorage, resolveStorage } from './dopamine/utils/storage.js';
+
 // Export New Engine Core
 export { Game } from './core/Game.js';
 export { Scene } from './core/Scene.js';

@@ -16,6 +16,7 @@ npm install dopaminejs
 ```
 
 The core engine with:
+- TypeScript declarations included, no `@types` package needed
 - Plugin architecture (Kernel, EventBus, SystemRegistry)
 - Default implementations (Canvas particles, Web Audio, basic physics)
 - Reward system (XP, levels, achievements)

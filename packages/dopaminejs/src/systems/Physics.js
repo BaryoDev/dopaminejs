@@ -1,3 +1,5 @@
+import { deprecatedGlobal } from './deprecate.js';
+
 import { Collider } from '../core/Collider.js';
 
 export class Physics {
@@ -112,6 +114,8 @@ export class Physics {
     setGravity(x, y) { /* TODO: Add gravity support */ }
 }
 
-// DEPRECATED: Keep for backward compatibility, but log warning
-export const GlobalPhysics = new Physics();
-console.warn('[DopamineJS] GlobalPhysics is deprecated. Use kernel.physics instead.');
+// DEPRECATED: kept for v1 compatibility. Warns on first use, not on import.
+export const GlobalPhysics = deprecatedGlobal(
+    new Physics(),
+    '[DopamineJS] GlobalPhysics is deprecated. Use kernel.physics instead.'
+);

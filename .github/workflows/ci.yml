@@ -30,6 +30,9 @@ jobs:
       # here rather than silently resolving something different.
       - run: npm ci
 
+      - name: Typecheck declarations
+        run: npm run typecheck
+
       - name: Test
         run: npm run test:ci
 

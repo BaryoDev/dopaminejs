@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2026-08-07
+
+### Added
+
+- **TypeScript declarations.** `types/index.d.ts` ships with the package and is
+  wired into `exports`, so TypeScript consumers get completion and checking
+  without the project adopting TypeScript. Two checks keep them honest: `tsc`
+  compiles a realistic usage file, and a runtime test compares every declared
+  export against what the module actually exports, so declarations cannot drift
+  from the implementation. That second check caught three exports that had been
+  declared but did not exist.
+- **`RewardSystem` can bridge onto the kernel `EventBus`.** `EventBus.Events`
+  already declared `XP_GAINED`, `LEVEL_UP`, `ACHIEVEMENT_UNLOCKED` and
+  `NEW_HIGH_SCORE` with nothing emitting them. Pass `events` (an `EventBus`) or
+  `kernel` in the `RewardSystem` config and those events are mirrored onto the
+  bus. The existing `rewardSystem.on(...)` surface is unchanged, so this is
+  additive.
+- `EventEmitter`, `createMemoryStorage` and `resolveStorage` are now exported
+  from the package root.
+
+### Fixed
+
+- **Importing the package printed three deprecation warnings**, one per v1
+  global, whether or not the consumer touched any of them. `GlobalPhysics`,
+  `GlobalInput` and `GlobalLoader` now warn once on first actual use. Found by
+  installing the packed tarball and requiring it, which is the only way this
+  class of defect shows up.
+
+### Changed
+
+- **`recordGame` writes to storage once instead of four times.** `addXP` and
+  each `unlockAchievement` saved independently, so a single game produced four
+  full JSON serializations of the player object. Writes are now batched to one
+  per call. Mutations outside a batch still save immediately, so nothing else
+  changes for callers.
+
 ## [2.1.0] - 2026-08-06
 
 Stabilisation release. No API removals; the level curve correction changes
