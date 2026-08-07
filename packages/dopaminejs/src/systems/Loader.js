@@ -1,3 +1,5 @@
+import { deprecatedGlobal } from './deprecate.js';
+
 /**
  * Asset Loader
  * Loads and caches images, audio, etc.
@@ -39,6 +41,8 @@ export class Loader {
     }
 }
 
-// DEPRECATED: Keep for backward compatibility
-export const GlobalLoader = new Loader();
-console.warn('[DopamineJS] GlobalLoader is deprecated. Use kernel.loader instead.');
+// DEPRECATED: kept for v1 compatibility. Warns on first use, not on import.
+export const GlobalLoader = deprecatedGlobal(
+    new Loader(),
+    '[DopamineJS] GlobalLoader is deprecated. Use kernel.loader instead.'
+);

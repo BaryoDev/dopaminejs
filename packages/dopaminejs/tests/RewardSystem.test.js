@@ -89,6 +89,35 @@ describe('RewardSystem', () => {
         expect(needed).toBe(250);
     });
 
+    it('should write to storage once per recordGame, not once per mutation', async () => {
+        // recordGame internally calls addXP, unlockAchievement (twice each) and
+        // a final save. Every one of those was a separate localStorage write
+        // and a full JSON serialization of the player object.
+        mockDataService.save.mockClear();
+
+        await rewardSystem.recordGame('test_game', { score: 10 });
+
+        expect(mockDataService.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('should still persist everything the batched writes accumulated', async () => {
+        await rewardSystem.recordGame('test_game', { score: 40 });
+
+        const [, persisted] = mockDataService.save.mock.calls.at(-1);
+        expect(persisted.totalGamesPlayed).toBe(1);
+        expect(persisted.stats.test_game.highScore).toBe(40);
+        expect(persisted.achievements.first_game).toBeDefined();
+        expect(persisted.xp).toBe(rewardSystem.player.xp);
+    });
+
+    it('should still save when a mutation happens outside a batch', async () => {
+        mockDataService.save.mockClear();
+
+        await rewardSystem.addXP(10);
+
+        expect(mockDataService.save).toHaveBeenCalledTimes(1);
+    });
+
     it('should emit events when adding XP', async () => {
         const spy = vi.fn();
         rewardSystem.on('xp_gained', spy);

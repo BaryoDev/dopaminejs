@@ -6,11 +6,62 @@
 import { EventEmitter } from './EventEmitter.js';
 
 export class RewardSystem extends EventEmitter {
+    /**
+     * @param {Object} dataService - Persistence, see DataService
+     * @param {Object} [config]
+     * @param {Object} [config.achievements] - Extra achievement definitions
+     * @param {Object} [config.events] - Kernel EventBus to mirror events onto
+     * @param {Object} [config.kernel] - Kernel; its `events` bus is used if present
+     */
     constructor(dataService, config = {}) {
         super();
         this.dataService = dataService;
         this.player = null;
         this.achievements = { ...this._initAchievements(), ...(config.achievements || {}) };
+
+        // Optional bridge to the kernel bus. EventBus.Events already declared
+        // XP_GAINED, LEVEL_UP and ACHIEVEMENT_UNLOCKED with nothing emitting
+        // them; this connects the two event systems without changing the
+        // existing rewardSystem.on(...) surface that games already use.
+        this.events = config.events || config.kernel?.events || null;
+
+        // Write batching. Every mutation used to hit storage directly, so one
+        // recordGame produced four full serializations of the player object.
+        this._batchDepth = 0;
+        this._pendingSave = false;
+    }
+
+    /**
+     * Emit locally, and mirror onto the kernel bus when one is attached.
+     * @private
+     */
+    _publish(event, data) {
+        this.emit(event, data);
+        if (this.events) {
+            this.events.emit(event, data);
+        }
+    }
+
+    /**
+     * Run `fn` with saves collapsed into a single write at the end.
+     *
+     * Nested batches are counted, so an inner operation that batches on its
+     * own still results in exactly one write for the outermost call.
+     *
+     * @param {Function} fn
+     * @private
+     */
+    async _batch(fn) {
+        this._batchDepth++;
+        try {
+            return await fn();
+        } finally {
+            this._batchDepth--;
+            if (this._batchDepth === 0 && this._pendingSave) {
+                this._pendingSave = false;
+                await this._write();
+            }
+        }
     }
 
     /**
@@ -84,10 +135,24 @@ export class RewardSystem extends EventEmitter {
      * Save player data
      */
     async save() {
-        if (this.player) {
-            this.player.lastPlayedAt = Date.now();
-            await this.dataService.save('player', this.player);
+        if (!this.player) return;
+
+        // Inside a batch, mark dirty and let the outermost call do the write.
+        if (this._batchDepth > 0) {
+            this._pendingSave = true;
+            return;
         }
+
+        await this._write();
+    }
+
+    /**
+     * The actual persistence call. Bypasses batching.
+     * @private
+     */
+    async _write() {
+        this.player.lastPlayedAt = Date.now();
+        await this.dataService.save('player', this.player);
     }
 
     /**
@@ -117,10 +182,10 @@ export class RewardSystem extends EventEmitter {
         await this.save();
 
         // Notify listeners
-        this.emit('xp_gained', { amount, reason, leveledUp, newLevel });
+        this._publish('xp_gained', { amount, reason, leveledUp, newLevel });
 
         if (leveledUp) {
-            this.emit('level_up', { oldLevel, newLevel });
+            this._publish('level_up', { oldLevel, newLevel });
         }
 
         return { leveledUp, newLevel, xpGained: amount };
@@ -165,6 +230,15 @@ export class RewardSystem extends EventEmitter {
      * @param {Object} result - Game-specific result data
      */
     async recordGame(gameName, result) {
+        // Batched: addXP and each unlockAchievement below also save, which
+        // meant four full serializations of the player object per game.
+        return this._batch(() => this._recordGame(gameName, result));
+    }
+
+    /**
+     * @private
+     */
+    async _recordGame(gameName, result) {
         // Initialize stats for this game if not exists
         if (!this.player.stats[gameName]) {
             this.player.stats[gameName] = { totalPlays: 0, highScore: 0 };
@@ -179,7 +253,7 @@ export class RewardSystem extends EventEmitter {
         // Update high score if applicable
         if (result.score !== undefined && result.score > stats.highScore) {
             stats.highScore = result.score;
-            this.emit('new_high_score', { gameName, score: result.score });
+            this._publish('new_high_score', { gameName, score: result.score });
         }
 
         // Merge other result data into stats
@@ -254,7 +328,7 @@ export class RewardSystem extends EventEmitter {
         await this.addXP(Number.isFinite(achievement.xp) ? achievement.xp : 0,
             `Achievement: ${achievement.name}`);
 
-        this.emit('achievement_unlocked', achievement);
+        this._publish('achievement_unlocked', achievement);
         await this.save();
 
         return true;

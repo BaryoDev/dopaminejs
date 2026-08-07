@@ -1,3 +1,5 @@
+import { deprecatedGlobal } from './deprecate.js';
+
 /**
  * Input System
  * Tracks keyboard and mouse input.
@@ -71,7 +73,9 @@ export class Input {
     }
 }
 
-// DEPRECATED: Keep for backward compatibility
-export const GlobalInput = new Input();
-// Note: GlobalInput won't have listeners attached unless init() is called
-console.warn('[DopamineJS] GlobalInput is deprecated. Use kernel.input instead.');
+// DEPRECATED: kept for v1 compatibility. Warns on first use, not on import.
+// Note: listeners are not attached unless init() is called.
+export const GlobalInput = deprecatedGlobal(
+    new Input(),
+    '[DopamineJS] GlobalInput is deprecated. Use kernel.input instead.'
+);

@@ -46,6 +46,9 @@ jobs:
       - name: Verify manifests
         run: node scripts/check-versions.js
 
+      - name: Typecheck declarations
+        run: npm run typecheck
+
       - name: Test
         run: npm run test:ci
 
