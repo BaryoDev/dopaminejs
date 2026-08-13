@@ -1,11 +1,71 @@
-# DopamineJS Monorepo
+# DopamineJS
 
-> **Game Feel Engine for the Web** - Add juice, rewards, and feedback to HTML5 games
+> **Progression mechanics for web apps.** XP, levels, achievements and daily streaks you can
+> drop into a product, plus the particles, sound and screen shake that make them land.
 
-This is a monorepo containing:
-- **dopaminejs** (MPL-2.0) - Core engine
-- **dopaminejs-themes** (MIT) - Official themes
-- **dopaminejs-plugin-\*** (MIT) - Official plugins, one package each
+Every learning platform, habit tracker and onboarding flow eventually rebuilds the same
+thing: points that accumulate, a level that goes up, a streak that must not be broken, and
+some visual acknowledgement when it happens. There is no library for that, so teams write
+it again each time, usually without the timezone handling that makes streaks correct.
+
+DopamineJS is that library. The game engine underneath it is what makes the feedback feel
+good, not the reason to install it.
+
+## What it is for
+
+- **Learning platforms**: daily streaks, XP per lesson, achievement unlocks
+- **Habit and fitness apps**: streak preservation, milestone celebrations, progress toward a level
+- **Onboarding and adoption**: progress that feels like something rather than a checklist
+- **Internal tools**: the ones nobody opens voluntarily
+- **HTML5 games**: the original use case, still supported
+
+## Quick start
+
+```bash
+npm install dopaminejs
+```
+
+```javascript
+import { RewardSystem, DataService } from 'dopaminejs';
+
+const rewards = new RewardSystem(new DataService());
+await rewards.init();
+
+rewards.on('LEVEL_UP', ({ level }) => showLevelUpToast(level));
+rewards.on('ACHIEVEMENT_UNLOCKED', (achievement) => celebrate(achievement));
+
+// Somewhere in your app, when the user does the thing you want repeated
+await rewards.addXP(250);
+
+const { progress, needed } = rewards.getXPForNextLevel();
+// progress: 0.75, needed: 50
+```
+
+That is the whole integration. Persistence is `localStorage` by default and swappable,
+streaks are computed in the user's local calendar rather than UTC, and nothing renders
+until you ask it to.
+
+Want the visuals too:
+
+```javascript
+import { GameUI, ParticleSystem } from 'dopaminejs';
+import 'dopaminejs/style.css';
+
+const ui = new GameUI(new ParticleSystem(canvas));
+ui.init();
+
+rewards.on('LEVEL_UP', ({ level }) => ui.showLevelUp(level));
+```
+
+## Why streaks are the hard part
+
+A daily streak is a calendar question, not a clock question. "Did they come back yesterday"
+depends on the user's timezone, and a naive `Date` comparison breaks for anyone not on UTC,
+silently, for a subset of users you will never hear from.
+
+DopamineJS resolves streak boundaries in local time and the test suite is
+[pinned to a non-UTC zone](scripts/run-tests.js) so a regression fails CI instead of passing
+quietly on a UTC runner.
 
 ## 📦 Packages
 
@@ -66,7 +126,10 @@ UI themes:
 
 ---
 
-## 🚀 Quick Start
+## Using the game engine directly
+
+The engine that powers the effects is exported too, if you are building an actual game
+rather than adding progression to an app.
 
 ```javascript
 import { Game } from 'dopaminejs';
