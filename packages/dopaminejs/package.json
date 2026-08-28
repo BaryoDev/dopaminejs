@@ -1,56 +1,65 @@
 {
-  "name": "dopaminejs",
-  "version": "2.2.0",
-  "description": "Progression mechanics for web apps: XP, levels, achievements and timezone-correct daily streaks, with the particles and sound to make them land. Zero dependencies.",
-  "type": "module",
-  "main": "./dist/dopamine.umd.cjs",
-  "module": "./dist/dopamine.js",
-  "exports": {
-    ".": {
-      "types": "./types/index.d.ts",
-      "import": "./dist/dopamine.js",
-      "require": "./dist/dopamine.umd.cjs"
+    "name": "dopaminejs",
+    "version": "2.2.0",
+    "description": "Progression mechanics for web apps: XP, levels, achievements and timezone-correct daily streaks, with the particles and sound to make them land. Zero dependencies.",
+    "type": "module",
+    "main": "./dist/dopamine.cjs",
+    "module": "./dist/dopamine.js",
+    "exports": {
+        ".": {
+            "types": "./types/index.d.ts",
+            "import": "./dist/dopamine.js",
+            "require": "./dist/dopamine.cjs"
+        },
+        "./engine": {
+            "types": "./types/index.d.ts",
+            "import": "./dist/engine.js",
+            "require": "./dist/engine.cjs"
+        },
+        "./style.css": "./dist/style.css"
     },
-    "./style.css": "./dist/style.css"
-  },
-  "files": [
-    "dist",
-    "src",
-    "types"
-  ],
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "preview": "vite preview"
-  },
-  "keywords": [
-    "gamification",
-    "progression",
-    "streaks",
-    "daily-streak",
-    "xp",
-    "levels",
-    "achievements",
-    "engagement",
-    "rewards",
-    "user-retention",
-    "game-feel",
-    "juice",
-    "particles",
-    "confetti"
-  ],
-  "author": "BaryoDev",
-  "license": "MPL-2.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/BaryoDev/dopaminejs.git",
-    "directory": "packages/dopaminejs"
-  },
-  "bugs": {
-    "url": "https://github.com/BaryoDev/dopaminejs/issues"
-  },
-  "homepage": "https://github.com/BaryoDev/dopaminejs#readme",
-  "types": "./types/index.d.ts"
+    "sideEffects": false,
+    "files": [
+        "dist",
+        "src",
+        "types"
+    ],
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "preview": "vite preview"
+    },
+    "keywords": [
+        "gamification",
+        "progression",
+        "streaks",
+        "daily-streak",
+        "xp",
+        "levels",
+        "achievements",
+        "engagement",
+        "rewards",
+        "user-retention",
+        "game-feel",
+        "juice",
+        "particles",
+        "confetti"
+    ],
+    "author": "BaryoDev",
+    "license": "MPL-2.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/BaryoDev/dopaminejs.git",
+        "directory": "packages/dopaminejs"
+    },
+    "bugs": {
+        "url": "https://github.com/BaryoDev/dopaminejs/issues"
+    },
+    "homepage": "https://github.com/BaryoDev/dopaminejs#readme",
+    "types": "./types/index.d.ts",
+    "engines": {
+        "node": ">=20.19"
+    }
 }

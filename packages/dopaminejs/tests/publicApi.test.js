@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /**
  * Pins the public surface of every published package.
@@ -105,8 +105,59 @@ function compare(packageName, actual) {
 }
 
 describe('public API surface', () => {
+    // here = packages/dopaminejs/tests/
+    // Going up 2 levels reaches packages/
+    const packagesDir = resolve(here, '../..');
+
     it('dopaminejs has not changed', async () => {
         const mod = await import('../src/index.js');
         expect(() => compare('dopaminejs', renderSurface(mod))).not.toThrow();
+    });
+
+    it('dopaminejs-themes has not changed', async () => {
+        const url = pathToFileURL(resolve(packagesDir, 'dopaminejs-themes/src/index.js')).href;
+        const mod = await import(url);
+        expect(() => compare('dopaminejs-themes', renderSurface(mod))).not.toThrow();
+    });
+
+    it('dopaminejs-plugin-debug-overlay has not changed', async () => {
+        const url = pathToFileURL(resolve(packagesDir, 'plugin-debug-overlay/src/index.js')).href;
+        const mod = await import(url);
+        expect(() => compare('dopaminejs-plugin-debug-overlay', renderSurface(mod))).not.toThrow();
+    });
+
+    it('dopaminejs-plugin-ecosystem has not changed', async () => {
+        const url = pathToFileURL(resolve(packagesDir, 'plugin-ecosystem/src/index.js')).href;
+        const mod = await import(url);
+        expect(() => compare('dopaminejs-plugin-ecosystem', renderSurface(mod))).not.toThrow();
+    });
+
+    it('dopaminejs-plugin-feedback-effects has not changed', async () => {
+        const url = pathToFileURL(resolve(packagesDir, 'plugin-feedback-effects/src/index.js')).href;
+        const mod = await import(url);
+        expect(() => compare('dopaminejs-plugin-feedback-effects', renderSurface(mod))).not.toThrow();
+    });
+
+    it('dopaminejs-plugin-howler-audio has not changed', async () => {
+        const url = pathToFileURL(resolve(packagesDir, 'plugin-howler-audio/src/index.js')).href;
+        const mod = await import(url);
+        expect(() => compare('dopaminejs-plugin-howler-audio', renderSurface(mod))).not.toThrow();
+    });
+
+    it('dopaminejs-plugin-sound-packs has not changed', async () => {
+        const url = pathToFileURL(resolve(packagesDir, 'plugin-sound-packs/src/index.js')).href;
+        const mod = await import(url);
+        expect(() => compare('dopaminejs-plugin-sound-packs', renderSurface(mod))).not.toThrow();
+    });
+
+    it('dopaminejs-plugin-webgl-particles has not changed', async () => {
+        const url = pathToFileURL(resolve(packagesDir, 'plugin-webgl-particles/src/index.js')).href;
+        const mod = await import(url);
+        expect(() => compare('dopaminejs-plugin-webgl-particles', renderSurface(mod))).not.toThrow();
+    });
+
+    it('dopaminejs/engine subpath has not changed', async () => {
+        const mod = await import('../src/engine.js');
+        expect(() => compare('dopaminejs-engine', renderSurface(mod))).not.toThrow();
     });
 });

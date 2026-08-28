@@ -1,0 +1,3 @@
+ThemeEngine: class(0) proto[getAvailableThemes,getCurrentTheme,registerTheme,setTheme]
+Themes: object
+themeEngine: object
