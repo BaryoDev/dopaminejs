@@ -1,14 +1,14 @@
-# DopamineJS Architecture & Roadmap 🏗️
+# DopamineJS Architecture
 
-**Vision**: To become the standard "Game Feel Engine" for the web—a plug-and-play layer that handles the "juice" (feedback, rewards, satisfaction) so developers can focus on core mechanics.
+**Vision**: Progression mechanics for web apps — a drop-in layer for XP, levels, achievements, and daily streaks that makes the feedback feel good.
 
-## 🧠 Design Philosophy
+## Design Philosophy
 1.  **Zero-Config Start**: It must work beautifully out of the box.
 2.  **Infinite Extensibility**: Every default (sound, particle, UI style) must be replaceable.
 3.  **Asset Agnostic**: Support synthesized sounds/shapes (no assets) AND custom assets (mp3/png).
 4.  **AI-First**: APIs should be self-documenting and predictable for AI agents to use effectively.
 
-## ✅ Phase 0: Core Plugin Architecture (v1.3.0) - **COMPLETED**
+## Phase 0: Core Plugin Architecture (v1.3.0) — completed
 
 **Goal**: Build the foundation for extensibility.
 
@@ -54,17 +54,10 @@ game.kernel.physics.add(collider);
 
 See [Plugin Development Guide](./docs/PLUGIN_GUIDE.md) for creating custom plugins.
 
-## 🗺️ Roadmap
+## Roadmap
 
-### Phase 1: Audio Extensibility (v1.4.0)
-**Goal**: Allow developers to bring their own soundscapes.
-
--   **[UPDATE] SoundManager**:
-    -   ✅ Add `registerSound(key, url)` method (already implemented)
-    -   Support `Howler.js` integration via plugin
-    -   **Feature**: "Sound Packs" - Allow switching between 'Retro', 'Modern', 'Cute' preset packs.
-
-**Now Easier**: Create a `HowlerAudioPlugin` that implements `IAudioSystem`
+### Phase 1: Audio Extensibility (v1.4.0) — completed
+Shipped as `dopaminejs-plugin-howler-audio` (cross-browser audio) and `dopaminejs-plugin-sound-packs` (preset pack switching).
 
 ### Phase 2: Visual Customization (v1.5.0)
 **Goal**: Break free from geometric primitives.
@@ -76,7 +69,7 @@ See [Plugin Development Guide](./docs/PLUGIN_GUIDE.md) for creating custom plugi
 
 **Now Easier**: Create a `WebGLParticlePlugin` that implements `IParticleSystem`
 
-### Phase 3: UI Theming & Templates (v1.6.0)
+### Phase 3: UI Theming and Templates (v1.6.0)
 **Goal**: Make the UI fit any game art style.
 
 -   **[NEW] Theme Engine**:
@@ -88,27 +81,34 @@ See [Plugin Development Guide](./docs/PLUGIN_GUIDE.md) for creating custom plugi
 
 **Now Easier**: Create UI plugins that listen to `EventBus` events
 
-### Phase 4: The "Dopamine Ecosystem" (v2.0.0)
-**Goal**: Community-driven content.
+### Phase 4: The Dopamine Ecosystem (v2.0.0) — completed
+Shipped as `dopaminejs-plugin-ecosystem` (BattlePass, Leaderboard, Webhooks) at v2.0.0.
 
--   ✅ **Plugin System**: Middleware for the `RewardSystem` (e.g., "BattlePass Plugin", "Leaderboard Plugin") - **Foundation Complete**
--   **Backend Integration**: Webhooks for `onLevelUp` or `onAchievement` to validate rewards on a server.
--   **Plugin Marketplace**: Community-contributed plugins
+## Developer Guide: How to Extend
 
-**Now Possible**: Full plugin ecosystem enabled by Phase 0 architecture
+### Using the Plugin System
 
-## 📝 Developer Guide: How to Extend
-
-### Using the New Plugin System
+Plugins ship as separate npm packages. Install the one you want and register it with the kernel:
 
 ```javascript
 import { Game } from 'dopaminejs';
-import { DebugOverlayPlugin } from 'dopaminejs/plugins';
+import { DebugOverlayPlugin } from 'dopaminejs-plugin-debug-overlay';
 
 const game = new Game();
 game.kernel.plugins.use(DebugOverlayPlugin);
 game.start();
 ```
+
+Published plugins:
+
+| Package | Description |
+|---|---|
+| `dopaminejs-plugin-debug-overlay` | FPS, entity count, performance stats |
+| `dopaminejs-plugin-ecosystem` | BattlePass, Leaderboard, Webhooks |
+| `dopaminejs-plugin-feedback-effects` | Confetti, floating text |
+| `dopaminejs-plugin-howler-audio` | Howler.js cross-browser audio |
+| `dopaminejs-plugin-sound-packs` | Retro, modern, cute, sci-fi preset packs |
+| `dopaminejs-plugin-webgl-particles` | WebGL particle system |
 
 ### Creating Custom Plugins
 

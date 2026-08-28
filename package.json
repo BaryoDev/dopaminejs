@@ -1,39 +1,58 @@
 {
-  "name": "dopaminejs-monorepo",
-  "version": "2.2.0",
-  "private": true,
-  "type": "module",
-  "description": "DopamineJS monorepo - Game Feel Engine for the web",
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "node scripts/run-tests.js",
-    "test:watch": "npm run test:watch --workspace=dopaminejs",
-    "test:ci": "node scripts/run-tests.js",
-    "dev": "npm run dev --workspace=dopaminejs",
-    "clean": "rm -rf packages/*/dist packages/*/node_modules",
-    "typecheck": "tsc -p packages/dopaminejs/tsconfig.json"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/BaryoDev/dopaminejs.git"
-  },
-  "keywords": [
-    "game",
-    "gamedev",
-    "game-feel",
-    "juice",
-    "feedback",
-    "rewards"
-  ],
-  "author": "BaryoDev",
-  "license": "MPL-2.0",
-  "devDependencies": {
-    "jsdom": "^27.0.0",
-    "typescript": "^7.0.2",
-    "vite": "^5.0.0",
-    "vitest": "^1.6.1"
-  }
+    "name": "dopaminejs-monorepo",
+    "version": "2.2.0",
+    "private": true,
+    "type": "module",
+    "description": "DopamineJS monorepo - Game Feel Engine for the web",
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "build": "npm run build --workspaces --if-present",
+        "test": "node scripts/run-tests.js",
+        "test:watch": "npm run test:watch --workspace=dopaminejs",
+        "test:ci": "node scripts/run-tests.js",
+        "dev": "npm run dev --workspace=dopaminejs",
+        "clean": "rm -rf packages/*/dist packages/*/node_modules",
+        "typecheck": "tsc -p packages/dopaminejs/tsconfig.json",
+        "size": "size-limit",
+        "check-zero-deps": "node scripts/check-zero-deps.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/BaryoDev/dopaminejs.git"
+    },
+    "keywords": [
+        "game",
+        "gamedev",
+        "game-feel",
+        "juice",
+        "feedback",
+        "rewards"
+    ],
+    "author": "BaryoDev",
+    "license": "MPL-2.0",
+    "devDependencies": {
+        "@size-limit/preset-big-lib": "^11.0.0",
+        "jsdom": "^27.0.0",
+        "size-limit": "^11.0.0",
+        "typescript": "^7.0.2",
+        "vite": "^5.0.0",
+        "vitest": "^1.6.1"
+    },
+    "size-limit": [
+        {
+            "path": "packages/dopaminejs/dist/dopamine.js",
+            "limit": "19 KB",
+            "name": "dopaminejs (ESM)"
+        },
+        {
+            "path": "packages/dopaminejs/dist/dopamine.umd.cjs",
+            "limit": "14 KB",
+            "name": "dopaminejs (UMD/CJS)"
+        }
+    ],
+    "engines": {
+        "node": ">=20.19"
+    }
 }

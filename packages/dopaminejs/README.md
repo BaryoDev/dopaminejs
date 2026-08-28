@@ -1,8 +1,8 @@
 # dopaminejs
 
-> Game Feel Engine for the web. Add juice, rewards, and feedback to HTML5 games.
+> Progression mechanics for web apps. XP, levels, achievements, and timezone-correct daily streaks, with the particles and sound to make them land.
 
-Zero runtime dependencies. Works with any renderer, or use the one included.
+Zero runtime dependencies. Works with any framework.
 
 ```bash
 npm install dopaminejs
@@ -11,18 +11,18 @@ npm install dopaminejs
 ## Quick start
 
 ```javascript
-import Dopamine from 'dopaminejs';
+// Named imports — the recommended way
+import { RewardSystem, DataService } from 'dopaminejs';
 import 'dopaminejs/style.css';
 
-const dopamine = new Dopamine();
-await dopamine.init();
-
-// Wire it to your game loop
-await dopamine.rewardSystem.recordGame('breakout', { score: 4200 });
+const rewards = new RewardSystem(new DataService());
+await rewards.init();
+await rewards.addXP(100);
 ```
 
-That gives you an XP bar, level-up screens, achievement popups, confetti, and
-synthesized sound effects, with progress persisted to `localStorage`.
+> **v1.x compatibility:** The package also has a default export (`import Dopamine from 'dopaminejs'`)
+> that wraps the progression layer as it existed before v2. It is preserved for backward
+> compatibility but new code should use named imports.
 
 ## What's in the box
 

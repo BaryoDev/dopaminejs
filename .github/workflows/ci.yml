@@ -16,7 +16,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22]
+        # Pinned to the explicit minimum versions where require() of ES modules
+        # landed (Node 20.19 and 22.12). Floating to 20/22 would silently test
+        # a higher patch and never verify the floor the engines field declares.
+        node: [20.19, 22.12]
 
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +42,9 @@ jobs:
       - name: Check manifests
         run: node scripts/check-versions.js
 
+      - name: Check zero-dependency promise
+        run: npm run check-zero-deps
+
       - name: Build all packages
         run: npm run build --workspaces --if-present
 
@@ -46,3 +52,6 @@ jobs:
       # the build actually emitted.
       - name: Check every entry point resolves
         run: node scripts/check-versions.js --dist
+
+      - name: Enforce bundle size budget
+        run: npm run size

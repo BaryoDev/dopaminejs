@@ -1,0 +1,23 @@
+Animator: class(0) proto[addAnimation,onAttach,play,update]
+Collider: class(0) proto[getBounds,onAttach,onDetach]
+Component: class(0) proto[events,input,loader,onAttach,onDetach,physics,render,update]
+Director: class(1) proto[run]
+DopamineKernel: class(0) proto[destroy,input,loader,physics,renderer,start,stop,ticker]
+EventBus: class(0) static[Events] proto[clear,emit,hasListeners,off,on,once]
+Game: class(0) proto[destroy,input,physics,renderer,setScene,start,stop,ticker]
+GameObject: class(0) proto[addChild,addComponent,getComponent,kernel,render,update]
+GlobalInput: object
+GlobalLoader: object
+GlobalPhysics: object
+Input: class(0) proto[destroy,init,isKeyDown,isMouseButtonDown]
+Loader: class(0) proto[destroy,get,init,loadImage]
+ParticleEmitter: class(1) proto[play]
+Physics: class(0) proto[add,addBody,checkCollision,checkOverlap,destroy,fixedUpdate,init,raycast,remove,removeBody,setGravity,step]
+PluginRegistry: class(1) proto[clear,get,getLoadOrder,getPluginNames,has,remove,use,useAsync]
+Renderer: class(0) proto[clear,resize]
+Scene: class(0) proto[add,onEnter,onExit,remove,render,update]
+ScreenShake: class(0) proto[shake,update]
+Sprite: class(1) proto[render,setFrame,setTexture]
+SystemRegistry: class(1) proto[clear,fixedUpdate,get,getSystemNames,has,register,unregister,update]
+Ticker: class(0) proto[add,remove,start,stop]
+Vector2: class(0) static[distance] proto[add,clone,distance,normalize,scale,sub]
