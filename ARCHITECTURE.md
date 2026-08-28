@@ -81,8 +81,8 @@ Shipped as `dopaminejs-plugin-howler-audio` (cross-browser audio) and `dopaminej
 
 **Now Easier**: Create UI plugins that listen to `EventBus` events
 
-### Phase 4: The Dopamine Ecosystem (v2.0.0) — completed
-Shipped as `dopaminejs-plugin-ecosystem` (BattlePass, Leaderboard, Webhooks) at v2.0.0.
+### Phase 4: The Dopamine Ecosystem — completed
+Shipped as `dopaminejs-plugin-ecosystem@1.0.0` (BattlePass, Leaderboard, Webhooks) alongside `dopaminejs@2.0.0`.
 
 ## Developer Guide: How to Extend
 

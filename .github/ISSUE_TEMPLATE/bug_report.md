@@ -9,6 +9,7 @@ labels: bug
 <!-- Which package is affected? -->
 
 - [ ] `dopaminejs` (core)
+- [ ] `dopaminejs-react`
 - [ ] `dopaminejs-themes`
 - [ ] `dopaminejs-plugin-debug-overlay`
 - [ ] `dopaminejs-plugin-ecosystem`

@@ -43,13 +43,21 @@ function reducer(state, action) {
 
 function buildState(rewards) {
     const player = rewards.player || {};
+    // getXPForNextLevel() takes no arguments and returns the XP needed to
+    // complete the current level band. Progress is (xp spent in this band)
+    // divided by (width of the band). We clamp to [0, 1] defensively.
+    let progress = 0;
+    if (rewards.getXPForNextLevel) {
+        const xpForNext = rewards.getXPForNextLevel();
+        if (xpForNext > 0) {
+            progress = Math.min(1, Math.max(0, (player.xp ?? 0) / xpForNext));
+        }
+    }
     return {
         player,
         level: player.level ?? 1,
         xp: player.xp ?? 0,
-        progress: rewards.getXPForNextLevel
-            ? player.xp / rewards.getXPForNextLevel(player.level ?? 1)
-            : 0,
+        progress,
         achievements: rewards.getUnlockedAchievements?.() ?? [],
     };
 }
@@ -63,7 +71,15 @@ function buildState(rewards) {
  * @param {React.ReactNode} props.children
  */
 export function RewardsProvider({ config, storage, children }) {
-    const [state, dispatch] = useReducer(reducer, null, () => ({}));
+    // Safe initial state so consumers always have all fields defined before
+    // the async init() resolves, even on the very first render.
+    const [state, dispatch] = useReducer(reducer, null, () => ({
+        player: {},
+        level: 1,
+        xp: 0,
+        progress: 0,
+        achievements: [],
+    }));
     const rewardsRef = useRef(null);
 
     // Keep a stable reference to the dispatch so event handlers don't need to
@@ -72,7 +88,9 @@ export function RewardsProvider({ config, storage, children }) {
     dispatchRef.current = dispatch;
 
     useEffect(() => {
-        const dataService = new DataService(storage);
+        // DataService accepts a config object with a `storage` key.
+        // Passing undefined is fine — it defaults to resolveStorage().
+        const dataService = new DataService({ storage });
         const rewards = new RewardSystem(dataService, config);
         rewardsRef.current = rewards;
 
@@ -88,17 +106,18 @@ export function RewardsProvider({ config, storage, children }) {
             dispatchRef.current({ type: 'SYNC', payload: buildState(rewards) });
         }
 
-        rewards.on('XP_GAINED', sync);
-        rewards.on('LEVEL_UP', sync);
-        rewards.on('ACHIEVEMENT_UNLOCKED', sync);
+        // Event names emitted by RewardSystem are lowercase.
+        rewards.on('xp_gained', sync);
+        rewards.on('level_up', sync);
+        rewards.on('achievement_unlocked', sync);
 
         return () => {
             mounted = false;
             // Remove listeners so the EventBus doesn't accumulate them across
             // re-mounts (EventBus holds strong references).
-            rewards.off('XP_GAINED', sync);
-            rewards.off('LEVEL_UP', sync);
-            rewards.off('ACHIEVEMENT_UNLOCKED', sync);
+            rewards.off('xp_gained', sync);
+            rewards.off('level_up', sync);
+            rewards.off('achievement_unlocked', sync);
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
     // config and storage are intentionally excluded: the RewardSystem is

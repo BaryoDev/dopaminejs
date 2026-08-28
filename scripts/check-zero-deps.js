@@ -14,12 +14,19 @@ const pkgPath = resolve(__dirname, '../packages/dopaminejs/package.json');
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 
 const deps = pkg.dependencies;
+const optDeps = pkg.optionalDependencies;
 
-if (deps && Object.keys(deps).length > 0) {
+const depsEntries = deps ? Object.entries(deps) : [];
+const optEntries = optDeps ? Object.entries(optDeps) : [];
+
+if (depsEntries.length > 0 || optEntries.length > 0) {
     console.error('❌ Zero-dependency promise broken!');
     console.error('   packages/dopaminejs/package.json has runtime dependencies:');
-    for (const [name, version] of Object.entries(deps)) {
-        console.error(`     - ${name}: ${version}`);
+    for (const [name, version] of depsEntries) {
+        console.error(`     - ${name}: ${version}  (dependencies)`);
+    }
+    for (const [name, version] of optEntries) {
+        console.error(`     - ${name}: ${version}  (optionalDependencies)`);
     }
     console.error('');
     console.error('   The core package must ship with zero runtime dependencies.');

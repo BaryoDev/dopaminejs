@@ -19,6 +19,7 @@ Closes #<!-- issue number -->
 <!-- Check all that apply -->
 
 - [ ] `dopaminejs` (core)
+- [ ] `dopaminejs-react`
 - [ ] `dopaminejs-themes`
 - [ ] `dopaminejs-plugin-debug-overlay`
 - [ ] `dopaminejs-plugin-ecosystem`
@@ -32,5 +33,5 @@ Closes #<!-- issue number -->
 - [ ] Tests pass locally (`npm run test:ci`)
 - [ ] Build succeeds (`npm run build`)
 - [ ] Typecheck passes (`npm run typecheck`)
-- [ ] If `dopaminejs` exports changed: the public API snapshot was reviewed and re-approved by copying the `.received.txt` over the `.approved.txt` — this is a **conscious act**, not an accident
+- [ ] If any **public package entry point** changed (any package, plugin, theme, or `dopaminejs/engine` subpath): the API snapshot was reviewed and re-approved by copying the `.received.txt` over the `.approved.txt` — this is a **conscious act**, not an accident
 - [ ] If this is a breaking change: the version bump and migration note are included

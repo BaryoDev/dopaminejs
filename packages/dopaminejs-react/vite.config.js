@@ -6,6 +6,7 @@ export default defineConfig({
         lib: {
             entry: resolve(__dirname, 'src/index.js'),
             name: 'DopamineReact',
+            fileName: 'index',
         },
         rollupOptions: {
             // react and dopaminejs are peer dependencies — never bundle them

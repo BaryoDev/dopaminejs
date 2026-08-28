@@ -12,6 +12,7 @@
             "require": "./dist/dopamine.cjs"
         },
         "./engine": {
+            "types": "./types/index.d.ts",
             "import": "./dist/engine.js",
             "require": "./dist/engine.cjs"
         },

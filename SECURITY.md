@@ -12,6 +12,7 @@
 DopamineJS packages that handle data or external communication:
 
 - **`dopaminejs`** — `RewardSystem` persists player state to `localStorage` by default. Supply a custom `storage` implementation to move this server-side or to an encrypted store.
+- **`dopaminejs-react`** — `RewardsProvider` wraps `RewardSystem`, so the same `localStorage` note applies. Pass a custom `storage` prop to override.
 - **`dopaminejs-plugin-ecosystem`** — `WebhookIntegration` sends HTTP POST requests to your configured endpoint on reward events. Validate and authenticate all incoming webhook payloads on your server.
 
 All other packages (`dopaminejs-themes`, `plugin-debug-overlay`, `plugin-feedback-effects`, `plugin-howler-audio`, `plugin-sound-packs`, `plugin-webgl-particles`) are client-side rendering utilities and do not handle user data.
