@@ -6,3 +6,4 @@ dist
 # Build artifacts
 *.tgz
 coverage
+packages/dopaminejs/tests/approved-api/*.received.txt

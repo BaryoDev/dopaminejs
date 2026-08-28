@@ -1,2 +1,0 @@
-WebGLParticlePlugin: object
-WebGLParticleSystem: class(0) proto[clear,confetti,destroy,emit,init,play,registerEffect,registerSprite,sparkle,update]

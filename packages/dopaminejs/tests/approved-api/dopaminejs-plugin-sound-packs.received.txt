@@ -1,3 +1,0 @@
-SoundPacks: object
-getSoundPack: function(1)
-listSoundPacks: function(0)
