@@ -6,17 +6,14 @@ export default defineConfig({
         lib: {
             entry: resolve(__dirname, 'src/index.js'),
             name: 'DopamineReact',
-            fileName: 'index',
+            formats: ['es', 'cjs'],
+            fileName: format => (format === 'es' ? 'index.js' : 'index.cjs'),
         },
         rollupOptions: {
-            // react and dopaminejs are peer dependencies — never bundle them
+            // react and dopaminejs are peer dependencies, never bundle them
             external: ['react', 'react/jsx-runtime', 'dopaminejs'],
             output: {
                 exports: 'named',
-                globals: {
-                    react: 'React',
-                    dopaminejs: 'Dopamine',
-                },
             },
         },
     },
