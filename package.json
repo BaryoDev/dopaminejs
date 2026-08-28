@@ -47,9 +47,9 @@
             "name": "dopaminejs (ESM)"
         },
         {
-            "path": "packages/dopaminejs/dist/dopamine.umd.cjs",
+            "path": "packages/dopaminejs/dist/dopamine.cjs",
             "limit": "14 KB",
-            "name": "dopaminejs (UMD/CJS)"
+            "name": "dopaminejs (CJS)"
         }
     ],
     "engines": {
