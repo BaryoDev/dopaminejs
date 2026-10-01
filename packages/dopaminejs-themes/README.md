@@ -17,6 +17,18 @@ import { themeEngine } from 'dopaminejs-themes';
 themeEngine.setTheme('dark-cyberpunk');
 ```
 
+A theme sets `--dopamine-*` CSS variables on the document root. The core
+`dopaminejs/style.css` does not read them yet, so setting a theme does not
+restyle the built-in overlay. Use the variables in your own CSS:
+
+```css
+.my-panel {
+    background: var(--dopamine-bg);
+    color: var(--dopamine-text);
+    border-radius: var(--dopamine-border-radius);
+}
+```
+
 ## 🌈 Available Themes
 
 ### Modern (Default)

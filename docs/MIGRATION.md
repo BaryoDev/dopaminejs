@@ -66,20 +66,35 @@ game.kernel.plugins.use(WebGLParticlePlugin);
 
 ### 2. Sound Packs
 
-Sound packs left core in 2.0.2. Install
-`dopaminejs-plugin-sound-packs` and register the pack's sounds:
+Sound packs left core in 2.0.2. Install `dopaminejs-plugin-sound-packs`.
+
+A pack is a set of tone definitions, not audio files. Do not pass one as
+`customSounds`, which expects `{ key: url }`, and there is no `setSoundPack`
+method. Play an entry with `playTone`:
 
 ```javascript
 import { SoundManager } from 'dopaminejs';
 import { getSoundPack } from 'dopaminejs-plugin-sound-packs';
 
-const soundManager = new SoundManager({
-    customSounds: getSoundPack('retro')  // or 'modern', 'cute', 'scifi'
-});
+const sound = new SoundManager();
+const pack = getSoundPack('retro');  // or 'modern', 'cute', 'scifi'
 
-// Switch packs dynamically
-soundManager.setSoundPack('cyberpunk');
+function playPackSound(def) {
+    if (def.type === 'tone') {
+        sound.playTone(def.frequency, def.duration, def.waveform, def.volume);
+        return;
+    }
+    let delay = 0;
+    for (const note of def.notes) {
+        setTimeout(() => sound.playTone(note.frequency, note.duration, def.waveform, def.volume), delay * 1000);
+        delay += note.duration;
+    }
+}
+
+playPackSound(pack.levelUp);
 ```
+
+To switch packs, call `getSoundPack` with another name.
 
 ### 3. Themes
 
@@ -88,6 +103,10 @@ import { themeEngine } from 'dopaminejs-themes';
 
 themeEngine.setTheme('dark-cyberpunk');
 ```
+
+A theme sets `--dopamine-*` CSS variables on the document root. The core
+stylesheet does not read them, so a theme changes only the CSS you write
+against those variables.
 
 ## Component Migration
 
@@ -158,18 +177,16 @@ repo in 2.1.0. Replace the single import with the package that owns each export:
 
 ## Deprecation Timeline
 
-- **v2.0**: Global singletons deprecated (warnings in console)
-- **v2.5**: Global singletons marked for removal
-- **v3.0**: Global singletons removed entirely
+`GlobalPhysics`, `GlobalInput` and `GlobalLoader` are deprecated since v2.0.
+Each warns once in the console on first use. They stay for the whole of 2.x.
+Removing them needs a major version, and none is scheduled.
 
 ## Performance Improvements
 
-You'll automatically get these benefits:
-
-- ✅ 10-20x faster game loop (no dynamic imports)
-- ✅ Fixed timestep physics (60 FPS)
-- ✅ Pre-sorted system updates
-- ✅ WebGL particles option (10,000+ particles)
+- No dynamic imports in the game loop
+- Physics runs on a fixed timestep
+- Systems are sorted when one is registered or removed, not every frame
+- Optional WebGL particles, 10,000 by default (`maxParticles`)
 
 ## Need Help?
 

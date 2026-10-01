@@ -118,8 +118,8 @@ npm install dopaminejs-themes
 
 UI themes:
 - Modern, Dark Cyberpunk, Neon, Retro, Cute
-- CSS variable-based
-- Easy customization
+- Each theme sets `--dopamine-*` CSS variables on the document root
+- The core stylesheet does not read those variables yet. Use them in your own CSS.
 
 **License**: MIT (use freely, even commercially)
 
