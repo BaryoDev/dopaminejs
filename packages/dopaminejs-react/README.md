@@ -58,7 +58,7 @@ Returns an object with:
 | `xp` | `number` | Current XP |
 | `progress` | `number` | `0–1` fraction to next level |
 | `achievements` | `object[]` | Unlocked achievements |
-| `addXP(amount)` | `(number) => Promise<void>` | Add XP; re-renders on `xp_gained` and `level_up` |
+| `addXP(amount, reason?)` | `(number, string?) => Promise<object>` | Add XP; re-renders on `xp_gained` and `level_up`. Resolves with what `RewardSystem.addXP` returns |
 | `recordGame(gameId, stats)` | `(string, object) => Promise<void>` | Record a game session |
 | `unlockAchievement(key)` | `(string) => Promise<void>` | Manually unlock an achievement |
 

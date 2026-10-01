@@ -111,10 +111,11 @@ export function RewardsProvider({ config, storage, children }) {
         /**
          * Add XP to the current player.
          * @param {number} amount
-         * @returns {Promise<void>}
+         * @param {string} [reason] - carried on the xp_gained event
+         * @returns {Promise<object>|undefined} what RewardSystem.addXP resolves with
          */
-        addXP(amount) {
-            return rewardsRef.current?.addXP(amount);
+        addXP(amount, reason) {
+            return rewardsRef.current?.addXP(amount, reason);
         },
 
         /**
@@ -151,7 +152,7 @@ export function RewardsProvider({ config, storage, children }) {
  *   xp: number,
  *   progress: number,
  *   achievements: object[],
- *   addXP: (amount: number) => Promise<void>,
+ *   addXP: (amount: number, reason?: string) => Promise<object>,
  *   recordGame: (gameId: string, stats: object) => Promise<void>,
  *   unlockAchievement: (key: string) => Promise<void>,
  * }}

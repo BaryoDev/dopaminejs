@@ -227,8 +227,9 @@ export const MyPlugin = {
             // Called every frame
         });
         
-        kernel.events.on('collision_enter', (data) => {
-            // Called on collision
+        kernel.events.on('collision_enter', ({ a, b }) => {
+            // Called once when two colliders start to overlap.
+            // a and b are the colliders; a.gameObject is the object.
         });
         
         // Emit custom events
@@ -242,7 +243,8 @@ export const MyPlugin = {
 - `tick` - Every frame (variable timestep)
 - `fixed_update` - Fixed timestep (for physics)
 - `render` - Render phase
-- `collision_enter` - Physics collision
+- `collision_enter` - Two colliders started to overlap. Payload `{ a, b }`, the two colliders
+- `collision_exit` - They stopped overlapping, or one was removed. Same payload
 - `xp_gained` - Dopamine reward system
 - `level_up` - Dopamine reward system
 - `achievement_unlocked` - Dopamine reward system
@@ -273,7 +275,7 @@ Replaces default physics with a custom implementation.
 
 1. **Name your plugins uniquely** - Use reverse domain notation: `com.yourcompany.plugin-name`
 2. **Version your plugins** - Include a version string for compatibility tracking
-3. **Clean up resources** - Implement `destroy()` to remove event listeners and DOM elements
+3. **Clean up resources** - Implement `destroy()` to remove event listeners and DOM elements. `plugins.remove(name)` calls it, then unregisters the systems the plugin registered during `init()`
 4. **Document dependencies** - Clearly state which systems your plugin requires
 5. **Handle errors gracefully** - Wrap initialization in try-catch blocks
 6. **Use priority wisely** - Higher priority systems run first (default: 0)

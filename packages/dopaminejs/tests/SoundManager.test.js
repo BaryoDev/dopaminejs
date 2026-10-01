@@ -118,4 +118,41 @@ describe('SoundManager', () => {
         expect(global.fetch).toHaveBeenCalledWith('win.mp3');
         expect(playBufferSpy).toHaveBeenCalled();
     });
+
+    it('should register preloaded sounds before the audio context exists', async () => {
+        await soundManager.preloadSounds({ win: 'win.mp3', lose: 'lose.mp3' });
+
+        expect(soundManager.audioContext).toBeNull();
+        expect(global.fetch).not.toHaveBeenCalled();
+        expect(soundManager.customSounds).toEqual({ win: 'win.mp3', lose: 'lose.mp3' });
+    });
+
+    it('should load preloaded sounds when the audio context is created', async () => {
+        await soundManager.preloadSounds({ win: 'win.mp3', lose: 'lose.mp3' });
+
+        soundManager.initAudio();
+        await vi.waitFor(() => expect(soundManager.assets.size).toBe(2));
+
+        expect(global.fetch).toHaveBeenCalledWith('win.mp3');
+        expect(global.fetch).toHaveBeenCalledWith('lose.mp3');
+    });
+
+    it('should play a sound that was preloaded before the audio context existed', async () => {
+        await soundManager.preloadSounds({ win: 'win.mp3' });
+        const playBufferSpy = vi.spyOn(soundManager, '_playBuffer');
+
+        await soundManager.play('win');
+
+        expect(playBufferSpy).toHaveBeenCalledTimes(1);
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should load preloaded sounds at once when the audio context exists', async () => {
+        soundManager.initAudio();
+
+        await soundManager.preloadSounds({ win: 'win.mp3' });
+
+        expect(soundManager.assets.has('win')).toBe(true);
+        expect(soundManager.customSounds.win).toBe('win.mp3');
+    });
 });

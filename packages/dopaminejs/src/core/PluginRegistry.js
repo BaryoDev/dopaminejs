@@ -20,6 +20,19 @@ export class PluginRegistry {
         // Async inits in flight. Each notes the systems other plugins added
         // meanwhile, so a failed one removes only its own.
         this._inFlight = new Set();
+
+        // Map<pluginName, Map<systemName, system>>: what each plugin
+        // registered during init, so remove() can unregister it.
+        this._owned = new Map();
+    }
+
+    /**
+     * Every registered system by name.
+     * @private
+     */
+    _snapshot() {
+        const systems = this.kernel.systems;
+        return new Map(systems.getSystemNames().map((name) => [name, systems.get(name)]));
     }
 
     /**
@@ -27,6 +40,57 @@ export class PluginRegistry {
      */
     _systemsSince(before) {
         return this.kernel.systems.getSystemNames().filter((name) => !before.has(name));
+    }
+
+    /**
+     * Names of the systems added or replaced since a snapshot. A plugin that
+     * swaps in its own 'audio' adds no new name, so names alone miss it.
+     * @private
+     */
+    _changedSince(before) {
+        const systems = this.kernel.systems;
+        return systems.getSystemNames().filter((name) => systems.get(name) !== before.get(name));
+    }
+
+    /**
+     * Remember the systems a plugin registered during init.
+     * @private
+     */
+    _own(pluginName, names) {
+        const systems = this.kernel.systems;
+        const owned = new Map();
+
+        for (const name of names) {
+            const system = systems.get(name);
+
+            // A plugin loaded from inside this one's init() already owns it.
+            const taken = [...this._owned.values()].some((other) => other.get(name) === system);
+            if (!taken) owned.set(name, system);
+        }
+
+        this._owned.set(pluginName, owned);
+    }
+
+    /**
+     * Unregister the systems a removed plugin registered during init.
+     * @private
+     */
+    _release(pluginName) {
+        const owned = this._owned.get(pluginName);
+        if (!owned) return;
+
+        this._owned.delete(pluginName);
+
+        for (const [name, system] of owned) {
+            // Replaced or unregistered since. It is no longer this plugin's.
+            if (this.kernel.systems.get(name) !== system) continue;
+
+            try {
+                this.kernel.systems.unregister(name);
+            } catch (error) {
+                console.error(`[PluginRegistry] Error removing system "${name}":`, error);
+            }
+        }
     }
 
     /**
@@ -107,18 +171,20 @@ export class PluginRegistry {
         this._loadOrder.push(plugin.name);
 
         // Initialize plugin
-        const systemsBefore = new Set(this.kernel.systems.getSystemNames());
+        const systemsBefore = this._snapshot();
 
         try {
             plugin.init(this.kernel);
+
+            const mine = this._changedSince(systemsBefore);
+            this._own(plugin.name, mine);
+            this._claim(mine);
 
             // Emit event
             this.kernel.events.emit('plugin_loaded', {
                 name: plugin.name,
                 version: plugin.version
             });
-
-            this._claim(this._systemsSince(systemsBefore));
         } catch (error) {
             console.error(`[PluginRegistry] Failed to initialize plugin "${plugin.name}":`, error);
             this._forget(plugin.name);
@@ -156,7 +222,7 @@ export class PluginRegistry {
         this._loadOrder.push(plugin.name);
 
         const pending = {
-            before: new Set(this.kernel.systems.getSystemNames()),
+            before: this._snapshot(),
             foreign: new Set()
         };
         const own = () => this._systemsSince(pending.before).filter((name) => !pending.foreign.has(name));
@@ -167,7 +233,18 @@ export class PluginRegistry {
             await plugin.init(this.kernel);
 
             this._inFlight.delete(pending);
-            this._claim(own());
+
+            const systems = this.kernel.systems;
+            const mine = this._changedSince(pending.before).filter((name) => !pending.foreign.has(name));
+
+            // With another init still running, a system that appeared after
+            // that one began could be its work. Nobody owns those, so they
+            // stay registered when either plugin is removed.
+            const others = [...this._inFlight];
+            this._own(plugin.name, mine.filter(
+                (name) => others.every((other) => other.before.get(name) === systems.get(name))
+            ));
+            this._claim(mine);
 
             // Emit event
             this.kernel.events.emit('plugin_loaded', {
@@ -196,6 +273,12 @@ export class PluginRegistry {
 
     /**
      * Remove a plugin
+     *
+     * Calls the plugin's destroy(), then unregisters the systems it
+     * registered during init() that are still in place. Not tracked, and so
+     * the plugin's to unregister in destroy(): a system it registers after
+     * init(), and one registered while two useAsync() inits overlapped.
+     *
      * @param {string} name - Plugin name
      * @returns {boolean} - True if plugin was found and removed
      */
@@ -221,6 +304,8 @@ export class PluginRegistry {
         if (index > -1) {
             this._loadOrder.splice(index, 1);
         }
+
+        this._release(name);
 
         // Emit event
         this.kernel.events.emit('plugin_unloaded', { name });

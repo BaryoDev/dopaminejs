@@ -17,6 +17,9 @@ import { FeedbackSystem } from '../../plugin-feedback-effects/src/FeedbackSystem
 import { FloatingText } from '../../plugin-feedback-effects/src/FloatingText.js';
 import { DebugOverlayPlugin } from '../../plugin-debug-overlay/src/index.js';
 import { WebGLParticleSystem } from '../../plugin-webgl-particles/src/WebGLParticleSystem.js';
+import { WebGLParticlePlugin } from '../../plugin-webgl-particles/src/WebGLParticlePlugin.js';
+import { FeedbackPlugin } from '../../plugin-feedback-effects/src/FeedbackPlugin.js';
+import { HowlerAudioPlugin } from '../../plugin-howler-audio/src/HowlerAudioPlugin.js';
 import { buildState } from '../../dopaminejs-react/src/state.js';
 
 const hmacHex = async (secret, body) => {
@@ -345,6 +348,110 @@ describe('WebGLParticleSystem', () => {
         expect(gl.calls).toContain('drawArrays');
 
         system.destroy();
+    });
+});
+
+describe('removing a plugin', () => {
+    let kernel;
+
+    const fakeGl = () => new Proxy({}, {
+        get(target, prop) {
+            if (typeof prop === 'string' && prop === prop.toUpperCase()) return 1;
+            return () => (prop === 'getProgramParameter' || prop === 'getShaderParameter' ? true : {});
+        }
+    });
+
+    beforeEach(() => {
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        kernel = new DopamineKernel({ canvas: document.createElement('canvas') });
+    });
+
+    afterEach(() => {
+        kernel.destroy();
+        vi.restoreAllMocks();
+        document.body.innerHTML = '';
+    });
+
+    it('should unregister the feedback system with FeedbackPlugin', () => {
+        kernel.plugins.use(FeedbackPlugin);
+        expect(kernel.systems.get('feedback')).toBeInstanceOf(FeedbackSystem);
+
+        kernel.plugins.remove('feedback-effects');
+
+        expect(kernel.systems.has('feedback')).toBe(false);
+    });
+
+    it('should unregister the particle system with WebGLParticlePlugin', () => {
+        vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(fakeGl);
+        kernel.plugins.use(WebGLParticlePlugin);
+        expect(kernel.systems.get('particles')).toBeInstanceOf(WebGLParticleSystem);
+
+        kernel.plugins.remove('webgl-particles');
+
+        expect(kernel.systems.has('particles')).toBe(false);
+    });
+
+    it('should unregister the audio system HowlerAudioPlugin put in place of another', () => {
+        const original = { destroy: vi.fn() };
+        kernel.systems.register('audio', original);
+        kernel.plugins.use(HowlerAudioPlugin);
+        const howler = kernel.systems.get('audio');
+        expect(howler).not.toBe(original);
+
+        kernel.plugins.remove('howler-audio');
+
+        expect(kernel.systems.has('audio')).toBe(false);
+    });
+});
+
+describe('WebGLParticlePlugin without WebGL', () => {
+    let kernel;
+
+    beforeEach(() => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        kernel = new DopamineKernel({ canvas: document.createElement('canvas') });
+    });
+
+    afterEach(() => {
+        kernel.destroy();
+        vi.restoreAllMocks();
+    });
+
+    it('should leave an existing particle system in place and say so', () => {
+        const existing = { destroy: vi.fn() };
+        kernel.systems.register('particles', existing);
+        vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+
+        kernel.plugins.use(WebGLParticlePlugin);
+
+        expect(kernel.systems.get('particles')).toBe(existing);
+        expect(existing.destroy).not.toHaveBeenCalled();
+
+        const logged = [...console.error.mock.calls, ...console.warn.mock.calls].flat().join(' ');
+        expect(logged).toContain('WebGL is not supported');
+        expect(logged).toContain('left in place');
+        expect(logged).not.toMatch(/falling back/i);
+    });
+
+    it('should not remove a particle system it did not register when the plugin is removed', () => {
+        const existing = { destroy: vi.fn() };
+        kernel.systems.register('particles', existing);
+        vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+        kernel.plugins.use(WebGLParticlePlugin);
+
+        kernel.plugins.remove('webgl-particles');
+
+        expect(kernel.systems.get('particles')).toBe(existing);
+    });
+
+    it('should register nothing when there is no particle system', () => {
+        vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+
+        kernel.plugins.use(WebGLParticlePlugin);
+
+        expect(kernel.systems.has('particles')).toBe(false);
     });
 });
 
