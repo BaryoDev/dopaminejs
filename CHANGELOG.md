@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.3.1] - 2026-10-01
 
 Published with this release: `dopaminejs` 2.3.1. Types only, no runtime change.
+`dopaminejs-themes` 1.0.2 followed the same day with a README change only.
 
 ### Fixed
 
@@ -16,6 +17,13 @@ Published with this release: `dopaminejs` 2.3.1. Types only, no runtime change.
   `ParticleConfig` accepts `angle` and a list of colours. TypeScript code
   written against the old declarations compiled and then read `undefined`, so
   it will now fail to compile at those points. No runtime change.
+
+### Documentation
+
+- **`dopaminejs-themes` 1.0.2 carries the corrected README to npm.** A theme
+  sets `--dopamine-*` variables on the document root and the core stylesheet
+  does not read them yet, so a theme changes only CSS written against those
+  variables. No code change in the package.
 
 ## [2.3.0] - 2026-10-01
 
