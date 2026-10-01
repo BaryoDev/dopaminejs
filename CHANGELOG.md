@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Fixed
+
+- **Engine type declarations now match the runtime.** `GameObject` declares
+  `x`, `y`, `scale: { x, y }` and `parent`, not a `position` vector that never
+  existed. `Collider.getBounds()` returns `BoxBounds` (`left`, `right`, `top`,
+  `bottom`) or `CircleBounds` (`x`, `y`, `radius`). `Physics.checkOverlap()`
+  returns `Collider[]` and its tag is optional. `Collider.tag` is declared.
+  `ParticleConfig` accepts `angle` and a list of colours. TypeScript code
+  written against the old declarations compiled and then read `undefined`, so
+  it will now fail to compile at those points. No runtime change.
+
 ## [2.3.0] - 2026-10-01
 
 Fixes from a full audit of the repo. Core changes are additive. The

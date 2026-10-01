@@ -105,7 +105,8 @@ function effectsAndSound(): void {
 // Engine layer plus a plugin.
 class Player1 extends Component {
     override update(dt: number): void {
-        this.gameObject!.position = this.gameObject!.position.add(new Vector2(dt, 0));
+        this.gameObject!.x += dt;
+        this.gameObject!.scale.x = 2;
     }
 }
 
@@ -128,7 +129,27 @@ function engine(): void {
     hero.addComponent(new Collider('box', 32, 32));
 
     const found = hero.getComponent(Collider);
-    void found?.getBounds().width;
+    const bounds = found?.getBounds();
+    if (bounds && 'left' in bounds) {
+        void (bounds.right - bounds.left);
+    } else if (bounds) {
+        void bounds.radius;
+    }
+
+    // The runtime has no `position`, and a declaration that says otherwise
+    // compiles code that reads undefined.
+    // @ts-expect-error
+    void hero.position;
+
+    if (found) {
+        found.tag = 'player';
+        const hits: Collider[] = game.kernel.physics.checkOverlap(found);
+        void game.kernel.physics.checkOverlap(found, 'enemy').length;
+        void hits;
+    }
+
+    new ParticleSystem().emit({ x: 0, y: 0, color: ['#fff', '#000'], angle: Math.PI });
+    void new Vector2(1, 2).add(new Vector2(0, 1));
 
     scene.add(hero);
     game.setScene(scene);

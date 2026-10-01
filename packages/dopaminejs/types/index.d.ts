@@ -218,12 +218,15 @@ export interface ParticleConfig {
     x: number;
     y: number;
     count?: number;
-    color?: string;
+    /** One colour, or a list to pick from at random per particle. */
+    color?: string | string[];
     size?: number;
     life?: number;
     decay?: number;
     gravity?: number;
     spread?: number;
+    /** Direction in radians. */
+    angle?: number;
     speed?: number;
     type?: string;
     sprite?: string;
@@ -433,12 +436,21 @@ export class Component {
     render(ctx: CanvasRenderingContext2D): void;
 }
 
-export interface Bounds {
+export interface BoxBounds {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+}
+
+export interface CircleBounds {
     x: number;
     y: number;
-    width: number;
-    height: number;
+    radius: number;
 }
+
+/** A box collider returns edges, a circle collider returns centre and radius. */
+export type Bounds = BoxBounds | CircleBounds;
 
 export class Collider extends Component {
     constructor(type?: 'box' | 'circle', width?: number, height?: number, radius?: number);
@@ -446,6 +458,7 @@ export class Collider extends Component {
     width: number;
     height: number;
     radius: number;
+    tag: string | null;
     getBounds(): Bounds;
 }
 
@@ -462,11 +475,13 @@ export class Animator extends Component {
 
 export class GameObject {
     constructor(x?: number, y?: number);
-    position: Vector2;
+    x: number;
+    y: number;
     rotation: number;
-    scale: Vector2;
+    scale: { x: number; y: number };
     components: Component[];
     children: GameObject[];
+    parent: GameObject | null;
     kernel: DopamineKernel | null;
     tag?: string;
     addChild(child: GameObject): GameObject;
@@ -527,7 +542,8 @@ export class Physics {
     add(collider: Collider): void;
     remove(collider: Collider): void;
     step(): void;
-    checkOverlap(source: Collider, targetTag: string): GameObject | null;
+    /** Every collider that overlaps `source`. With a tag, only colliders carrying it. */
+    checkOverlap(source: Collider, targetTag?: string): Collider[];
     addBody(body: Collider): void;
     removeBody(body: Collider): void;
     checkCollision(a: Collider, b: Collider): boolean;
