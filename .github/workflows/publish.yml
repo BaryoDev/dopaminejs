@@ -84,6 +84,10 @@ jobs:
       #   HTTP 201  token issued, trusted publishing is configured correctly
       #   HTTP 404  "package not found" = no trusted publisher record for that
       #             package, even though the package itself exists on npm
+      #
+      # Every publishable package is asked, and one bad answer fails the dry
+      # run. The list used to be three names, so v2.3.0 passed its dry run
+      # and then failed on three plugins that had no record.
       - name: Diagnose OIDC exchange per package
         if: inputs.dry_run
         run: |
@@ -95,16 +99,31 @@ jobs:
           echo "$TOKEN" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null \
             | node -pe 'const c=JSON.parse(require("fs").readFileSync(0,"utf8"));JSON.stringify({repository:c.repository,job_workflow_ref:c.job_workflow_ref,ref:c.ref,environment:c.environment},null,2)'
 
-          for PKG in dopaminejs dopaminejs-themes dopaminejs-plugin-webgl-particles; do
+          PACKAGES=$(node -e 'const fs=require("fs");for(const d of fs.readdirSync("packages")){const f="packages/"+d+"/package.json";if(!fs.existsSync(f))continue;const p=JSON.parse(fs.readFileSync(f,"utf8"));if(!p.private)console.log(p.name)}')
+          MISSING=""
+
+          for PKG in $PACKAGES; do
             echo
             echo "=== $PKG ==="
-            curl -sS -o /tmp/body -w 'HTTP %{http_code}\n' \
+            CODE=$(curl -sS -o /tmp/body -w '%{http_code}' \
               -X POST \
               -H "Authorization: Bearer $TOKEN" \
               -H "Content-Type: application/json" \
-              "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/$(node -pe "encodeURIComponent('$PKG')")"
-            head -c 600 /tmp/body; echo
+              "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/$(node -pe "encodeURIComponent('$PKG')")")
+            echo "HTTP $CODE"
+            if [ "$CODE" = "201" ]; then
+              echo "token issued"
+            else
+              head -c 600 /tmp/body; echo
+              MISSING="$MISSING $PKG"
+            fi
           done
+
+          if [ -n "$MISSING" ]; then
+            echo
+            echo "No working trusted publisher for:$MISSING" >&2
+            exit 1
+          fi
 
       - name: Publish changed packages
         run: |
