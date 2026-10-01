@@ -9,6 +9,7 @@ export class Ticker {
         this.callbacks = new Set();
         this._frameHandle = null;
         this._tick = this._tick.bind(this);
+        this._failed = new WeakSet();
     }
 
     /**
@@ -64,12 +65,22 @@ export class Ticker {
         const dt = (time - this.lastTime) / 1000; // Delta time in seconds
         this.lastTime = time;
 
-        // Cap dt to prevent huge jumps if tab was inactive
-        const safeDt = Math.min(dt, 0.1);
+        // Cap dt to prevent huge jumps if tab was inactive. Floored at 0: the
+        // first frame's timestamp can predate the performance.now() in start().
+        const safeDt = Math.max(0, Math.min(dt, 0.1));
 
         // Snapshot: a callback may add or remove callbacks mid-frame.
         for (const callback of [...this.callbacks]) {
-            callback(safeDt);
+            try {
+                callback(safeDt);
+            } catch (error) {
+                // A throw here used to skip the re-queue below with `running`
+                // still true, so the loop died and start() refused to revive it.
+                if (!this._failed.has(callback)) {
+                    this._failed.add(callback);
+                    console.error('[Ticker] Callback threw:', error);
+                }
+            }
         }
 
         // A callback may have called stop(); don't queue another frame if so.

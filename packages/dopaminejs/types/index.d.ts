@@ -77,7 +77,11 @@ export type RewardEvent =
     | 'xp_gained'
     | 'level_up'
     | 'achievement_unlocked'
-    | 'new_high_score';
+    | 'new_high_score'
+    /** Payload `{ current, longest }`. Fires when the day rolls over. */
+    | 'streak_updated'
+    /** Payload `{ key }`. The storage write failed; state lives in memory only. */
+    | 'save_failed';
 
 export class EventEmitter {
     on(event: string, callback: (data?: unknown) => void): () => void;
@@ -101,8 +105,12 @@ export class RewardSystem extends EventEmitter {
     addXP(amount: number, reason?: string): Promise<AddXPResult>;
     getXPForNextLevel(): XPProgress;
 
-    /** Persists once for the whole call, not once per internal mutation. */
-    recordGame(gameName: string, result: GameResult): Promise<void>;
+    /**
+     * Persists once for the whole call, not once per internal mutation.
+     * @throws TypeError for an empty or reserved game name, or a `score` that
+     *   is not a finite number.
+     */
+    recordGame(gameName: string, result?: GameResult): Promise<void>;
 
     checkAchievements(gameName: string, result: GameResult): Promise<AchievementDefinition[]>;
     unlockAchievement(achievementId: string): Promise<boolean>;
@@ -122,16 +130,27 @@ export interface StorageLike {
     removeItem(key: string): void;
 }
 
+/**
+ * Promise-returning store such as AsyncStorage or an IndexedDB wrapper.
+ * DataService accepts either kind. SoundManager reads its mute flag in the
+ * constructor and needs the synchronous one.
+ */
+export interface AsyncStorageLike {
+    getItem(key: string): Promise<string | null>;
+    setItem(key: string, value: string): Promise<void>;
+    removeItem(key: string): Promise<void>;
+}
+
 export interface DataServiceConfig {
     /** Defaults to localStorage, falling back to an in-memory store. */
-    storage?: StorageLike;
+    storage?: StorageLike | AsyncStorageLike;
     /** Key prefix, default 'dopamine_'. */
     prefix?: string;
 }
 
 export class DataService {
     constructor(config?: DataServiceConfig);
-    storage: StorageLike;
+    storage: StorageLike | AsyncStorageLike;
     prefix: string;
     save(key: string, data: unknown): Promise<boolean>;
     load<T = unknown>(key: string, defaultValue?: T | null): Promise<T | null>;
@@ -162,7 +181,8 @@ export class GameUI {
 
     container: HTMLElement | null;
 
-    updateXP(current: number, needed: number, total: number): void;
+    /** `progress` is the position within the current level, 0 to 1. */
+    updateXP(current: number, needed: number, total: number, progress?: number): void;
     updateLevel(level: number): void;
     updateStreak(days: number): void;
 
@@ -188,6 +208,10 @@ export interface ParticleSystemConfig {
     container?: HTMLElement | string;
     canvasId?: string;
     zIndex?: string;
+    /** Cap on live particles, default 5000. Emits past it are dropped. */
+    maxParticles?: number;
+    /** Skip effects under prefers-reduced-motion. Default true. */
+    respectReducedMotion?: boolean;
 }
 
 export interface ParticleConfig {
@@ -239,7 +263,7 @@ export interface SoundManagerConfig {
     storage?: StorageLike;
     /** Master volume 0 to 1, default 1. */
     volume?: number;
-    /** Key to URL map, preloaded on construction. */
+    /** Key to URL map, loaded when the audio context is first created. */
     customSounds?: Record<string, string>;
 }
 
@@ -268,6 +292,9 @@ export class SoundManager {
     playClick(force?: boolean): void;
     playSuccess(force?: boolean): void;
     playError(force?: boolean): void;
+
+    /** Cancels queued tones, closes the audio context, drops decoded buffers. */
+    destroy(): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -585,4 +612,6 @@ export default class Dopamine {
     particleSystem: ParticleSystem;
     gameUI: GameUI;
     init(): Promise<DopamineSubsystems>;
+    /** Removes the overlay and canvas, closes audio, detaches from reward events. */
+    destroy(): void;
 }

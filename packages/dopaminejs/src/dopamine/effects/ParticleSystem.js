@@ -9,6 +9,20 @@ export class ParticleSystem {
             (typeof config.container === 'string' ? document.querySelector(config.container) : config.container)
             : document.body;
 
+        if (!this.container) {
+            console.warn(`[DopamineJS] Particle container '${config.container}' not found. Using document.body.`);
+            this.container = document.body;
+        }
+
+        // Upper bound on live particles. Each one is drawn every frame, so an
+        // oversized count would freeze the tab.
+        this.maxParticles = Number.isFinite(config.maxParticles) ? Math.max(0, Math.floor(config.maxParticles)) : 5000;
+
+        // Effects are skipped for users who asked the OS for less motion.
+        this._reducedMotion = config.respectReducedMotion !== false && typeof window.matchMedia === 'function'
+            ? window.matchMedia('(prefers-reduced-motion: reduce)')
+            : null;
+
         this.canvasId = config.canvasId || 'dopamine-particle-canvas';
 
         // Each instance owns its canvas. Sharing one by id meant two systems
@@ -50,6 +64,7 @@ export class ParticleSystem {
         this._onResize = () => this._resize();
         this._resizeObserver = null;
         this._frameHandle = null;
+        this._lastFrameTime = null;
 
         this._resize();
         // Use ResizeObserver for container resizing if supported, fallback to window resize
@@ -133,10 +148,13 @@ export class ParticleSystem {
             sprite = null,
             spread = Math.PI * 2,
             angle = 0,
-            size = 5
+            size = 5,
+            type = null
         } = config;
 
-        for (let i = 0; i < count; i++) {
+        const total = this._allowed(count);
+
+        for (let i = 0; i < total; i++) {
             const p = this._getParticle();
             const pAngle = angle + (Math.random() - 0.5) * spread;
             const pSpeed = Math.random() * speed;
@@ -151,13 +169,29 @@ export class ParticleSystem {
             p.color = Array.isArray(color) ? color[Math.floor(Math.random() * color.length)] : color;
             p.size = size * (0.8 + Math.random() * 0.4);
             p.sprite = sprite;
+            // Always set: pooled particles keep the fields of their last use.
+            p.type = type;
             p.rotation = Math.random() * Math.PI * 2;
             p.rotationSpeed = (Math.random() - 0.5) * 0.2;
 
             this.particles.push(p);
         }
 
-        this._startAnimation();
+        if (total > 0) {
+            this._startAnimation();
+        }
+    }
+
+    /**
+     * How many of `count` particles may be created right now.
+     * @private
+     */
+    _allowed(count) {
+        if (this._reducedMotion?.matches) return 0;
+        if (!Number.isFinite(count)) return 0;
+
+        const room = this.maxParticles - this.particles.length;
+        return Math.max(0, Math.min(Math.floor(count), room));
     }
 
     _getParticle() {
@@ -228,9 +262,11 @@ export class ParticleSystem {
         // Star burst is unique because of fixed angles, so we keep manual loop or use emit carefully
         // For simplicity, let's use emit but we lose the perfect star shape distribution
         // To keep it perfect, we'll manually push particles but use the pool
-        for (let i = 0; i < count; i++) {
+        const total = this._allowed(count);
+
+        for (let i = 0; i < total; i++) {
             const p = this._getParticle();
-            const angle = (Math.PI * 2 / count) * i;
+            const angle = (Math.PI * 2 / total) * i;
             const speed = 4;
 
             p.x = x;
@@ -249,38 +285,59 @@ export class ParticleSystem {
 
             this.particles.push(p);
         }
-        this._startAnimation();
+
+        if (total > 0) {
+            this._startAnimation();
+        }
     }
 
     _startAnimation() {
         if (!this.isAnimating) {
             this.isAnimating = true;
+            this._lastFrameTime = null;
             this._animate();
         }
     }
 
-    _animate() {
+    /**
+     * @param {number} [time] - requestAnimationFrame timestamp
+     */
+    _animate(time) {
         this._frameHandle = null;
         // CSS pixels: the context is pre-scaled by devicePixelRatio.
         this.ctx.clearRect(0, 0, this.width, this.height);
+
+        // Velocities are tuned per 60 Hz frame. Scaling by elapsed time keeps
+        // the same speed on a 120 Hz display instead of running twice as fast.
+        let step = 1;
+        if (Number.isFinite(time)) {
+            if (this._lastFrameTime !== null) {
+                step = Math.max(0, Math.min(3, (time - this._lastFrameTime) / (1000 / 60)));
+            }
+            this._lastFrameTime = time;
+        }
 
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
 
             // Physics
-            p.vy += p.gravity;
-            p.x += p.vx;
-            p.y += p.vy;
-            p.life -= p.decay;
+            p.vy += p.gravity * step;
+            p.x += p.vx * step;
+            p.y += p.vy * step;
+            p.life -= p.decay * step;
 
             if (p.rotationSpeed) {
-                p.rotation += p.rotationSpeed;
+                p.rotation += p.rotationSpeed * step;
             }
 
-            // Death
+            // Death. Swap with the last particle rather than splice, which
+            // shifts the rest of the array for every particle that dies.
             if (p.life <= 0) {
                 this._recycleParticle(p);
-                this.particles.splice(i, 1);
+                const last = this.particles.pop();
+                if (i < this.particles.length) {
+                    this.particles[i] = last;
+                }
                 continue;
             }
 
@@ -313,7 +370,7 @@ export class ParticleSystem {
         }
 
         if (this.particles.length > 0) {
-            this._frameHandle = requestAnimationFrame(() => this._animate());
+            this._frameHandle = requestAnimationFrame((next) => this._animate(next));
         } else {
             this.isAnimating = false;
         }

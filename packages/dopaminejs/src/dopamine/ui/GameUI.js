@@ -56,6 +56,22 @@ export class GameUI {
             </div>
         `;
 
+        // Popups are decorative and short-lived, so a screen reader would
+        // miss them. This region repeats them as plain text.
+        this.liveRegion = document.createElement('div');
+        this.liveRegion.className = 'dopamine-live-region';
+        this.liveRegion.setAttribute('aria-live', 'polite');
+        this.liveRegion.setAttribute('role', 'status');
+        Object.assign(this.liveRegion.style, {
+            position: 'absolute',
+            width: '1px',
+            height: '1px',
+            overflow: 'hidden',
+            clipPath: 'inset(50%)',
+            whiteSpace: 'nowrap'
+        });
+        this.container.appendChild(this.liveRegion);
+
         document.body.appendChild(this.container);
 
         // Scoped to this instance. Document-wide getElementById would make a
@@ -92,6 +108,16 @@ export class GameUI {
     }
 
     /**
+     * Repeat a popup as text for assistive technology.
+     * @private
+     */
+    _announce(message) {
+        if (this.liveRegion) {
+            this.liveRegion.textContent = message;
+        }
+    }
+
+    /**
      * Replay a CSS animation by clearing it for one tick.
      * @private
      */
@@ -106,10 +132,15 @@ export class GameUI {
      * @param {number} current - XP held right now
      * @param {number} needed - XP still required for the next level
      * @param {number} total - XP total that marks the next level
+     * @param {number} [progress] - Position within the current level, 0 to 1.
+     *   Without it the bar falls back to current / total, which is lifetime
+     *   XP and starts every level after the first partly full.
      */
-    updateXP(current, needed, total) {
-        const progress = total > 0 ? (current / total) * 100 : 0;
-        this.xpBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+    updateXP(current, needed, total, progress) {
+        const fraction = Number.isFinite(progress)
+            ? progress
+            : (total > 0 ? current / total : 0);
+        this.xpBar.style.width = `${Math.max(0, Math.min(100, fraction * 100))}%`;
         this.xpText.textContent = `${current} / ${total} XP`;
 
         this._replayAnimation(this.xpBar, 'xp-pulse 0.3s ease-out');
@@ -134,6 +165,8 @@ export class GameUI {
             this.streakBadge.style.background = 'linear-gradient(135deg, #ff6b00 0%, #ff4400 100%)';
         } else if (days >= 3) {
             this.streakBadge.style.background = 'linear-gradient(135deg, #ff8800 0%, #ff6b00 100%)';
+        } else {
+            this.streakBadge.style.background = '';
         }
     }
 
@@ -167,6 +200,7 @@ export class GameUI {
         popup.querySelector('.achievement-xp').textContent = `+${achievement.xp ?? 0} XP`;
 
         this._mount(popup);
+        this._announce(`Achievement unlocked: ${achievement.name ?? ''}`);
 
         // Trigger confetti at popup location
         this._defer(() => {
@@ -197,6 +231,7 @@ export class GameUI {
         overlay.querySelector('.level-up-number').textContent = newLevel;
 
         this._mount(overlay);
+        this._announce(`Level up: ${newLevel}`);
 
         // Fireworks effect
         this._defer(() => {
@@ -265,13 +300,20 @@ export class GameUI {
         const x = window.innerWidth / 2;
         const y = window.innerHeight / 3;
 
+        // The message is shown as written. showLuckyMoment and showCombo
+        // expect a multiplier and would wrap it in "LUCKY ...×!".
         if (type === 'legendary') {
-            this.showLuckyMoment(message, x, y);
+            this.showFloatingText(message, x, y, '#ffd700', '36px');
+            this.particleSystem.starBurst(x, y, 12);
+            this.particleSystem.confetti(x, y, 25);
         } else if (type === 'rare') {
-            this.showCombo(message, x, y);
+            this.showFloatingText(message, x, y, '#ff6b6b', '32px');
+            this.particleSystem.fire(x, y, 20);
         } else {
             this.showFloatingText(message, x, y, '#fff', '24px');
         }
+
+        this._announce(message);
     }
 
     /**
@@ -367,6 +409,7 @@ export class GameUI {
 
         this.container?.remove();
         this.container = null;
+        this.liveRegion = null;
         this.xpBar = null;
         this.xpText = null;
         this.levelBadge = null;

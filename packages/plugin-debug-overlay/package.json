@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs-plugin-debug-overlay",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Debug overlay plugin for DopamineJS - shows FPS, entity count, and performance stats",
     "type": "module",
     "main": "./dist/index.umd.cjs",

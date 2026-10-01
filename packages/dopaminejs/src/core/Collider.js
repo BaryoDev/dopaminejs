@@ -14,19 +14,55 @@ export class Collider extends Component {
         this.tag = null; // For collision filtering
     }
 
+    get kernel() {
+        return this._kernel ?? null;
+    }
+
+    /**
+     * The kernel can arrive after onAttach(), when the collider was added to
+     * an object before that object joined a scene. Registering only in
+     * onAttach() left such colliders out of physics for good.
+     */
+    set kernel(value) {
+        if (value === this._kernel) return;
+
+        this._unregister();
+        this._kernel = value;
+        this._register();
+    }
+
     onAttach() {
         super.onAttach();
-        // Register with physics system through kernel
-        if (this.physics) {
-            this.physics.add(this);
-        }
+        this._attached = true;
+        this._register();
     }
 
     onDetach() {
         super.onDetach();
-        // Unregister from physics
-        if (this.physics) {
-            this.physics.remove(this);
+        this._attached = false;
+        this._unregister();
+    }
+
+    /**
+     * @private
+     */
+    _register() {
+        if (this._physics || !this._attached) return;
+
+        const physics = this.physics;
+        if (physics) {
+            physics.add(this);
+            this._physics = physics;
+        }
+    }
+
+    /**
+     * @private
+     */
+    _unregister() {
+        if (this._physics) {
+            this._physics.remove(this);
+            this._physics = null;
         }
     }
 

@@ -5,6 +5,8 @@
 
 import { resolveStorage } from '../utils/storage.js';
 
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
 export class SoundManager {
     constructor(config = {}) {
         this.audioContext = null;
@@ -18,12 +20,27 @@ export class SoundManager {
 
         // Master gain, created with the AudioContext on first use.
         this.masterGain = null;
-        this._volume = config.volume ?? 1;
+        this._volume = 1;
+        this.setVolume(config.volume ?? 1);
 
-        // Preload custom sounds if provided
-        if (Object.keys(this.customSounds).length > 0) {
-            this.preloadSounds(this.customSounds);
-        }
+        // In-flight loads by key, so a play() during preload does not fetch
+        // the same file twice.
+        this._loading = new Map();
+
+        // Queued follow-up tones, so destroy() can cancel them.
+        this._timers = new Set();
+    }
+
+    /**
+     * setTimeout that destroy() can cancel.
+     * @private
+     */
+    _later(fn, delay) {
+        const id = setTimeout(() => {
+            this._timers.delete(id);
+            fn();
+        }, delay);
+        this._timers.add(id);
     }
 
     /**
@@ -43,6 +60,10 @@ export class SoundManager {
             this.masterGain = this.audioContext.createGain();
             this.masterGain.gain.value = this._volume;
             this.masterGain.connect(this.audioContext.destination);
+
+            // Decoding needs a context, so sounds registered before this
+            // point could not be loaded until now.
+            this.preloadSounds(this.customSounds);
         }
 
         if (this.audioContext.state === 'suspended') {
@@ -57,6 +78,9 @@ export class SoundManager {
      * @param {number} value - 0..1
      */
     setVolume(value) {
+        // NaN would pass through Math.min/max and silence the gain node.
+        if (!Number.isFinite(value)) return this._volume;
+
         this._volume = Math.max(0, Math.min(1, value));
         if (this.masterGain) {
             this.masterGain.gain.value = this._volume;
@@ -116,19 +140,39 @@ export class SoundManager {
      * Load and decode a sound file
      */
     async loadSound(key, url) {
+        // We need an audio context to decode. Without one this waits for
+        // initAudio(), which loads everything registered so far.
+        if (!this.audioContext) return;
+
+        if (this._loading.has(key)) {
+            return this._loading.get(key);
+        }
+
+        const loading = this._load(key, url).finally(() => this._loading.delete(key));
+        this._loading.set(key, loading);
+        return loading;
+    }
+
+    /**
+     * @private
+     */
+    async _load(key, url) {
         try {
-            // We need audio context to decode
-            if (!this.audioContext) {
-                // If no context yet, we can't decode. 
-                // In a real app, we might fetch buffer first, decode later.
-                // For simplicity, we'll wait for initAudio() or lazy load.
-                return;
+            const context = this.audioContext;
+            const response = await fetch(url);
+
+            // fetch resolves on a 404. Its body is an error page, not audio.
+            if (response.ok === false) {
+                throw new Error(`HTTP ${response.status}`);
             }
 
-            const response = await fetch(url);
             const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-            this.assets.set(key, audioBuffer);
+            const audioBuffer = await context.decodeAudioData(arrayBuffer);
+
+            // destroy() may have run while this was in flight.
+            if (this.audioContext === context) {
+                this.assets.set(key, audioBuffer);
+            }
         } catch (error) {
             console.warn(`[DopamineJS] Failed to load sound '${key}':`, error);
         }
@@ -149,8 +193,14 @@ export class SoundManager {
         }
 
         // 2. Try to load if registered but not loaded
-        if (this.customSounds[key] && !this.assets.has(key)) {
+        if (hasOwn(this.customSounds, key) && !this.assets.has(key)) {
+            const context = this.audioContext;
             await this.loadSound(key, this.customSounds[key]);
+
+            // destroy() ran while the file loaded. The synth fallback would
+            // open a new context.
+            if (this.audioContext !== context) return;
+
             if (this.assets.has(key)) {
                 this._playBuffer(this.assets.get(key));
                 return;
@@ -167,7 +217,7 @@ export class SoundManager {
             'gameover': () => this.playGameOver(true)
         };
 
-        if (synthMap[key]) {
+        if (hasOwn(synthMap, key)) {
             synthMap[key]();
         }
     }
@@ -214,14 +264,14 @@ export class SoundManager {
     playScore(force = false) {
         if (!force && this.assets.has('score')) return this.play('score');
         this.playTone(800, 0.15, 'sine', 0.25);
-        setTimeout(() => this.playTone(1000, 0.15, 'sine', 0.25), 50);
+        this._later(() => this.playTone(1000, 0.15, 'sine', 0.25), 50);
     }
 
     playGameOver(force = false) {
         if (!force && this.assets.has('gameover')) return this.play('gameover');
         this.playTone(300, 0.2, 'sawtooth', 0.3);
-        setTimeout(() => this.playTone(200, 0.2, 'sawtooth', 0.3), 100);
-        setTimeout(() => this.playTone(150, 0.3, 'sawtooth', 0.3), 200);
+        this._later(() => this.playTone(200, 0.2, 'sawtooth', 0.3), 100);
+        this._later(() => this.playTone(150, 0.3, 'sawtooth', 0.3), 200);
     }
 
     playClick(force = false) {
@@ -232,11 +282,32 @@ export class SoundManager {
     playSuccess(force = false) {
         if (!force && this.assets.has('success')) return this.play('success');
         this.playTone(600, 0.1, 'sine', 0.2);
-        setTimeout(() => this.playTone(800, 0.2, 'sine', 0.2), 100);
+        this._later(() => this.playTone(800, 0.2, 'sine', 0.2), 100);
     }
 
     playError(force = false) {
         if (!force && this.assets.has('error')) return this.play('error');
         this.playTone(200, 0.2, 'sawtooth', 0.3);
+    }
+
+    /**
+     * Cancel queued tones, close the audio context and drop decoded buffers.
+     * Browsers cap the number of live AudioContexts per page.
+     */
+    destroy() {
+        for (const id of this._timers) {
+            clearTimeout(id);
+        }
+        this._timers.clear();
+
+        if (this.audioContext) {
+            const closing = this.audioContext.close?.();
+            closing?.catch?.(() => {});
+        }
+
+        this.audioContext = null;
+        this.masterGain = null;
+        this.assets.clear();
+        this._loading.clear();
     }
 }

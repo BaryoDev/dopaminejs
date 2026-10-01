@@ -2,6 +2,16 @@ import { GameObject } from 'dopaminejs';
 import { FloatingText } from './FloatingText.js';
 import { ConfettiParticle } from './ConfettiParticle.js';
 
+const DEFAULTS = {
+    oops: { text: 'Oops!', color: '#FF4444' },
+    milestone: { text: 'MILESTONE!', color: '#FFD700', confetti: 50 },
+    faster: { text: 'FASTER!', color: '#50fa7b' },
+    levelup: { text: 'LEVEL UP!', color: '#bd93f9', confetti: 30 }
+};
+
+// Each confetti piece is a GameObject updated every frame.
+const MAX_CONFETTI = 500;
+
 /**
  * Feedback System handles visual cues like floating text and confetti.
  */
@@ -22,33 +32,20 @@ export class FeedbackSystem {
         const scene = director?.currentScene;
         if (!scene) return;
 
-        let text = options.text || '';
-        let color = options.color || '#FFFFFF';
+        const preset = Object.prototype.hasOwnProperty.call(DEFAULTS, type) ? DEFAULTS[type] : {};
 
-        switch (type) {
-            case 'oops':
-                text = text || 'Oops!';
-                color = color || '#FF4444';
-                break;
-            case 'milestone':
-                text = text || 'MILESTONE!';
-                color = color || '#FFD700';
-                this.emitConfetti(x, y, options.count || 50);
-                break;
-            case 'faster':
-                text = text || 'FASTER!';
-                color = color || '#50fa7b';
-                break;
-            case 'levelup':
-                text = text || 'LEVEL UP!';
-                color = color || '#bd93f9';
-                this.emitConfetti(x, y, options.count || 30);
-                break;
+        // The colour used to be defaulted to white before the switch, so the
+        // per-type colours below it never applied.
+        const text = options.text || preset.text || '';
+        const color = options.color || preset.color || '#FFFFFF';
+
+        if (preset.confetti) {
+            this.emitConfetti(x, y, options.count || preset.confetti);
         }
 
         if (text) {
             const fontObj = new GameObject(x, y);
-            fontObj.addComponent(new FloatingText(text, { color, ...options }));
+            fontObj.addComponent(new FloatingText(text, { ...options, color }));
             scene.add(fontObj);
         }
     }
@@ -64,7 +61,9 @@ export class FeedbackSystem {
         const colors = ['#FF0000', '#00FF00', '#0066FF', '#FFFF00', '#FF00FF'];
 
         // Create confetti particles using STATIC imports (same as FloatingText)
-        for (let i = 0; i < count; i++) {
+        const total = Number.isFinite(count) ? Math.min(Math.floor(count), MAX_CONFETTI) : 0;
+
+        for (let i = 0; i < total; i++) {
             const particle = new GameObject(x, y);
             const color = colors[Math.floor(Math.random() * colors.length)];
             particle.addComponent(new ConfettiParticle(color));

@@ -15,16 +15,17 @@ export class ScreenShake extends Component {
     }
 
     shake(intensity = 5, duration = 0.2) {
+        // Save original if not already shaking. Mid-shake the object sits at
+        // an offset, and saving that would move its resting position.
+        if (!this.isShaking) {
+            this.originalPos.x = this.gameObject.x;
+            this.originalPos.y = this.gameObject.y;
+        }
+
         this.intensity = intensity;
         this.duration = duration;
         this.timer = 0;
         this.isShaking = true;
-
-        // Save original if not already shaking
-        if (this.timer === 0) {
-            this.originalPos.x = this.gameObject.x;
-            this.originalPos.y = this.gameObject.y;
-        }
     }
 
     update(dt) {
