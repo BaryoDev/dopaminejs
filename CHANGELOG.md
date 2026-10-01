@@ -2,10 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.3.0] - 2026-10-01
 
 Fixes from a full audit of the repo. Core changes are additive. The
 `dopaminejs-plugin-ecosystem` changes are breaking for that package.
+
+Published with this release: `dopaminejs` 2.3.0,
+`dopaminejs-plugin-ecosystem` 2.0.0 (needs `dopaminejs` 2.3.0 or newer),
+`dopaminejs-plugin-feedback-effects` 1.0.2, `dopaminejs-plugin-debug-overlay`
+1.0.1, `dopaminejs-plugin-webgl-particles` 1.1.1.
 
 ### Security
 

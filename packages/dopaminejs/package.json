@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs",
-    "version": "2.2.0",
+    "version": "2.3.0",
     "description": "Progression mechanics for web apps: XP, levels, achievements and timezone-correct daily streaks, with the particles and sound to make them land. Zero dependencies.",
     "type": "module",
     "main": "./dist/dopamine.cjs",

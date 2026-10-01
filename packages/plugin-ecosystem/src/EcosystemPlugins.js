@@ -212,7 +212,7 @@ export class WebhookIntegration {
  */
 export const BattlePassPlugin = {
     name: 'battle-pass',
-    version: '1.0.0',
+    version: '2.0.0',
 
     init(kernel) {
         this.kernel = kernel;
@@ -269,7 +269,7 @@ export const BattlePassPlugin = {
  */
 export const LeaderboardPlugin = {
     name: 'leaderboard',
-    version: '1.0.0',
+    version: '2.0.0',
 
     /**
      * @param {Object} config - WebhookIntegration options plus `playerId`

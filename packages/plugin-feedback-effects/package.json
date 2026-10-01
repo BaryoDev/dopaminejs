@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs-plugin-feedback-effects",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Feedback and eye-candy effects plugin for DopamineJS",
     "main": "./dist/plugin-feedback-effects.umd.js",
     "module": "./dist/plugin-feedback-effects.es.js",
