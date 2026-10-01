@@ -21,12 +21,14 @@ class DebugOverlay {
         this._createOverlay();
 
         // Listen to tick events to update stats
-        kernel.events.on('tick', ({ dt }) => {
-            this.stats.fps = Math.round(1 / dt);
+        this._onTick = ({ dt }) => {
+            // dt is 0 on a frame that lands on the same timestamp.
+            this.stats.fps = dt > 0 ? Math.round(1 / dt) : 0;
             this.stats.frameTime = Math.round(dt * 1000);
             this.stats.systemCount = kernel.systems.getSystemNames().length;
             this._updateOverlay();
-        }, 100); // Low priority - update after everything else
+        };
+        kernel.events.on('tick', this._onTick, 100); // Low priority - update after everything else
     }
 
     _createOverlay() {
@@ -61,9 +63,15 @@ class DebugOverlay {
     }
 
     destroy() {
+        if (this.kernel && this._onTick) {
+            this.kernel.events.off('tick', this._onTick);
+        }
+        this._onTick = null;
+
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.parentNode.removeChild(this.overlay);
         }
+        this.overlay = null;
     }
 }
 
@@ -95,6 +103,7 @@ export const DebugOverlayPlugin = {
     destroy() {
         if (this._overlay) {
             this._overlay.destroy();
+            this._overlay = null;
         }
     }
 };

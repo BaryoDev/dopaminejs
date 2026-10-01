@@ -4,10 +4,10 @@
  * Manages a single RewardSystem instance for the React tree it wraps.
  * Components call useRewards() to read player state and dispatch XP/games.
  *
- * The provider subscribes to XP_GAINED, LEVEL_UP, and ACHIEVEMENT_UNLOCKED
- * on mount and unsubscribes on unmount. EventBus holds strong references, so
- * this cleanup is mandatory — a component that mounts and unmounts repeatedly
- * without cleanup will accumulate duplicate listeners.
+ * The provider subscribes to xp_gained, level_up, achievement_unlocked and
+ * streak_updated on mount and unsubscribes on unmount. The emitter holds
+ * strong references, so a component that mounts and unmounts repeatedly
+ * without cleanup would accumulate duplicate listeners.
  *
  * Usage:
  *   <RewardsProvider config={...} storage={myStorage}>
@@ -25,6 +25,7 @@ import React, {
     useRef,
 } from 'react';
 import { RewardSystem, DataService } from 'dopaminejs';
+import { buildState } from './state.js';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
@@ -39,27 +40,6 @@ function reducer(state, action) {
         default:
             return state;
     }
-}
-
-function buildState(rewards) {
-    const player = rewards.player || {};
-    // getXPForNextLevel() takes no arguments and returns the XP needed to
-    // complete the current level band. Progress is (xp spent in this band)
-    // divided by (width of the band). We clamp to [0, 1] defensively.
-    let progress = 0;
-    if (rewards.getXPForNextLevel) {
-        const xpForNext = rewards.getXPForNextLevel();
-        if (xpForNext > 0) {
-            progress = Math.min(1, Math.max(0, (player.xp ?? 0) / xpForNext));
-        }
-    }
-    return {
-        player,
-        level: player.level ?? 1,
-        xp: player.xp ?? 0,
-        progress,
-        achievements: rewards.getUnlockedAchievements?.() ?? [],
-    };
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -110,6 +90,7 @@ export function RewardsProvider({ config, storage, children }) {
         rewards.on('xp_gained', sync);
         rewards.on('level_up', sync);
         rewards.on('achievement_unlocked', sync);
+        rewards.on('streak_updated', sync);
 
         return () => {
             mounted = false;
@@ -118,6 +99,7 @@ export function RewardsProvider({ config, storage, children }) {
             rewards.off('xp_gained', sync);
             rewards.off('level_up', sync);
             rewards.off('achievement_unlocked', sync);
+            rewards.off('streak_updated', sync);
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
     // config and storage are intentionally excluded: the RewardSystem is

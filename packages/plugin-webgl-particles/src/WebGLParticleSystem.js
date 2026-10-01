@@ -14,7 +14,10 @@ export class WebGLParticleSystem {
      *   to this element, so particle coordinates share its coordinate space.
      */
     constructor(config = {}) {
-        this.maxParticles = config.maxParticles || 10000;
+        // Sizes six typed arrays, so it has to be a sane positive integer.
+        this.maxParticles = Number.isFinite(config.maxParticles) && config.maxParticles >= 1
+            ? Math.min(Math.floor(config.maxParticles), 1000000)
+            : 10000;
         this.container = config.container || null;
         this.kernel = null;
 
@@ -40,6 +43,10 @@ export class WebGLParticleSystem {
     init(kernel) {
         this.kernel = kernel;
         this._initWebGL();
+
+        // No WebGL: stay registered and inert rather than throw on gl.* below.
+        if (!this.gl) return;
+
         this._createShaders();
         this._createBuffers();
     }
@@ -78,7 +85,11 @@ export class WebGLParticleSystem {
             window.removeEventListener('resize', this._onResize);
             this._onResize = null;
         }
-        if (this.gl) {
+        if (this.canvas && this._onContextLost) {
+            this.canvas.removeEventListener('webglcontextlost', this._onContextLost);
+            this.canvas.removeEventListener('webglcontextrestored', this._onContextRestored);
+        }
+        if (this.gl && !this._contextLost) {
             this.gl.deleteProgram(this.program);
             this.gl.deleteBuffer(this.particleBuffer);
         }
@@ -160,7 +171,10 @@ export class WebGLParticleSystem {
             [1, 0, 1, 1],    // Magenta
         ];
 
-        for (let i = 0; i < count; i++) {
+        // Bounded by free slots: emit() stops at the cap, this loop would not.
+        const total = Math.min(count, this.maxParticles - this.particleCount);
+
+        for (let i = 0; i < total; i++) {
             this.emit({
                 x, y,
                 count: 1,
@@ -235,6 +249,24 @@ export class WebGLParticleSystem {
             this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         };
         window.addEventListener('resize', this._onResize);
+
+        // The browser can take the context away (GPU reset, too many
+        // contexts). The program and buffer die with it. preventDefault()
+        // asks for it back; they are rebuilt when it returns.
+        this._onContextLost = (event) => {
+            event.preventDefault();
+            this._contextLost = true;
+        };
+        this._onContextRestored = () => {
+            this._contextLost = false;
+            this.gl.enable(this.gl.BLEND);
+            this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+            this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+            this._createShaders();
+            this._createBuffers();
+        };
+        this.canvas.addEventListener('webglcontextlost', this._onContextLost);
+        this.canvas.addEventListener('webglcontextrestored', this._onContextRestored);
     }
 
     /**
@@ -327,6 +359,7 @@ export class WebGLParticleSystem {
 
     _render() {
         const gl = this.gl;
+        if (!gl || this._contextLost) return;
 
         // Clear canvas
         gl.clearColor(0, 0, 0, 0);
