@@ -5,6 +5,19 @@
 
 import { EventEmitter } from './EventEmitter.js';
 
+// Keys that resolve to something on Object.prototype. Game names and
+// achievement ids index plain objects, so these must never be used as one.
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+const isSafeKey = (key) => typeof key === 'string' && key.length > 0 && !UNSAFE_KEYS.has(key);
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const toCount = (value, fallback, min = 0) => {
+    const number = Number(value);
+    return Number.isInteger(number) && number >= min ? number : fallback;
+};
+
 export class RewardSystem extends EventEmitter {
     /**
      * @param {Object} dataService - Persistence, see DataService
@@ -73,12 +86,33 @@ export class RewardSystem extends EventEmitter {
         this.player = this._migrate(saved);
 
         // Check daily streak
-        this._updateDailyStreak();
+        const streakChanged = this._updateDailyStreak();
 
         // Save updated player data
         await this.save();
 
+        if (streakChanged) {
+            this._publishStreak();
+        }
+
         return this.player;
+    }
+
+    /**
+     * @private
+     */
+    _requirePlayer() {
+        if (!this.player) {
+            throw new Error('[DopamineJS] RewardSystem.init() must be awaited before use');
+        }
+    }
+
+    /**
+     * @private
+     */
+    _publishStreak() {
+        const { current, longest } = this.player.streak;
+        this._publish('streak_updated', { current, longest });
     }
 
     /**
@@ -118,17 +152,89 @@ export class RewardSystem extends EventEmitter {
     _migrate(saved) {
         const defaults = this._getDefaultPlayer();
 
-        if (!saved || typeof saved !== 'object') {
+        if (!isRecord(saved)) {
             return defaults;
         }
+
+        // Storage is writable by the player and by anything else on the
+        // origin, so every field is checked. A string xp would concatenate on
+        // the next addXP, and a non-object stats would throw on first use.
+        const xpValue = Number(saved.xp);
+        const xp = Number.isFinite(xpValue) && xpValue >= 0 ? xpValue : 0;
+        const earned = this._calculateLevel(xp);
+
+        const savedStreak = isRecord(saved.streak) ? saved.streak : {};
+        const current = toCount(savedStreak.current, 1, 1);
+        const lastPlayDate = typeof savedStreak.lastPlayDate === 'string'
+            && /^\d{4}-\d{2}-\d{2}$/.test(savedStreak.lastPlayDate)
+            ? savedStreak.lastPlayDate
+            : defaults.streak.lastPlayDate;
 
         return {
             ...defaults,
             ...saved,
-            streak: { ...defaults.streak, ...(saved.streak || {}) },
-            achievements: saved.achievements || {},
-            stats: saved.stats || {}
+            name: typeof saved.name === 'string' ? saved.name : defaults.name,
+            xp,
+            // A level above the curve is kept: older versions banked levels
+            // at half the XP and those players keep what they earned.
+            level: Math.max(earned, toCount(saved.level, earned, 1)),
+            totalGamesPlayed: toCount(saved.totalGamesPlayed, 0),
+            createdAt: Number.isFinite(saved.createdAt) ? saved.createdAt : defaults.createdAt,
+            lastPlayedAt: Number.isFinite(saved.lastPlayedAt) ? saved.lastPlayedAt : defaults.lastPlayedAt,
+            streak: {
+                current,
+                longest: Math.max(current, toCount(savedStreak.longest, current, 1)),
+                lastPlayDate
+            },
+            achievements: this._migrateAchievements(saved.achievements),
+            stats: this._migrateStats(saved.stats)
         };
+    }
+
+    /**
+     * @private
+     */
+    _migrateAchievements(saved) {
+        const achievements = {};
+        if (!isRecord(saved)) return achievements;
+
+        for (const id of Object.keys(saved)) {
+            const entry = saved[id];
+            if (!isSafeKey(id) || !isRecord(entry)) continue;
+
+            achievements[id] = {
+                unlockedAt: Number.isFinite(entry.unlockedAt) ? entry.unlockedAt : Date.now(),
+                seen: entry.seen === true
+            };
+        }
+
+        return achievements;
+    }
+
+    /**
+     * @private
+     */
+    _migrateStats(saved) {
+        const stats = {};
+        if (!isRecord(saved)) return stats;
+
+        for (const gameName of Object.keys(saved)) {
+            const entry = saved[gameName];
+            if (!isSafeKey(gameName) || !isRecord(entry)) continue;
+
+            const game = {};
+            for (const key of Object.keys(entry)) {
+                if (isSafeKey(key) && Number.isFinite(entry[key])) {
+                    game[key] = entry[key];
+                }
+            }
+            game.totalPlays = toCount(entry.totalPlays, 0);
+            game.highScore = Number.isFinite(entry.highScore) ? entry.highScore : 0;
+
+            stats[gameName] = game;
+        }
+
+        return stats;
     }
 
     /**
@@ -152,7 +258,13 @@ export class RewardSystem extends EventEmitter {
      */
     async _write() {
         this.player.lastPlayedAt = Date.now();
-        await this.dataService.save('player', this.player);
+        const saved = await this.dataService.save('player', this.player);
+
+        // DataService logs and returns false rather than throwing, so a full
+        // or blocked storage would otherwise lose progress without a sign.
+        if (saved === false) {
+            this._publish('save_failed', { key: 'player' });
+        }
     }
 
     /**
@@ -168,11 +280,14 @@ export class RewardSystem extends EventEmitter {
             throw new TypeError(`[DopamineJS] addXP expects a finite number, received ${amount}`);
         }
 
-        const oldLevel = this.player.level;
-        this.player.xp += amount;
+        this._requirePlayer();
 
-        // Check for level up
-        const newLevel = this._calculateLevel(this.player.xp);
+        const oldLevel = this.player.level;
+        this.player.xp = Math.max(0, this.player.xp + amount);
+
+        // Check for level up. Levels are never taken back, so a negative
+        // amount or a level banked under an older curve reports the stored one.
+        const newLevel = Math.max(oldLevel, this._calculateLevel(this.player.xp));
         const leveledUp = newLevel > oldLevel;
 
         if (leveledUp) {
@@ -182,10 +297,11 @@ export class RewardSystem extends EventEmitter {
         await this.save();
 
         // Notify listeners
-        this._publish('xp_gained', { amount, reason, leveledUp, newLevel });
+        const total = this.player.xp;
+        this._publish('xp_gained', { amount, reason, leveledUp, newLevel, total });
 
         if (leveledUp) {
-            this._publish('level_up', { oldLevel, newLevel });
+            this._publish('level_up', { oldLevel, newLevel, totalXP: total });
         }
 
         return { leveledUp, newLevel, xpGained: amount };
@@ -197,6 +313,8 @@ export class RewardSystem extends EventEmitter {
     _calculateLevel(xp) {
         // Curve: XP = 50 * level * (level - 1)
         // 50L² - 50L - xp = 0  =>  L = (1 + sqrt(1 + 4*xp/50)) / 2
+        if (!(xp > 0)) return 1;
+
         const level = Math.floor((1 + Math.sqrt(1 + 4 * xp / 50)) / 2);
         return Math.max(1, level);
     }
@@ -205,6 +323,8 @@ export class RewardSystem extends EventEmitter {
      * Get XP needed for next level
      */
     getXPForNextLevel() {
+        this._requirePlayer();
+
         const nextLevel = this.player.level + 1;
         const xpNeeded = 50 * nextLevel * (nextLevel - 1);
         const currentLevelXP = 50 * this.player.level * (this.player.level - 1);
@@ -229,7 +349,23 @@ export class RewardSystem extends EventEmitter {
      * @param {string} gameName - Unique ID for the game
      * @param {Object} result - Game-specific result data
      */
-    async recordGame(gameName, result) {
+    async recordGame(gameName, result = {}) {
+        this._requirePlayer();
+
+        if (!isSafeKey(gameName)) {
+            throw new TypeError(`[DopamineJS] recordGame expects a game name, received ${String(gameName)}`);
+        }
+
+        if (!isRecord(result)) {
+            throw new TypeError('[DopamineJS] recordGame expects a result object');
+        }
+
+        // Checked before anything is touched, so a bad score cannot leave the
+        // play counted and the XP missing.
+        if (result.score !== undefined && !Number.isFinite(result.score)) {
+            throw new TypeError(`[DopamineJS] recordGame expects a finite score, received ${String(result.score)}`);
+        }
+
         // Batched: addXP and each unlockAchievement below also save, which
         // meant four full serializations of the player object per game.
         return this._batch(() => this._recordGame(gameName, result));
@@ -239,8 +375,14 @@ export class RewardSystem extends EventEmitter {
      * @private
      */
     async _recordGame(gameName, result) {
+        // A game played on a new day counts for the streak, not only a
+        // page load. A tab left open past midnight used to miss the day.
+        if (this._updateDailyStreak()) {
+            this._publishStreak();
+        }
+
         // Initialize stats for this game if not exists
-        if (!this.player.stats[gameName]) {
+        if (!hasOwn(this.player.stats, gameName)) {
             this.player.stats[gameName] = { totalPlays: 0, highScore: 0 };
         }
 
@@ -258,17 +400,19 @@ export class RewardSystem extends EventEmitter {
 
         // Merge other result data into stats
         Object.keys(result).forEach(key => {
-            if (key !== 'score') {
-                stats[key] = (stats[key] || 0) + (typeof result[key] === 'number' ? result[key] : 0);
+            if (key !== 'score' && isSafeKey(key)) {
+                const current = hasOwn(stats, key) && Number.isFinite(stats[key]) ? stats[key] : 0;
+                stats[key] = current + (Number.isFinite(result[key]) ? result[key] : 0);
             }
         });
 
         // Base XP for playing
         let xp = 10;
 
-        // Score-based bonus
+        // Score-based bonus. A negative score earns nothing extra; it does
+        // not take XP away.
         if (result.score) {
-            xp += Math.floor(result.score / 5);
+            xp += Math.max(0, Math.floor(result.score / 5));
         }
 
         // Streak multiplier
@@ -290,7 +434,7 @@ export class RewardSystem extends EventEmitter {
 
         for (const [id, achievement] of Object.entries(this.achievements)) {
             // Skip if already unlocked
-            if (this.player.achievements[id]) continue;
+            if (hasOwn(this.player.achievements, id)) continue;
 
             // Check conditions are user-supplied; one throwing must not stop
             // the others from ever unlocking.
@@ -302,8 +446,7 @@ export class RewardSystem extends EventEmitter {
                 continue;
             }
 
-            if (met) {
-                await this.unlockAchievement(id);
+            if (met && await this.unlockAchievement(id)) {
                 unlockedAchievements.push(achievement);
             }
         }
@@ -315,6 +458,13 @@ export class RewardSystem extends EventEmitter {
      * Unlock an achievement
      */
     async unlockAchievement(achievementId) {
+        this._requirePlayer();
+
+        if (!isSafeKey(achievementId) || !hasOwn(this.achievements, achievementId)) return false;
+
+        // Already unlocked: paying the XP again would let one call farm levels.
+        if (hasOwn(this.player.achievements, achievementId)) return false;
+
         const achievement = this.achievements[achievementId];
         if (!achievement) return false;
 
@@ -328,7 +478,7 @@ export class RewardSystem extends EventEmitter {
         await this.addXP(Number.isFinite(achievement.xp) ? achievement.xp : 0,
             `Achievement: ${achievement.name}`);
 
-        this._publish('achievement_unlocked', achievement);
+        this._publish('achievement_unlocked', { ...achievement, id: achievementId });
         await this.save();
 
         return true;
@@ -358,7 +508,7 @@ export class RewardSystem extends EventEmitter {
      */
     async markAchievementsSeen(achievementIds) {
         for (const id of achievementIds) {
-            if (this.player.achievements[id]) {
+            if (hasOwn(this.player.achievements, id)) {
                 this.player.achievements[id].seen = true;
             }
         }
@@ -367,6 +517,7 @@ export class RewardSystem extends EventEmitter {
 
     /**
      * Update daily streak
+     * @returns {boolean} True when the calendar day changed
      */
     _updateDailyStreak() {
         const today = this._getTodayDateString();
@@ -374,7 +525,7 @@ export class RewardSystem extends EventEmitter {
 
         if (lastPlayed === today) {
             // Already played today
-            return;
+            return false;
         }
 
         const yesterday = this._getYesterdayDateString();
@@ -391,6 +542,7 @@ export class RewardSystem extends EventEmitter {
         }
 
         this.player.streak.lastPlayDate = today;
+        return true;
     }
 
     /**
