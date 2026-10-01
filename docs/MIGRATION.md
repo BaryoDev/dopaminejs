@@ -185,7 +185,7 @@ repo in 2.1.0. Replace the single import with the package that owns each export:
 
 `GlobalPhysics`, `GlobalInput` and `GlobalLoader` are deprecated since v2.0.
 Each warns once in the console on first use. They stay for the whole of 2.x.
-Removing them needs a major version, and none is scheduled.
+Removing them needs a major version.
 
 ## Performance Improvements
 

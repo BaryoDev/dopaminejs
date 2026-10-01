@@ -312,7 +312,7 @@ class MyComponent extends Component {
 }
 ```
 
-Global singletons (`GlobalPhysics`, `GlobalInput`, `GlobalLoader`) are still available but deprecated. Each warns once on first use. Removing them needs a major version, and none is scheduled.
+Global singletons (`GlobalPhysics`, `GlobalInput`, `GlobalLoader`) are still available but deprecated. Each warns once on first use. Removing them needs a major version.
 
 ## Further Reading
 
