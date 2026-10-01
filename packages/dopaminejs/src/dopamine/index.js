@@ -24,6 +24,7 @@ export default class Dopamine {
 
     async init() {
         await this.rewardSystem.init();
+        this._syncUI();
         return {
             rewardSystem: this.rewardSystem,
             gameUI: this.gameUI,
@@ -32,30 +33,61 @@ export default class Dopamine {
         };
     }
 
+    /**
+     * Draw the loaded player. Without this the overlay keeps its placeholder
+     * (level 1, 0 XP, streak 1) until the first event arrives.
+     * @private
+     */
+    _syncUI() {
+        const { player } = this.rewardSystem;
+        const { total, needed, progress } = this.rewardSystem.getXPForNextLevel();
+
+        this.gameUI.updateXP(player.xp, needed, total, progress);
+        this.gameUI.updateLevel(player.level);
+        this.gameUI.updateStreak(player.streak.current);
+    }
+
     _bindEvents() {
-        this.rewardSystem.on('xp_gained', (data) => {
-            const { total, needed } = this.rewardSystem.getXPForNextLevel();
-            this.gameUI.updateXP(this.rewardSystem.player.xp, needed, total);
+        const rewards = this.rewardSystem;
 
-            if (data.xpGained > 0) {
-                // Show floating text for XP gain
-                // We might need a way to know WHERE to show this, or just show it in a standard place
-                // For now, let's just update the bar
-            }
-        });
+        this._unsubscribe = [
+            rewards.on('xp_gained', () => {
+                const { total, needed, progress } = rewards.getXPForNextLevel();
+                this.gameUI.updateXP(rewards.player.xp, needed, total, progress);
+            }),
 
-        this.rewardSystem.on('level_up', (data) => {
-            this.gameUI.updateLevel(data.newLevel);
-            this.gameUI.showLevelUp(data.oldLevel, data.newLevel);
-        });
+            rewards.on('level_up', (data) => {
+                this.gameUI.updateLevel(data.newLevel);
+                this.gameUI.showLevelUp(data.oldLevel, data.newLevel);
+            }),
 
-        this.rewardSystem.on('achievement_unlocked', (achievement) => {
-            this.gameUI.showAchievement(achievement);
-        });
+            rewards.on('achievement_unlocked', (achievement) => {
+                this.gameUI.showAchievement(achievement);
+            }),
 
-        this.rewardSystem.on('new_high_score', (data) => {
-            this.gameUI.showNotification(`New High Score: ${data.score}!`, 'legendary');
-            this.soundManager.playSuccess();
-        });
+            rewards.on('streak_updated', (data) => {
+                this.gameUI.updateStreak(data.current);
+            }),
+
+            rewards.on('new_high_score', (data) => {
+                this.gameUI.showNotification(`New High Score: ${data.score}!`, 'legendary');
+                this.soundManager.playSuccess();
+            })
+        ];
+    }
+
+    /**
+     * Remove the overlay and canvas, stop audio, and detach from the reward
+     * system. The reward system itself stays usable.
+     */
+    destroy() {
+        for (const unsubscribe of this._unsubscribe) {
+            unsubscribe();
+        }
+        this._unsubscribe = [];
+
+        this.gameUI.destroy();
+        this.particleSystem.destroy();
+        this.soundManager.destroy();
     }
 }

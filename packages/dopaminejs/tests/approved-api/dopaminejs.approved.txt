@@ -34,5 +34,5 @@ TextureGenerator: class(0) static[createCharacterSheet,createGround]
 Ticker: class(0) proto[add,remove,start,stop]
 Vector2: class(0) static[distance] proto[add,clone,distance,normalize,scale,sub]
 createMemoryStorage: function(0)
-default: class(0) proto[init]
+default: class(0) proto[destroy,init]
 resolveStorage: function(0)

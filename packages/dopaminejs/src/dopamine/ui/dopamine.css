@@ -375,3 +375,21 @@
         font-size: 80px;
     }
 }
+
+/* Users who asked the OS for less motion get the same information without
+   the movement. Floating text keeps its place until the script removes it:
+   its animation ends at opacity 0, so cutting the duration would hide it. */
+@media (prefers-reduced-motion: reduce) {
+    .game-ui-overlay *,
+    .achievement-popup,
+    .achievement-popup *,
+    .level-up-overlay,
+    .level-up-overlay * {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    .floating-text {
+        animation: none !important;
+    }
+}
