@@ -27,18 +27,22 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           # No `cache: npm`: that path also writes `always-auth`, which npm 11
           # rejects as an unknown config.
 
-      # Trusted Publishing needs npm >= 11.5.1.
+      # Trusted Publishing needs npm >= 11.5.1. Pinned to the version that
+      # published v2.2.0: this job holds the OIDC publish right, so it should
+      # not run whatever `latest` points at on the day. Bump it by hand.
       - name: Use a Trusted-Publishing-capable npm
         run: |
-          npm install -g npm@latest
+          npm install -g npm@12.0.2
           echo "node $(node --version) / npm $(npm --version)"
 
       - run: npm ci

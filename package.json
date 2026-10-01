@@ -33,17 +33,18 @@
     "author": "BaryoDev",
     "license": "MPL-2.0",
     "devDependencies": {
-        "@size-limit/preset-big-lib": "^11.0.0",
+        "@size-limit/preset-small-lib": "^11.2.0",
         "jsdom": "^27.0.0",
         "size-limit": "^11.0.0",
         "typescript": "^7.0.2",
-        "vite": "^5.0.0",
-        "vitest": "^1.6.1"
+        "vite": "^7.3.6",
+        "vitest": "^3.2.7"
     },
     "size-limit": [
         {
             "path": "packages/dopaminejs/dist/dopamine.js",
-            "limit": "19 KB",
+            "import": "*",
+            "limit": "14 KB",
             "name": "dopaminejs (ESM)"
         },
         {

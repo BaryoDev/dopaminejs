@@ -9,6 +9,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Nothing here writes to the repo. Stated so a change to the repo default
+# cannot widen it.
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -22,9 +27,13 @@ jobs:
         node: [20.19, 22.12]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # No later step pushes, so the token is not left in .git/config
+          # for npm lifecycle scripts to read.
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -32,6 +41,11 @@ jobs:
       # `ci` over `install` so a lockfile that drifts from package.json fails
       # here rather than silently resolving something different.
       - run: npm ci
+
+      # Shipped dependencies only. Dev-tool advisories arrive as Dependabot
+      # PRs and should not block an unrelated change.
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Typecheck declarations
         run: npm run typecheck

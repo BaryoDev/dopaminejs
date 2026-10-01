@@ -17,6 +17,9 @@ export default defineConfig({
                 engine: resolve(__dirname, 'src/engine.js'),
             },
             name: 'Dopamine',
+            // Vite 6+ names the stylesheet after the package. The manifest
+            // exports ./dist/style.css, so the name is fixed here.
+            cssFileName: 'style',
         },
         rollupOptions: {
             // Ensure external dependencies are not bundled into your library
