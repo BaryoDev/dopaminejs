@@ -1,6 +1,7 @@
 {
     "name": "dopaminejs-react",
     "version": "1.0.0",
+    "private": true,
     "description": "React bindings for DopamineJS — useRewards() hook and RewardsProvider for XP, levels, achievements, and daily streaks",
     "type": "module",
     "main": "./dist/index.cjs",

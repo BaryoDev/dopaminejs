@@ -135,8 +135,9 @@ add an `environment:` to the job without reconfiguring each package on
 npmjs.com.
 
 `dopaminejs-react` has never been published, so it has no Trusted Publisher
-record. `publish-changed.js` treats it as a first release and the tag run
-fails on it until that is set up.
+record. It is marked `"private": true` to keep it out of the tag run. Remove
+that line only after the package exists on npm with a record for
+`publish.yml`.
 
 Bump the versions, update `CHANGELOG.md`, tag `v<core version>`, push the tag.
 Only packages whose version is not on npm get published. Never run
