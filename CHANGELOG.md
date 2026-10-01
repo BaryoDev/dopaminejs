@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **Build and test tools updated.** vite 8.3, vitest 4.1, jsdom 28.1 and
+  size-limit 12.1. These are the newest versions that still run on Node 20.19.
+  The core build now writes one shared chunk that `dopaminejs` and
+  `dopaminejs/engine` both import. The export names of every entry point are
+  unchanged.
+
 ## [2.3.1] - 2026-10-01
 
 Published with this release: `dopaminejs` 2.3.1. Types only, no runtime change.
