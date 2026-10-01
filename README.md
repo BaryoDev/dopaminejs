@@ -31,8 +31,8 @@ import { RewardSystem, DataService } from 'dopaminejs';
 const rewards = new RewardSystem(new DataService());
 await rewards.init();
 
-rewards.on('LEVEL_UP', ({ level }) => showLevelUpToast(level));
-rewards.on('ACHIEVEMENT_UNLOCKED', (achievement) => celebrate(achievement));
+rewards.on('level_up', ({ newLevel }) => showLevelUpToast(newLevel));
+rewards.on('achievement_unlocked', (achievement) => celebrate(achievement));
 
 // Somewhere in your app, when the user does the thing you want repeated
 await rewards.addXP(250);
@@ -51,10 +51,9 @@ Want the visuals too:
 import { GameUI, ParticleSystem } from 'dopaminejs';
 import 'dopaminejs/style.css';
 
-const ui = new GameUI(new ParticleSystem(canvas));
-ui.init();
+const ui = new GameUI(new ParticleSystem());
 
-rewards.on('LEVEL_UP', ({ level }) => ui.showLevelUp(level));
+rewards.on('level_up', ({ oldLevel, newLevel }) => ui.showLevelUp(oldLevel, newLevel));
 ```
 
 ## Why streaks are the hard part

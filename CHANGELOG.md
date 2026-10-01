@@ -2,6 +2,100 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Fixes from a full audit of the repo. Core changes are additive. The
+`dopaminejs-plugin-ecosystem` changes are breaking for that package.
+
+### Security
+
+- **`recordGame` and `unlockAchievement` no longer reach `Object.prototype`.**
+  A game name of `__proto__` wrote stats onto every object in the page, and an
+  achievement id of `constructor` unlocked an inherited property. Both now use
+  own-property lookups, and `recordGame` throws a `TypeError` for an empty,
+  non-string or reserved name. `RewardMiddleware` and `SoundManager` got the
+  same lookup fix.
+- **Saved player state is validated on load.** A tampered or corrupt save is
+  coerced back to valid numbers and plain records instead of producing `NaN`
+  XP or throwing later.
+- **`WebhookIntegration` no longer sends its secret.** The old "signature"
+  was `btoa(secret + ':' + payload)`, so every request carried the secret
+  itself, in a header and in the body. It is now
+  `X-Dopamine-Signature: sha256=<hex>`, the HMAC-SHA256 of the exact body
+  sent. Rotate any secret used with an earlier version. See `SECURITY.md` for
+  what a browser-side secret can and cannot prove.
+- **`LeaderboardPlugin` sends nothing until configured.** It shipped with a
+  placeholder URL and a hardcoded secret. Use
+  `LeaderboardPlugin.configure({ webhookUrl, secret, playerId })`.
+- Workflow actions are pinned to commit SHAs, CI runs with a read-only token
+  and `npm audit --omit=dev --audit-level=high`, the publish job pins its npm
+  version, and Dependabot watches npm and actions.
+
+### Added
+
+- `Dopamine.destroy()` removes the overlay and canvas, stops audio and
+  detaches from the reward system.
+- `streak_updated` and `save_failed` events on `RewardSystem`.
+- Storage may return promises (`AsyncStorageLike` in the types).
+- `ParticleSystem` options `maxParticles` (default 5000) and
+  `respectReducedMotion` (default true). The stylesheet also honours
+  `prefers-reduced-motion`.
+- `GameUI` announces achievements, level ups and notifications through an
+  `aria-live` region.
+- `SoundManager.destroy()`.
+- `WebhookIntegration` option `maxQueue` (default 100, oldest dropped).
+
+### Fixed
+
+- The `Dopamine` facade showed level 1, 0 XP and streak 1 until the first
+  event, whatever was saved. It now draws the loaded player after `init()`.
+- The XP bar filled by lifetime XP against the next threshold instead of
+  progress within the level.
+- The streak badge did not update when the streak changed.
+- `showNotification` wrapped rare and legendary messages in unrelated combo
+  and lucky-bonus text. The message is shown as written.
+- `recordGame` with a non-finite or non-numeric score corrupted the high
+  score. It now throws before changing anything. A negative score no longer
+  takes XP away.
+- Calling `addXP` or `recordGame` before `init()` threw a null `TypeError`.
+  The error now says `init()` is missing.
+- A failed save was silent. It emits `save_failed`.
+- One throwing ticker callback or system stopped the whole loop. Each is now
+  isolated and logged once.
+- A plugin whose `init` threw left the systems it had registered behind.
+- `Scene.remove` did not call `onDetach`, so colliders of removed objects
+  kept colliding. Removing an object during `update` skipped its neighbour.
+- `ScreenShake` restarted mid-shake saved the shaken position as the origin.
+- `ParticleSystem` ran at frame rate, so effects were twice as fast on a
+  120 Hz display. It is now time based. A missing container selector fell
+  through to a crash.
+- `SoundManager` fetched the same sound once per concurrent call and accepted
+  HTTP error pages as audio. The `customSounds` preload was a no-op, so each
+  sound loaded on first play. They now load when the audio context is created.
+- `FeedbackSystem` ignored its per-type colours, and `confetti(Infinity)`
+  hung the page. `WebGLParticleSystem` had the same hang, threw without
+  WebGL, and did not recover from a lost context.
+- `BattlePassPlugin` looked up a system that is never registered, so it never
+  unlocked a tier. `DebugOverlayPlugin` and `LeaderboardPlugin` left their
+  listeners behind on `destroy`.
+- `progress` from `useRewards()` in `dopaminejs-react` was always 0, and the
+  hook did not re-render on a streak change.
+- README examples used event names and signatures that do not exist.
+
+### Changed
+
+- **Breaking, `dopaminejs-plugin-ecosystem`:** the webhook body is
+  `{ event, data, timestamp }` with no `signature` field, the signature format
+  changed as above, `LeaderboardPlugin` needs `configure()`, and
+  `BattlePassPlugin` announces a tier with a `battlepass:tier-unlocked` event
+  instead of a console log.
+- `recordGame` rejects with a `TypeError` on a bad game name or score where it
+  used to store the bad value.
+- The size budget measured an empty import (26 B against 19 KB). It now
+  measures the whole ESM entry against 14 KB.
+- Dev tooling: vitest 3, vite 7, and the lighter size-limit preset. Advisories
+  in the dev tree went from 14 to 2 moderate.
+
 ## [2.2.0] - 2026-08-07
 
 ### Added
