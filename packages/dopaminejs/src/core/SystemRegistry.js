@@ -17,6 +17,25 @@ export class SystemRegistry {
 
         // Flag to track if order needs recomputation
         this._needsRecompute = false;
+
+        // Systems that have thrown from an update, so each is logged once
+        // instead of sixty times a second.
+        this._failed = new WeakSet();
+    }
+
+    /**
+     * Run one system's update without letting a throw stop the others.
+     * @private
+     */
+    _run(system, method, dt) {
+        try {
+            system[method](dt);
+        } catch (error) {
+            if (!this._failed.has(system)) {
+                this._failed.add(system);
+                console.error(`[SystemRegistry] System ${method}() threw:`, error);
+            }
+        }
     }
 
     /**
@@ -119,7 +138,7 @@ export class SystemRegistry {
         for (let i = 0; i < this._updateOrder.length; i++) {
             const system = this._updateOrder[i];
             if (system.update) {
-                system.update(dt);
+                this._run(system, 'update', dt);
             }
         }
     }
@@ -136,7 +155,7 @@ export class SystemRegistry {
         for (let i = 0; i < this._fixedUpdateOrder.length; i++) {
             const system = this._fixedUpdateOrder[i];
             if (system.fixedUpdate) {
-                system.fixedUpdate(dt);
+                this._run(system, 'fixedUpdate', dt);
             }
         }
     }

@@ -19,6 +19,22 @@ export class PluginRegistry {
     }
 
     /**
+     * Forget a plugin whose init failed.
+     *
+     * Removed by name: with two async inits in flight, the failed plugin is
+     * not necessarily the last entry.
+     * @private
+     */
+    _forget(name) {
+        this._plugins.delete(name);
+
+        const index = this._loadOrder.indexOf(name);
+        if (index > -1) {
+            this._loadOrder.splice(index, 1);
+        }
+    }
+
+    /**
      * Register and initialize a plugin
      * 
      * Plugin interface:
@@ -51,6 +67,8 @@ export class PluginRegistry {
         this._loadOrder.push(plugin.name);
 
         // Initialize plugin
+        const systemsBefore = new Set(this.kernel.systems.getSystemNames());
+
         try {
             plugin.init(this.kernel);
 
@@ -63,8 +81,16 @@ export class PluginRegistry {
             // Plugin loaded successfully
         } catch (error) {
             console.error(`[PluginRegistry] Failed to initialize plugin "${plugin.name}":`, error);
-            this._plugins.delete(plugin.name);
-            this._loadOrder.pop();
+            this._forget(plugin.name);
+
+            // Systems it registered before throwing would keep updating with
+            // nothing left to remove them.
+            for (const name of this.kernel.systems.getSystemNames()) {
+                if (!systemsBefore.has(name)) {
+                    this.kernel.systems.unregister(name);
+                }
+            }
+
             throw error;
         }
 
@@ -109,8 +135,7 @@ export class PluginRegistry {
             // Plugin loaded successfully
         } catch (error) {
             console.error(`[PluginRegistry] Failed to initialize plugin "${plugin.name}":`, error);
-            this._plugins.delete(plugin.name);
-            this._loadOrder.pop();
+            this._forget(plugin.name);
             throw error;
         }
 
