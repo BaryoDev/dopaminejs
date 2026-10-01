@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## [2.3.1] - 2026-10-01
+
+Published with this release: `dopaminejs` 2.3.1. Types only, no runtime change.
 
 ### Fixed
 
