@@ -106,6 +106,17 @@ describe('RewardSystem input guards', () => {
         expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ newLevel: 1, total: 10 }));
     });
 
+    it('should report the XP that was removed, not the XP that was asked for', async () => {
+        const spy = vi.fn();
+        await rewards.addXP(30);
+        rewards.on('xp_gained', spy);
+
+        const result = await rewards.addXP(-5000);
+
+        expect(result.xpGained).toBe(-30);
+        expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ amount: -30, total: 0 }));
+    });
+
     it('should ignore non-finite extra metrics', async () => {
         await rewards.recordGame('snake', { score: 5, apples: NaN, time: Infinity, moves: 3 });
 

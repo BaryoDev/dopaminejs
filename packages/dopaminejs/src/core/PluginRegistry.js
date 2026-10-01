@@ -16,6 +16,46 @@ export class PluginRegistry {
 
         // Track plugin load order for proper cleanup
         this._loadOrder = [];
+
+        // Async inits in flight. Each notes the systems other plugins added
+        // meanwhile, so a failed one removes only its own.
+        this._inFlight = new Set();
+    }
+
+    /**
+     * @private
+     */
+    _systemsSince(before) {
+        return this.kernel.systems.getSystemNames().filter((name) => !before.has(name));
+    }
+
+    /**
+     * Mark systems as belonging to a plugin that loaded.
+     * @private
+     */
+    _claim(names) {
+        for (const pending of this._inFlight) {
+            for (const name of names) {
+                pending.foreign.add(name);
+            }
+        }
+    }
+
+    /**
+     * Remove the systems a failed plugin registered. They would keep updating
+     * with nothing left to remove them.
+     * @private
+     */
+    _rollback(names) {
+        for (const name of names) {
+            try {
+                this.kernel.systems.unregister(name);
+            } catch (error) {
+                // The caller is about to rethrow the init error. This one
+                // must not replace it or stop the loop.
+                console.error(`[PluginRegistry] Error removing system "${name}":`, error);
+            }
+        }
     }
 
     /**
@@ -78,18 +118,11 @@ export class PluginRegistry {
                 version: plugin.version
             });
 
-            // Plugin loaded successfully
+            this._claim(this._systemsSince(systemsBefore));
         } catch (error) {
             console.error(`[PluginRegistry] Failed to initialize plugin "${plugin.name}":`, error);
             this._forget(plugin.name);
-
-            // Systems it registered before throwing would keep updating with
-            // nothing left to remove them.
-            for (const name of this.kernel.systems.getSystemNames()) {
-                if (!systemsBefore.has(name)) {
-                    this.kernel.systems.unregister(name);
-                }
-            }
+            this._rollback(this._systemsSince(systemsBefore));
 
             throw error;
         }
@@ -122,20 +155,39 @@ export class PluginRegistry {
         this._plugins.set(plugin.name, plugin);
         this._loadOrder.push(plugin.name);
 
+        const pending = {
+            before: new Set(this.kernel.systems.getSystemNames()),
+            foreign: new Set()
+        };
+        const own = () => this._systemsSince(pending.before).filter((name) => !pending.foreign.has(name));
+        this._inFlight.add(pending);
+
         // Initialize plugin (await if it returns a promise)
         try {
             await plugin.init(this.kernel);
+
+            this._inFlight.delete(pending);
+            this._claim(own());
 
             // Emit event
             this.kernel.events.emit('plugin_loaded', {
                 name: plugin.name,
                 version: plugin.version
             });
-
-            // Plugin loaded successfully
         } catch (error) {
             console.error(`[PluginRegistry] Failed to initialize plugin "${plugin.name}":`, error);
+            this._inFlight.delete(pending);
             this._forget(plugin.name);
+
+            const leftover = own();
+            if (this._inFlight.size === 0) {
+                this._rollback(leftover);
+            } else if (leftover.length > 0) {
+                // Another init is still running and may have registered some
+                // of these. Removing them could break a plugin that loads.
+                console.warn(`[PluginRegistry] Left systems in place after "${plugin.name}" failed: ${leftover.join(', ')}`);
+            }
+
             throw error;
         }
 

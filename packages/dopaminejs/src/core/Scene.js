@@ -14,14 +14,14 @@ export class Scene {
     /**
      * Objects added before the scene had a kernel receive it here. Scenes are
      * often built in a constructor, before Game.setScene() injects the kernel.
+     * The Director sets it to null on exit, which takes colliders out of
+     * physics until the scene runs again.
      */
     set kernel(value) {
         this._kernel = value;
 
-        if (value) {
-            for (const gameObject of this.gameObjects) {
-                gameObject.kernel = value;
-            }
+        for (const gameObject of this.gameObjects) {
+            gameObject.kernel = value;
         }
     }
 

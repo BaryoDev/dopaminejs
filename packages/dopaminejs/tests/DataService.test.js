@@ -44,4 +44,36 @@ describe('DataService', () => {
 
         expect(result).toBe('default');
     });
+
+    it('should write to synchronous storage before save returns', () => {
+        dataService.save('test', { foo: 'bar' });
+
+        expect(mockStorage.setItem).toHaveBeenCalledTimes(1);
+    });
+
+    it('should keep overlapping writes in call order on promise storage', async () => {
+        const stored = {};
+        const inFlight = [];
+        const service = new DataService({
+            storage: {
+                getItem: (key) => Promise.resolve(stored[key] ?? null),
+                setItem: (key, value) => new Promise((resolve) => {
+                    inFlight.push(() => { stored[key] = value; resolve(); });
+                }),
+                removeItem: () => Promise.resolve()
+            }
+        });
+
+        const first = service.save('player', { xp: 10 });
+        const second = service.save('player', { xp: 30 });
+
+        // Finish the newest request first, the way a slow network can.
+        while (inFlight.length > 0) {
+            inFlight.pop()();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+        await Promise.all([first, second]);
+
+        expect(await service.load('player')).toEqual({ xp: 30 });
+    });
 });

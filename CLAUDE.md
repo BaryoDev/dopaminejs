@@ -130,8 +130,13 @@ private members, one class per file. Comments say why, not what.
 
 Publishing is tag driven through `.github/workflows/publish.yml` with npm
 Trusted Publishing (OIDC). No npm token exists. The filename `publish.yml` is
-registered on npm for every package, so do not rename the file or add an
-`environment:` to the job without reconfiguring each package on npmjs.com.
+registered on npm for every published package, so do not rename the file or
+add an `environment:` to the job without reconfiguring each package on
+npmjs.com.
+
+`dopaminejs-react` has never been published, so it has no Trusted Publisher
+record. `publish-changed.js` treats it as a first release and the tag run
+fails on it until that is set up.
 
 Bump the versions, update `CHANGELOG.md`, tag `v<core version>`, push the tag.
 Only packages whose version is not on npm get published. Never run

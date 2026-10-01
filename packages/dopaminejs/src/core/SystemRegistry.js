@@ -111,16 +111,18 @@ export class SystemRegistry {
             return false;
         }
 
-        // Call destroy if available
-        if (entry.system.destroy) {
-            entry.system.destroy();
+        // A destroy that throws must not leave the system registered.
+        try {
+            if (entry.system.destroy) {
+                entry.system.destroy();
+            }
+        } finally {
+            this._systems.delete(name);
+            this._needsRecompute = true;
+
+            // Emit event
+            this.kernel.events.emit('system_unregistered', { name });
         }
-
-        this._systems.delete(name);
-        this._needsRecompute = true;
-
-        // Emit event
-        this.kernel.events.emit('system_unregistered', { name });
 
         return true;
     }

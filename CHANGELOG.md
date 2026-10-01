@@ -67,9 +67,18 @@ Published with this release: `dopaminejs` 2.3.0,
 - A failed save was silent. It emits `save_failed`.
 - One throwing ticker callback or system stopped the whole loop. Each is now
   isolated and logged once.
-- A plugin whose `init` threw left the systems it had registered behind.
+- A plugin whose `init` threw or rejected left the systems it had registered
+  behind.
 - `Scene.remove` did not call `onDetach`, so colliders of removed objects
   kept colliding. Removing an object during `update` skipped its neighbour.
+  Colliders of the previous scene also stayed in physics after a scene
+  change. The `Director` now clears the old scene's kernel on exit.
+- `addXP` with a negative amount larger than the player's XP reported the
+  amount asked for. `xpGained` and the `xp_gained` event now carry what was
+  removed.
+- Overlapping saves on promise storage could finish out of order and keep the
+  older value. `DataService` now sends one write at a time.
+- A system whose `destroy` threw stayed registered.
 - `ScreenShake` restarted mid-shake saved the shaken position as the origin.
 - `ParticleSystem` ran at frame rate, so effects were twice as fast on a
   120 Hz display. It is now time based. A missing container selector fell

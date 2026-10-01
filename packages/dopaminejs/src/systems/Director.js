@@ -14,10 +14,17 @@ export class Director {
     run(scene) {
         if (this.currentScene) {
             this.currentScene.onExit();
+
+            // Its colliders would keep colliding with the next scene.
+            this.currentScene.kernel = null;
         }
 
         this.currentScene = scene;
         this.currentScene.game = this.game;
+
+        if (this.game?.kernel) {
+            scene.kernel = this.game.kernel;
+        }
 
         // Let the game know (if game engine needs to reference it directly)
         this.game.scene = scene;

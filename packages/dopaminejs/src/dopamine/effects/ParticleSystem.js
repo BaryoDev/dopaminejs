@@ -16,7 +16,7 @@ export class ParticleSystem {
 
         // Upper bound on live particles. Each one is drawn every frame, so an
         // oversized count would freeze the tab.
-        this.maxParticles = Number.isFinite(config.maxParticles) ? Math.max(0, config.maxParticles) : 5000;
+        this.maxParticles = Number.isFinite(config.maxParticles) ? Math.max(0, Math.floor(config.maxParticles)) : 5000;
 
         // Effects are skipped for users who asked the OS for less motion.
         this._reducedMotion = config.respectReducedMotion !== false && typeof window.matchMedia === 'function'
@@ -266,7 +266,7 @@ export class ParticleSystem {
 
         for (let i = 0; i < total; i++) {
             const p = this._getParticle();
-            const angle = (Math.PI * 2 / count) * i;
+            const angle = (Math.PI * 2 / total) * i;
             const speed = 4;
 
             p.x = x;

@@ -194,7 +194,13 @@ export class SoundManager {
 
         // 2. Try to load if registered but not loaded
         if (hasOwn(this.customSounds, key) && !this.assets.has(key)) {
+            const context = this.audioContext;
             await this.loadSound(key, this.customSounds[key]);
+
+            // destroy() ran while the file loaded. The synth fallback would
+            // open a new context.
+            if (this.audioContext !== context) return;
+
             if (this.assets.has(key)) {
                 this._playBuffer(this.assets.get(key));
                 return;

@@ -283,7 +283,11 @@ export class RewardSystem extends EventEmitter {
         this._requirePlayer();
 
         const oldLevel = this.player.level;
-        this.player.xp = Math.max(0, this.player.xp + amount);
+
+        // XP stops at zero, so a large negative amount removes less than
+        // asked. Report what changed.
+        amount = Math.max(amount, -this.player.xp);
+        this.player.xp += amount;
 
         // Check for level up. Levels are never taken back, so a negative
         // amount or a level banked under an older curve reports the stored one.

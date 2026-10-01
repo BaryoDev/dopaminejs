@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Ticker } from '../src/systems/Ticker.js';
 import { Physics } from '../src/systems/Physics.js';
+import { Director } from '../src/systems/Director.js';
 import { EventBus } from '../src/core/EventBus.js';
 import { SystemRegistry } from '../src/core/SystemRegistry.js';
 import { PluginRegistry } from '../src/core/PluginRegistry.js';
@@ -139,6 +140,61 @@ describe('plugin registry failure cleanup', () => {
         expect(destroy).toHaveBeenCalledTimes(1);
         expect(kernel.plugins.getLoadOrder()).toEqual([]);
     });
+
+    it('should report the init error when a leftover system fails to destroy', () => {
+        const kernel = makeKernel();
+
+        expect(() => kernel.plugins.use({
+            name: 'half',
+            init(k) {
+                k.systems.register('broken', { destroy() { throw new Error('half built'); } });
+                k.systems.register('orphan', { update() {} });
+                throw new Error('missing config');
+            }
+        })).toThrow('missing config');
+
+        expect(kernel.systems.getSystemNames()).toEqual([]);
+    });
+
+    it('should unregister systems a failed async plugin registered', async () => {
+        const kernel = makeKernel();
+
+        await expect(kernel.plugins.useAsync({
+            name: 'half',
+            async init(k) {
+                k.systems.register('orphan', { update() {} });
+                throw new Error('no network');
+            }
+        })).rejects.toThrow('no network');
+
+        expect(kernel.systems.has('orphan')).toBe(false);
+    });
+
+    it('should leave the systems of another plugin alone when an async init fails', async () => {
+        const kernel = makeKernel();
+        let rejectSlow;
+        const pending = kernel.plugins.useAsync({
+            name: 'slow',
+            init(k) {
+                k.systems.register('slow-system', { update() {} });
+                return new Promise((_, reject) => { rejectSlow = reject; });
+            }
+        });
+
+        await kernel.plugins.useAsync({
+            name: 'fine',
+            async init(k) { k.systems.register('fine-system', { update() {} }); }
+        });
+        kernel.plugins.use({
+            name: 'sync',
+            init(k) { k.systems.register('sync-system', { update() {} }); }
+        });
+
+        rejectSlow(new Error('no network'));
+        await expect(pending).rejects.toThrow('no network');
+
+        expect(kernel.systems.getSystemNames().sort()).toEqual(['fine-system', 'sync-system']);
+    });
 });
 
 describe('scene and components', () => {
@@ -230,6 +286,26 @@ describe('scene and components', () => {
         expect(physics.colliders).toEqual([collider]);
     });
 
+    it('should take the colliders of the old scene out of physics on a scene change', () => {
+        const kernel = makeKernel();
+        const physics = new Physics();
+        kernel.systems.register('physics', physics);
+        const director = new Director({ kernel });
+
+        const collider = new Collider('box', 10, 10);
+        const menu = new Scene();
+        menu.add(objectWith(collider));
+
+        director.run(menu);
+        expect(physics.colliders).toEqual([collider]);
+
+        director.run(new Scene());
+        expect(physics.colliders).toEqual([]);
+
+        director.run(menu);
+        expect(physics.colliders).toEqual([collider]);
+    });
+
     it('should return to the resting position after overlapping shakes', () => {
         const shake = new ScreenShake();
         const object = new GameObject(100, 100);
@@ -302,6 +378,23 @@ describe('particle system guards', () => {
         particles.starBurst(0, 0, 50);
 
         expect(particles.particles.length).toBe(100);
+    });
+
+    it('should round a fractional cap down', () => {
+        particles = new ParticleSystem({ maxParticles: 0.5 });
+
+        particles.emit({ x: 0, y: 0, count: 1 });
+
+        expect(particles.particles.length).toBe(0);
+    });
+
+    it('should spread a capped star burst around the full circle', () => {
+        particles = new ParticleSystem({ maxParticles: 4 });
+
+        particles.starBurst(0, 0, 100);
+
+        const angles = particles.particles.map((p) => p.rotation);
+        expect(angles).toEqual([0, 1, 2, 3].map((i) => (Math.PI * 2 / 4) * i));
     });
 
     it('should ignore a count that is not a number', () => {
@@ -435,6 +528,19 @@ describe('sound manager guards', () => {
 
         expect(fetch).toHaveBeenCalledTimes(1);
         expect(sound.assets.has('win')).toBe(true);
+    });
+
+    it('should stay silent when destroyed while a sound is loading', async () => {
+        let respond;
+        vi.stubGlobal('fetch', vi.fn(() => new Promise((resolve) => { respond = resolve; })));
+        sound.registerSound('score', 'score.mp3');
+
+        const playing = sound.play('score');
+        sound.destroy();
+        respond({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) });
+        await playing;
+
+        expect(sound.audioContext).toBeNull();
     });
 
     it('should close the context and cancel queued tones on destroy', () => {
