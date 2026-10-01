@@ -79,20 +79,26 @@ import { getSoundPack } from 'dopaminejs-plugin-sound-packs';
 const sound = new SoundManager();
 const pack = getSoundPack('retro');  // or 'modern', 'cute', 'scifi'
 
+// Returns a function that cancels the notes not played yet.
 function playPackSound(def) {
     if (def.type === 'tone') {
         sound.playTone(def.frequency, def.duration, def.waveform, def.volume);
-        return;
+        return () => {};
     }
+    const timers = [];
     let delay = 0;
     for (const note of def.notes) {
-        setTimeout(() => sound.playTone(note.frequency, note.duration, def.waveform, def.volume), delay * 1000);
+        timers.push(setTimeout(() => sound.playTone(note.frequency, note.duration, def.waveform, def.volume), delay * 1000));
         delay += note.duration;
     }
+    return () => timers.forEach(clearTimeout);
 }
 
-playPackSound(pack.levelUp);
+const cancel = playPackSound(pack.levelUp);
 ```
+
+`sound.destroy()` does not know about these timers. Call `cancel()` before
+it, or a late note calls `playTone` and opens a new audio context.
 
 To switch packs, call `getSoundPack` with another name.
 
@@ -185,7 +191,7 @@ Removing them needs a major version, and none is scheduled.
 
 - No dynamic imports in the game loop
 - Physics runs on a fixed timestep
-- Systems are sorted when one is registered or removed, not every frame
+- The system order is recomputed on the first update after a system is registered or removed, not every frame
 - Optional WebGL particles, 10,000 by default (`maxParticles`)
 
 ## Need Help?
