@@ -10,6 +10,17 @@ updates:
       # One PR for the build and test tools rather than one each.
       dev-tools:
         dependency-type: development
+    # CI runs Node 20.19 and 22.12. These majors need a newer Node, so they
+    # wait until the 20.19 leg is dropped.
+    ignore:
+      - dependency-name: jsdom
+        versions: ['>=29.0.0']
+      - dependency-name: vitest
+        versions: ['>=5.0.0']
+      - dependency-name: size-limit
+        versions: ['>=13.0.0']
+      - dependency-name: '@size-limit/preset-small-lib'
+        versions: ['>=13.0.0']
 
   # Workflows pin actions to a commit SHA. This keeps the pins moving.
   - package-ecosystem: github-actions
