@@ -20,6 +20,7 @@ import Dopamine, {
     Component,
     Vector2,
     Collider,
+    type CollisionEvent,
     createMemoryStorage,
     type Player,
     type AchievementDefinition,
@@ -145,6 +146,10 @@ function engine(): void {
         found.tag = 'player';
         const hits: Collider[] = game.kernel.physics.checkOverlap(found);
         void game.kernel.physics.checkOverlap(found, 'enemy').length;
+
+        game.kernel.events.on(EventBus.Events.COLLISION_ENTER, ({ a, b }: CollisionEvent) => {
+            void [a.tag, b.gameObject];
+        });
         void hits;
     }
 

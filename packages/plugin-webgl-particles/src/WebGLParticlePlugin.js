@@ -28,8 +28,12 @@ export const WebGLParticlePlugin = {
         const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
 
         if (!gl) {
-            console.error('[WebGLParticlePlugin] WebGL not supported in this browser');
-            console.warn('[WebGLParticlePlugin] Falling back to Canvas particles');
+            // Nothing here builds a Canvas particle system. Whatever is
+            // registered as 'particles', if anything, stays as it is.
+            console.error('[WebGLParticlePlugin] WebGL is not supported in this browser. No WebGL particle system was registered.');
+            if (kernel.systems.has('particles')) {
+                console.warn('[WebGLParticlePlugin] The existing "particles" system is left in place.');
+            }
             return;
         }
 

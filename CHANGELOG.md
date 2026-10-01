@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Physics emits `collision_enter` and `collision_exit` on the kernel event
+  bus.** The constants existed and nothing emitted them. `collision_enter`
+  fires once when two colliders start to overlap, `collision_exit` once when
+  they stop or when one of them is removed. Both carry `{ a, b }`, the two
+  colliders, typed as `CollisionEvent`. `onCollisionEnter` on a component is
+  unchanged and still runs on every step while the pair overlaps.
+
+### Fixed
+
+- **`plugins.remove(name)` unregisters the systems the plugin registered
+  during `init()`.** They stayed registered and kept updating, which
+  `FeedbackPlugin`, `WebGLParticlePlugin` and `HowlerAudioPlugin` all relied
+  on the caller to clean up. A system that something else has replaced since
+  is left alone. Two cases are not tracked and stay the plugin's to unregister
+  in `destroy()`: a system registered after `init()`, and one registered while
+  two `useAsync()` inits overlapped. The fix is in the core, so it applies to
+  the published plugin versions.
+- **`SoundManager.preloadSounds()` registers its keys.** Called before the
+  audio context existed it did nothing, so a later `play(key)` did not find
+  the sound. The files now load when the context is created, as with
+  `registerSound()`.
+- **`WebGLParticlePlugin` no longer logs a Canvas fallback it does not set
+  up.** Without WebGL it registers nothing and says so, and an existing
+  `particles` system is left in place.
+- **`dopaminejs-react`: `addXP(amount, reason)` passes the reason through.**
+  It was dropped, so `xp_gained` always carried an empty reason.
+
 ### Changed
 
 - **Build and test tools updated.** vite 8.3, vitest 4.1, jsdom 28.1 and

@@ -128,11 +128,16 @@ export class SoundManager {
     }
 
     /**
-     * Preload multiple sounds
+     * Register and load multiple sounds. Before the audio context exists the
+     * files cannot be decoded, so they load when initAudio() creates it.
      * @param {Object} soundMap - { key: url }
      */
     async preloadSounds(soundMap) {
-        const promises = Object.entries(soundMap).map(([key, url]) => this.loadSound(key, url));
+        const promises = Object.entries(soundMap).map(([key, url]) => {
+            // play() only loads keys it finds here.
+            this.customSounds[key] = url;
+            return this.loadSound(key, url);
+        });
         await Promise.allSettled(promises);
     }
 

@@ -284,6 +284,7 @@ export class SoundManager {
     toggleMute(): boolean;
 
     registerSound(key: string, url: string): void;
+    /** Registers every key, then loads the files. Before the audio context exists they load when it is created. */
     preloadSounds(soundMap: Record<string, string>): Promise<void>;
     loadSound(key: string, url: string): Promise<void>;
     play(key: string): Promise<void>;
@@ -372,6 +373,7 @@ export class PluginRegistry {
     constructor(kernel: DopamineKernel);
     use(plugin: Plugin): this;
     useAsync(plugin: Plugin): Promise<this>;
+    /** Calls the plugin's `destroy()`, then unregisters the systems it registered during `init()`. */
     remove(name: string): boolean;
     get(name: string): Plugin | undefined;
     has(name: string): boolean;
@@ -535,12 +537,24 @@ export class Input {
     mouse: { x: number; y: number };
 }
 
+/** Payload of `collision_enter` and `collision_exit` on the kernel event bus. */
+export interface CollisionEvent {
+    a: Collider;
+    b: Collider;
+}
+
 export class Physics {
     init(kernel: DopamineKernel): void;
     fixedUpdate(dt: number): void;
     destroy(): void;
     add(collider: Collider): void;
+    /** Emits `collision_exit` for each pair the collider was overlapping in. */
     remove(collider: Collider): void;
+    /**
+     * Emits `collision_enter` once when a pair starts to overlap and
+     * `collision_exit` once when it stops. `onCollisionEnter` on a component
+     * runs on every step while the pair overlaps.
+     */
     step(): void;
     /** Every collider that overlaps `source`. With a tag, only colliders carrying it. */
     checkOverlap(source: Collider, targetTag?: string): Collider[];
