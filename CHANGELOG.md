@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`dopaminejs-react` 1.0.0 is published to npm.** `RewardsProvider` and
+  `useRewards()`. It needs `dopaminejs` 2.3.0 or newer, the first version with
+  the `streak_updated` event it listens for. The package was in the repo
+  before and marked private.
+
 ## [2.4.0] - 2026-10-02
 
 Published with this release: `dopaminejs` 2.4.0 and
