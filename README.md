@@ -125,6 +125,16 @@ UI themes:
 
 ---
 
+### React Package (MIT)
+
+```bash
+npm install dopaminejs dopaminejs-react
+```
+
+`RewardsProvider` and the `useRewards()` hook. Needs `react` 18 or newer and `dopaminejs` 2.3.0 or newer. See `packages/dopaminejs-react/README.md`.
+
+---
+
 ## Using the game engine directly
 
 The engine that powers the effects is exported too, if you are building an actual game

@@ -1,7 +1,7 @@
 /**
  * dopaminejs-react
  *
- * React bindings for DopamineJS — useRewards() hook and RewardsProvider.
+ * React bindings for DopamineJS: the useRewards() hook and RewardsProvider.
  *
  * MIT License
  */

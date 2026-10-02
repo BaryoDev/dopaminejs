@@ -1,6 +1,6 @@
 # dopaminejs-react
 
-React bindings for [DopamineJS](https://www.npmjs.com/package/dopaminejs). Drop progression mechanics — XP, levels, achievements, and daily streaks — into any React app with a single hook.
+React bindings for [DopamineJS](https://www.npmjs.com/package/dopaminejs). A provider and one hook that give a React tree XP, levels, achievements and daily streaks.
 
 ```bash
 npm install dopaminejs dopaminejs-react
@@ -56,17 +56,20 @@ Returns an object with:
 | `player` | `object` | Raw player state |
 | `level` | `number` | Current player level |
 | `xp` | `number` | Current XP |
-| `progress` | `number` | `0–1` fraction to next level |
+| `progress` | `number` | 0 to 1, position inside the current level |
 | `achievements` | `object[]` | Unlocked achievements |
 | `addXP(amount, reason?)` | `(number, string?) => Promise<object>` | Add XP; re-renders on `xp_gained` and `level_up`. Resolves with what `RewardSystem.addXP` returns |
 | `recordGame(gameId, stats)` | `(string, object) => Promise<void>` | Record a game session |
-| `unlockAchievement(key)` | `(string) => Promise<void>` | Manually unlock an achievement |
+| `unlockAchievement(key)` | `(string) => Promise<boolean>` | Unlock an achievement by id. Resolves `false` when the id is unknown or already unlocked |
 
 ## Notes
 
-- `react >=18` is required as a peer dependency.
-- The provider creates one `RewardSystem` instance on mount and tears it down on unmount. To reset progress, re-key the provider (`<RewardsProvider key={userId}>`).
-- Event listeners are cleaned up on unmount. The `EventBus` in DopamineJS holds strong references — skipping cleanup leaks listeners.
+- Peer dependencies: `react` 18 or newer and `dopaminejs` 2.3.0 or newer.
+- The provider creates one `RewardSystem` when it mounts and removes its listeners when it unmounts. Later changes to `config` or `storage` are ignored. To rebuild it, for example for another user, give the provider a new `key` (`<RewardsProvider key={userId}>`).
+- Until `init()` resolves, the state is `{ player: {}, level: 1, xp: 0, progress: 0, achievements: [] }`.
+- The state refreshes on `xp_gained`, `level_up`, `achievement_unlocked` and `streak_updated`.
+- The three methods return `undefined`, not a promise, when called before the provider's effect has run. A child's `useEffect` on first mount runs before it, so call them from event handlers or check the result. After that they reject until `init()` resolves.
+- No TypeScript declarations ship yet.
 
 ## License
 

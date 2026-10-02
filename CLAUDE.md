@@ -134,10 +134,10 @@ registered on npm for every published package, so do not rename the file or
 add an `environment:` to the job without reconfiguring each package on
 npmjs.com.
 
-`dopaminejs-react` has never been published, so it has no Trusted Publisher
-record. It is marked `"private": true` to keep it out of the tag run. Remove
-that line only after the package exists on npm with a record for
-`publish.yml`.
+A new package cannot get a Trusted Publisher record until it exists on npm.
+Keep it `"private": true` until its first version is published and the record
+for `publish.yml` is added, or the dry run fails on it. `dopaminejs-react`
+went through this.
 
 Bump the versions, update `CHANGELOG.md`, tag `v<core version>`, push the tag.
 Only packages whose version is not on npm get published. Never run

@@ -46,8 +46,8 @@ function reducer(state, action) {
 
 /**
  * @param {object}   props
- * @param {object}   [props.config]   — passed straight to new RewardSystem(...)
- * @param {object}   [props.storage]  — custom storage (defaults to localStorage)
+ * @param {object}   [props.config]   passed straight to new RewardSystem(...)
+ * @param {object}   [props.storage]  custom storage (defaults to localStorage)
  * @param {React.ReactNode} props.children
  */
 export function RewardsProvider({ config, storage, children }) {
@@ -69,7 +69,7 @@ export function RewardsProvider({ config, storage, children }) {
 
     useEffect(() => {
         // DataService accepts a config object with a `storage` key.
-        // Passing undefined is fine — it defaults to resolveStorage().
+        // Passing undefined is fine, it defaults to resolveStorage().
         const dataService = new DataService({ storage });
         const rewards = new RewardSystem(dataService, config);
         rewardsRef.current = rewards;
@@ -94,8 +94,8 @@ export function RewardsProvider({ config, storage, children }) {
 
         return () => {
             mounted = false;
-            // Remove listeners so the EventBus doesn't accumulate them across
-            // re-mounts (EventBus holds strong references).
+            // Remove listeners so the emitter doesn't accumulate them across
+            // re-mounts (it holds strong references).
             rewards.off('xp_gained', sync);
             rewards.off('level_up', sync);
             rewards.off('achievement_unlocked', sync);
@@ -122,7 +122,7 @@ export function RewardsProvider({ config, storage, children }) {
          * Record a game session, which may award XP and update stats.
          * @param {string} gameId
          * @param {object} stats
-         * @returns {Promise<void>}
+         * @returns {Promise<void>|undefined}
          */
         recordGame(gameId, stats) {
             return rewardsRef.current?.recordGame(gameId, stats);
@@ -131,7 +131,7 @@ export function RewardsProvider({ config, storage, children }) {
         /**
          * Manually unlock an achievement by key.
          * @param {string} key
-         * @returns {Promise<void>}
+         * @returns {Promise<boolean>|undefined} false when the id is unknown or already unlocked
          */
         unlockAchievement(key) {
             return rewardsRef.current?.unlockAchievement(key);
@@ -152,10 +152,12 @@ export function RewardsProvider({ config, storage, children }) {
  *   xp: number,
  *   progress: number,
  *   achievements: object[],
- *   addXP: (amount: number, reason?: string) => Promise<object>,
- *   recordGame: (gameId: string, stats: object) => Promise<void>,
- *   unlockAchievement: (key: string) => Promise<void>,
+ *   addXP: (amount: number, reason?: string) => Promise<object> | undefined,
+ *   recordGame: (gameId: string, stats: object) => Promise<void> | undefined,
+ *   unlockAchievement: (key: string) => Promise<boolean> | undefined,
  * }}
+ * The three methods return undefined until the provider's effect has
+ * created the RewardSystem, which is after the effects of its children.
  */
 export function useRewards() {
     const ctx = useContext(RewardsContext);
