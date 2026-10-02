@@ -68,6 +68,7 @@ Returns an object with:
 - The provider creates one `RewardSystem` when it mounts and removes its listeners when it unmounts. Later changes to `config` or `storage` are ignored. To rebuild it, for example for another user, give the provider a new `key` (`<RewardsProvider key={userId}>`).
 - Until `init()` resolves, the state is `{ player: {}, level: 1, xp: 0, progress: 0, achievements: [] }`.
 - The state refreshes on `xp_gained`, `level_up`, `achievement_unlocked` and `streak_updated`.
+- The three methods return `undefined`, not a promise, when called before the provider's effect has run. A child's `useEffect` on first mount runs before it, so call them from event handlers or check the result. After that they reject until `init()` resolves.
 - No TypeScript declarations ship yet.
 
 ## License

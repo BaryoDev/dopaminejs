@@ -122,7 +122,7 @@ export function RewardsProvider({ config, storage, children }) {
          * Record a game session, which may award XP and update stats.
          * @param {string} gameId
          * @param {object} stats
-         * @returns {Promise<void>}
+         * @returns {Promise<void>|undefined}
          */
         recordGame(gameId, stats) {
             return rewardsRef.current?.recordGame(gameId, stats);
@@ -131,7 +131,7 @@ export function RewardsProvider({ config, storage, children }) {
         /**
          * Manually unlock an achievement by key.
          * @param {string} key
-         * @returns {Promise<boolean>} false when the id is unknown or already unlocked
+         * @returns {Promise<boolean>|undefined} false when the id is unknown or already unlocked
          */
         unlockAchievement(key) {
             return rewardsRef.current?.unlockAchievement(key);
@@ -152,10 +152,12 @@ export function RewardsProvider({ config, storage, children }) {
  *   xp: number,
  *   progress: number,
  *   achievements: object[],
- *   addXP: (amount: number, reason?: string) => Promise<object>,
- *   recordGame: (gameId: string, stats: object) => Promise<void>,
- *   unlockAchievement: (key: string) => Promise<boolean>,
+ *   addXP: (amount: number, reason?: string) => Promise<object> | undefined,
+ *   recordGame: (gameId: string, stats: object) => Promise<void> | undefined,
+ *   unlockAchievement: (key: string) => Promise<boolean> | undefined,
  * }}
+ * The three methods return undefined until the provider's effect has
+ * created the RewardSystem, which is after the effects of its children.
  */
 export function useRewards() {
     const ctx = useContext(RewardsContext);
