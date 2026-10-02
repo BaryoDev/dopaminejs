@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-02
+
+Published with this release: `dopaminejs` 2.4.0 and
+`dopaminejs-plugin-webgl-particles` 1.1.2. `dopaminejs-react` is not on npm,
+so its fix is in the repo only.
+
 ### Added
 
 - **Physics emits `collision_enter` and `collision_exit` on the kernel event
