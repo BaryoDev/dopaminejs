@@ -259,6 +259,24 @@ describe('FeedbackSystem', () => {
         feedback.emitConfetti(0, 0, 100000);
         expect(scene.add).toHaveBeenCalledTimes(500);
     });
+
+    it('should emit no confetti when the count is 0', () => {
+        const { scene, feedback, textOf } = setup();
+
+        feedback.trigger('milestone', 0, 0, { count: 0 });
+
+        expect(scene.add).toHaveBeenCalledTimes(1);
+        expect(textOf(scene.add.mock.calls[0])).toBeInstanceOf(FloatingText);
+    });
+
+    it('should use the preset confetti when no count is given', () => {
+        const { scene, feedback } = setup();
+
+        feedback.trigger('milestone', 0, 0);
+        feedback.trigger('milestone', 0, 0, { count: 3 });
+
+        expect(scene.add).toHaveBeenCalledTimes(50 + 1 + 3 + 1);
+    });
 });
 
 describe('DebugOverlayPlugin', () => {
