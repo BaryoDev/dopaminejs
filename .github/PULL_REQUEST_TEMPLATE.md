@@ -20,6 +20,7 @@ Closes #<!-- issue number -->
 
 - [ ] `dopaminejs` (core)
 - [ ] `dopaminejs-react`
+- [ ] `dopaminejs-vue`
 - [ ] `dopaminejs-themes`
 - [ ] `dopaminejs-plugin-debug-overlay`
 - [ ] `dopaminejs-plugin-ecosystem`

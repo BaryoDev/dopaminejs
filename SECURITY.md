@@ -13,6 +13,7 @@ DopamineJS packages that handle data or external communication:
 
 - **`dopaminejs`**: `RewardSystem` persists player state to `localStorage` by default. Pass a custom `storage` to move it elsewhere. Synchronous and promise-returning storages both work.
 - **`dopaminejs-react`**: `RewardsProvider` wraps `RewardSystem`, so the same storage note applies. Pass a `storage` prop to override.
+- **`dopaminejs-vue`**: `provideRewards()` wraps `RewardSystem`, so the same storage note applies. Pass a `storage` option to override.
 - **`dopaminejs-plugin-ecosystem`**: `WebhookIntegration` and `LeaderboardPlugin` POST reward events to the endpoint you configure. Nothing is sent until you set a `webhookUrl`.
 
 The other packages (`dopaminejs-themes`, `plugin-debug-overlay`, `plugin-feedback-effects`, `plugin-howler-audio`, `plugin-sound-packs`, `plugin-webgl-particles`) only render and do not handle user data.

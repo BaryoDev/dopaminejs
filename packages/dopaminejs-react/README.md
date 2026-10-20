@@ -58,6 +58,8 @@ Returns an object with:
 | `xp` | `number` | Current XP |
 | `progress` | `number` | 0 to 1, position inside the current level |
 | `achievements` | `object[]` | Unlocked achievements |
+| `ready` | `boolean` | `true` once `init()` has resolved |
+| `error` | `unknown` | `null` until `init()` rejects, then the rejection. It is caught, so it never surfaces as an unhandled rejection |
 | `addXP(amount, reason?)` | `(number, string?) => Promise<object>` | Add XP; re-renders on `xp_gained` and `level_up`. Resolves with what `RewardSystem.addXP` returns |
 | `recordGame(gameId, stats)` | `(string, object) => Promise<void>` | Record a game session |
 | `unlockAchievement(key)` | `(string) => Promise<boolean>` | Unlock an achievement by id. Resolves `false` when the id is unknown or already unlocked |
@@ -66,7 +68,7 @@ Returns an object with:
 
 - Peer dependencies: `react` 18 or newer and `dopaminejs` 2.3.0 or newer.
 - The provider creates one `RewardSystem` when it mounts and removes its listeners when it unmounts. Later changes to `config` or `storage` are ignored. To rebuild it, for example for another user, give the provider a new `key` (`<RewardsProvider key={userId}>`).
-- Until `init()` resolves, the state is `{ player: {}, level: 1, xp: 0, progress: 0, achievements: [] }`.
+- Until `init()` resolves, the state is `{ player: {}, level: 1, xp: 0, progress: 0, achievements: [], ready: false, error: null }`.
 - The state refreshes on `xp_gained`, `level_up`, `achievement_unlocked` and `streak_updated`.
 - The three methods return `undefined`, not a promise, when called before the provider's effect has run. A child's `useEffect` on first mount runs before it, so call them from event handlers or check the result. After that they reject until `init()` resolves.
 - No TypeScript declarations ship yet.
