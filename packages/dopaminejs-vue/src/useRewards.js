@@ -2,7 +2,9 @@
  * provideRewards() + useRewards()
  *
  * provideRewards() creates a single RewardSystem for the component tree below
- * the caller. useRewards() reads it from any descendant (or the same component).
+ * the caller. useRewards() reads it from any descendant. The calling component
+ * itself uses the object provideRewards() returns, since inject() does not
+ * see a component's own provides.
  *
  * The RewardSystem subscribes to xp_gained, level_up, achievement_unlocked and
  * streak_updated, and the listeners are removed when the calling scope is
@@ -16,7 +18,7 @@
  *   const { level, progress, addXP } = useRewards();
  */
 import {
-    getCurrentScope,
+    getCurrentInstance,
     inject,
     onScopeDispose,
     provide,
@@ -26,7 +28,11 @@ import {
 import { RewardSystem, DataService } from 'dopaminejs';
 import { buildState } from './state.js';
 
-const REWARDS_KEY = Symbol('dopaminejs-rewards');
+// Symbol.for, so the ESM and CJS copies of this package share one key.
+const REWARDS_KEY = Symbol.for('dopaminejs-rewards');
+
+// What each component instance already provided, to catch a second call.
+const provided = new WeakMap();
 
 // Event names emitted by RewardSystem are lowercase.
 const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'streak_updated'];
@@ -38,11 +44,16 @@ const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'streak_updated
  * @returns the same object useRewards() returns
  */
 export function provideRewards({ config, storage } = {}) {
-    if (!getCurrentScope()) {
+    const instance = getCurrentInstance();
+    if (!instance) {
         throw new Error(
-            'provideRewards() must be called inside setup() or an effect scope, ' +
-            'so its listeners can be removed when the scope is disposed.'
+            'provideRewards() must be called inside a component setup(). ' +
+            'provide() does nothing outside a component.'
         );
+    }
+    if (provided.has(instance)) {
+        console.warn('[dopaminejs-vue] provideRewards() was called twice in one component. Returning the first instance.');
+        return provided.get(instance);
     }
 
     // Safe initial state so consumers always have all fields defined before
@@ -52,6 +63,8 @@ export function provideRewards({ config, storage } = {}) {
     const xp = shallowRef(0);
     const progress = shallowRef(0);
     const achievements = shallowRef([]);
+    const ready = shallowRef(false);
+    const error = shallowRef(null);
 
     const dataService = new DataService({ storage });
     const rewards = new RewardSystem(dataService, config);
@@ -71,7 +84,15 @@ export function provideRewards({ config, storage } = {}) {
         triggerRef(player);
     }
 
-    rewards.init().then(sync);
+    // A rejected init() must not escape as an unhandled rejection, which can
+    // end a Node process during server rendering.
+    rewards.init().then(() => {
+        if (!active) return;
+        sync();
+        ready.value = true;
+    }).catch((reason) => {
+        if (active) error.value = reason;
+    });
 
     for (const name of EVENTS) rewards.on(name, sync);
 
@@ -86,6 +107,8 @@ export function provideRewards({ config, storage } = {}) {
         xp,
         progress,
         achievements,
+        ready,
+        error,
 
         /**
          * Add XP to the current player.
@@ -118,12 +141,13 @@ export function provideRewards({ config, storage } = {}) {
     };
 
     provide(REWARDS_KEY, value);
+    provided.set(instance, value);
     return value;
 }
 
 /**
  * Access the rewards from a component below one that called provideRewards().
- * player, level, xp, progress and achievements are refs.
+ * player, level, xp, progress, achievements, ready and error are refs.
  */
 export function useRewards() {
     const ctx = inject(REWARDS_KEY, null);

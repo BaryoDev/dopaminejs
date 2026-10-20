@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { createApp, defineComponent, h, nextTick, watch } from 'vue';
+import { createApp, defineComponent, h, inject, nextTick, watch } from 'vue';
 import { DataService } from '../src/dopamine/core/DataService.js';
 import { RewardSystem } from '../src/dopamine/core/RewardSystem.js';
 import { createMemoryStorage } from '../src/dopamine/utils/storage.js';
@@ -17,7 +17,7 @@ function mount({ storage = createMemoryStorage(), config } = {}) {
     const Child = defineComponent({
         setup() {
             seen.rewards = useRewards();
-            return () => h('p', String(seen.rewards.level.value));
+            return () => h('p', `${seen.rewards.level.value}|${seen.rewards.achievements.value.length}`);
         }
     });
     const Root = defineComponent({
@@ -70,7 +70,7 @@ describe('provideRewards and useRewards', () => {
 
         expect(seen.rewards.xp.value).toBe(150);
         expect(seen.rewards.level.value).toBeGreaterThan(1);
-        expect(el.textContent).toBe(String(seen.rewards.level.value));
+        expect(el.textContent).toBe(`${seen.rewards.level.value}|0`);
         app.unmount();
     });
 
@@ -96,6 +96,145 @@ describe('provideRewards and useRewards', () => {
         await flush();
 
         expect(runs).toHaveBeenCalled();
+        app.unmount();
+    });
+
+    it('should expose the player xp and streak after init and after addXP', async () => {
+        const { app, seen } = mount();
+        expect(seen.rewards.ready.value).toBe(false);
+        await flush();
+
+        expect(seen.rewards.ready.value).toBe(true);
+        expect(seen.rewards.error.value).toBeNull();
+        expect(seen.rewards.player.value.xp).toBe(0);
+        expect(seen.rewards.player.value.streak.current).toBe(1);
+
+        await seen.rewards.addXP(150);
+        await flush();
+
+        expect(seen.rewards.player.value.xp).toBe(150);
+        expect(seen.rewards.player.value.streak.current).toBe(1);
+        app.unmount();
+    });
+
+    it('should show an achievement unlocked through unlockAchievement', async () => {
+        const config = {
+            achievements: {
+                custom_one: { name: 'Custom One', description: 'd', icon: 'i', xp: 5, check: () => false }
+            }
+        };
+        const { app, el, seen } = mount({ config });
+        await flush();
+
+        await expect(seen.rewards.unlockAchievement('custom_one')).resolves.toBe(true);
+        await flush();
+
+        expect(seen.rewards.achievements.value.map(a => a.id)).toEqual(['custom_one']);
+        expect(seen.rewards.achievements.value[0].name).toBe('Custom One');
+        expect(seen.rewards.xp.value).toBe(5);
+        expect(el.textContent).toMatch(/\|1$/);
+        app.unmount();
+    });
+
+    it('should show an achievement unlocked by recordGame', async () => {
+        const config = {
+            achievements: {
+                played_quiz: {
+                    name: 'Played', description: 'd', icon: 'i', xp: 0,
+                    check: (player, game) => game === 'quiz'
+                }
+            }
+        };
+        const { app, el, seen } = mount({ config });
+        await flush();
+
+        await seen.rewards.recordGame('quiz', { score: 1 });
+        await flush();
+
+        expect(seen.rewards.achievements.value.map(a => a.id)).toContain('played_quiz');
+        expect(el.textContent).toMatch(/\|[1-9]\d*$/);
+        expect(seen.rewards.xp.value).toBeGreaterThan(0);
+        app.unmount();
+    });
+
+    it('should delegate recordGame and unlockAchievement', async () => {
+        const recordGame = vi.spyOn(RewardSystem.prototype, 'recordGame').mockResolvedValue(undefined);
+        const unlock = vi.spyOn(RewardSystem.prototype, 'unlockAchievement').mockResolvedValue(true);
+        const { app, seen } = mount();
+
+        await seen.rewards.recordGame('quiz', { score: 9 });
+        await expect(seen.rewards.unlockAchievement('first_game')).resolves.toBe(true);
+
+        expect(recordGame).toHaveBeenCalledWith('quiz', { score: 9 });
+        expect(unlock).toHaveBeenCalledWith('first_game');
+        app.unmount();
+    });
+
+    it('should leave the refs untouched when unmounted before init resolves', async () => {
+        const storage = createMemoryStorage();
+        storage.setItem('dopamine_player', JSON.stringify({ xp: 1250, level: 5 }));
+        const { app, seen } = mount({ storage });
+
+        app.unmount();
+        await flush();
+
+        expect(seen.rewards.level.value).toBe(1);
+        expect(seen.rewards.ready.value).toBe(false);
+    });
+
+    it('should catch an init rejection into error', async () => {
+        const failure = new Error('storage down');
+        vi.spyOn(RewardSystem.prototype, 'init').mockRejectedValue(failure);
+        const unhandled = vi.fn();
+        process.on('unhandledRejection', unhandled);
+        const { app, seen } = mount();
+        await flush();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        process.off('unhandledRejection', unhandled);
+
+        expect(seen.rewards.error.value).toBe(failure);
+        expect(seen.rewards.ready.value).toBe(false);
+        expect(unhandled).not.toHaveBeenCalled();
+        app.unmount();
+    });
+
+    it('should warn and return the first instance on a second provideRewards call', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const seen = {};
+        const Root = defineComponent({
+            setup() {
+                seen.first = provideRewards({ storage: createMemoryStorage() });
+                seen.second = provideRewards({ storage: createMemoryStorage() });
+                return () => null;
+            }
+        });
+        const app = createApp(Root);
+        app.mount(document.createElement('div'));
+
+        expect(seen.second).toBe(seen.first);
+        expect(warn).toHaveBeenCalledTimes(1);
+        app.unmount();
+    });
+
+    it('should use a registry symbol for the injection key', () => {
+        const key = Symbol.for('dopaminejs-rewards');
+        const seen = {};
+        const Child = defineComponent({
+            setup() {
+                seen.injected = inject(key, null);
+                return () => null;
+            }
+        });
+        const Root = defineComponent({
+            setup() {
+                provideRewards({ storage: createMemoryStorage() });
+                return () => h(Child);
+            }
+        });
+        const app = createApp(Root);
+        app.mount(document.createElement('div'));
+
+        expect(seen.injected).not.toBeNull();
         app.unmount();
     });
 

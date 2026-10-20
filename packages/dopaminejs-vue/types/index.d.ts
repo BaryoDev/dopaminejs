@@ -1,24 +1,33 @@
 import type { Ref } from 'vue';
+import type {
+    AchievementDefinition,
+    AddXPResult,
+    DataServiceConfig,
+    Player,
+    RewardSystemConfig,
+    UnlockedAchievement,
+} from 'dopaminejs';
 
 export interface ProvideRewardsOptions {
     /** Passed to `new RewardSystem(...)`. */
-    config?: object;
-    /** Custom storage. Defaults to localStorage. */
-    storage?: {
-        getItem(key: string): string | null;
-        setItem(key: string, value: string): void;
-        removeItem(key: string): void;
-    };
+    config?: RewardSystemConfig;
+    /** Custom storage, sync or async. Defaults to localStorage. */
+    storage?: DataServiceConfig['storage'];
 }
 
 export interface RewardsState {
-    player: Ref<Record<string, any>>;
+    /** The live player object, mutated in place. Empty until init resolves. */
+    player: Ref<Player | Record<string, never>>;
     level: Ref<number>;
     xp: Ref<number>;
     /** 0 to 1, position inside the current level. */
     progress: Ref<number>;
-    achievements: Ref<any[]>;
-    addXP(amount: number, reason?: string): Promise<any>;
+    achievements: Ref<Array<AchievementDefinition & UnlockedAchievement & { id: string }>>;
+    /** True once init() has resolved. */
+    ready: Ref<boolean>;
+    /** Null until init() rejects, then the rejection. */
+    error: Ref<unknown>;
+    addXP(amount: number, reason?: string): Promise<AddXPResult>;
     recordGame(gameId: string, stats: object): Promise<void>;
     /** Resolves false when the id is unknown or already unlocked. */
     unlockAchievement(key: string): Promise<boolean>;

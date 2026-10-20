@@ -61,6 +61,8 @@ Returns an object with:
 | `xp` | `Ref<number>` | Current XP |
 | `progress` | `Ref<number>` | 0 to 1, position inside the current level |
 | `achievements` | `Ref<object[]>` | Unlocked achievements |
+| `ready` | `Ref<boolean>` | `true` once `init()` has resolved |
+| `error` | `Ref<unknown>` | `null` until `init()` rejects, then the rejection. It is caught, so it never surfaces as an unhandled rejection |
 | `addXP(amount, reason?)` | `(number, string?) => Promise<object>` | Add XP. Resolves with what `RewardSystem.addXP` returns |
 | `recordGame(gameId, stats)` | `(string, object) => Promise<void>` | Record a game session |
 | `unlockAchievement(key)` | `(string) => Promise<boolean>` | Unlock an achievement by id. Resolves `false` when the id is unknown or already unlocked |
@@ -69,8 +71,8 @@ Returns an object with:
 
 - Peer dependencies: `vue` 3.3 or newer and `dopaminejs` 2.3.0 or newer.
 - `provideRewards()` creates one `RewardSystem` and removes its listeners when the calling scope is disposed (component unmount). Later changes to `config` or `storage` are ignored. To rebuild it, for example for another user, key the component that calls it (`<App :key="userId" />`).
-- `useRewards()` throws when no ancestor called `provideRewards()`.
-- Until `init()` resolves, the state is `{ player: {}, level: 1, xp: 0, progress: 0, achievements: [] }`. The methods reject until `init()` resolves.
+- `useRewards()` throws when no ancestor called `provideRewards()`. Calling `provideRewards()` twice in one component warns and returns the first instance.
+- Until `init()` resolves, the state is `{ player: {}, level: 1, xp: 0, progress: 0, achievements: [] }`, with `ready` false and `error` null. The methods reject until `init()` resolves.
 - The state refreshes on `xp_gained`, `level_up`, `achievement_unlocked` and `streak_updated`.
 - `player` is the live object from the reward system, mutated in place. Treat it as read-only.
 
