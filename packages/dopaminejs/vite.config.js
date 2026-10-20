@@ -11,10 +11,12 @@ export default defineConfig({
     },
     build: {
         lib: {
-            // Two entry points: the root barrel and the engine-only subpath.
+            // Three entry points: the root barrel, the engine-only subpath and the
+            // browser-free progression subpath (published as ./core).
             entry: {
                 dopamine: resolve(__dirname, 'src/index.js'),
                 engine: resolve(__dirname, 'src/engine.js'),
+                core: resolve(__dirname, 'src/progression.js'),
             },
             name: 'Dopamine',
             // Vite 6+ names the stylesheet after the package. The manifest

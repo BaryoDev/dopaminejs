@@ -16,6 +16,11 @@
             "import": "./dist/engine.js",
             "require": "./dist/engine.cjs"
         },
+        "./core": {
+            "types": "./types/index.d.ts",
+            "import": "./dist/core.js",
+            "require": "./dist/core.cjs"
+        },
         "./style.css": "./dist/style.css"
     },
     "sideEffects": false,

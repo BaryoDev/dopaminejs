@@ -35,6 +35,7 @@ npm run build            # every package
 npm run size             # needs a build first
 npm run check-zero-deps
 node scripts/check-versions.js --dist   # needs a build first
+node scripts/check-core-import.js       # needs a build first
 ```
 
 CI (`.github/workflows/ci.yml`) runs all of these on Node 20.19 and 22.12.
@@ -49,6 +50,8 @@ so plugin sources can be imported directly.
 ```
 packages/dopaminejs/src/
   index.js            public exports
+  engine.js           the `dopaminejs/engine` subpath
+  progression.js      the `dopaminejs/core` subpath, no browser globals allowed
   dopamine/           the product: RewardSystem, DataService, GameUI,
                       ParticleSystem, SoundManager, the Dopamine facade
   core/               engine: DopamineKernel, EventBus, SystemRegistry,

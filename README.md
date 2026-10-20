@@ -135,6 +135,27 @@ npm install dopaminejs dopaminejs-react
 
 ---
 
+## React Native, Expo and other non-browser runtimes
+
+`dopaminejs/core` exports only the progression API: `RewardSystem`, `DataService`, `EventEmitter`, `createMemoryStorage` and `resolveStorage`. It has no UI, particles, sound or engine, and nothing in it touches `window`, `document` or `localStorage`. CI imports the built output in plain Node with those globals unset and runs `init` and `recordGame` (`scripts/check-core-import.js`).
+
+`DataService` awaits every storage call, so AsyncStorage works as is:
+
+```javascript
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { RewardSystem, DataService } from 'dopaminejs/core';
+
+const rewards = new RewardSystem(new DataService({ storage: AsyncStorage }));
+rewards.on('level_up', ({ newLevel }) => console.log(`Level ${newLevel}`));
+await rewards.init();
+
+await rewards.recordGame('quiz', { score: 80, won: true });
+```
+
+Any object with promise-returning `getItem`, `setItem` and `removeItem` works the same way. Without a `storage` option, `DataService` falls back to `localStorage` if present, then to memory, so state is lost when the app closes. `GameUI`, `ParticleSystem` and `SoundManager` are web only and stay on the root `dopaminejs` entry.
+
+---
+
 ## Using the game engine directly
 
 The engine that powers the effects is exported too, if you are building an actual game
