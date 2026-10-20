@@ -13,6 +13,12 @@ const DEFAULT_TEXT = {
 
 const DEFAULT_STREAK_ICON = '🔥';
 
+// Config comes from callers, so an inherited property (a polluted prototype)
+// must not count.
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+const ownValue = (object, key) =>
+    (object !== null && typeof object === 'object' && hasOwn(object, key) ? object[key] : undefined);
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const SVG_ELEMENTS = new Set([
@@ -87,7 +93,8 @@ function cleanValue(name, value, ctx) {
 }
 
 function cleanNode(source, ctx) {
-    if (source.nodeType === 3) {
+    // 3 is text, 4 is CDATA.
+    if (source.nodeType === 3 || source.nodeType === 4) {
         return document.createTextNode(source.data);
     }
     if (source.nodeType !== 1
@@ -116,8 +123,12 @@ function cleanNode(source, ctx) {
  */
 function parseSafeSvg(markup) {
     let doc;
+    // Inline HTML SVG usually has no xmlns, which the XML parser rejects.
+    const source = /^\s*<svg[\s>]/.test(markup) && !/^\s*<svg\b[^>]*\sxmlns\s*=/.test(markup)
+        ? markup.replace(/^(\s*<svg)/, `$1 xmlns="${SVG_NS}"`)
+        : markup;
     try {
-        doc = new DOMParser().parseFromString(markup, 'image/svg+xml');
+        doc = new DOMParser().parseFromString(source,'image/svg+xml');
     } catch {
         return null;
     }
@@ -143,14 +154,16 @@ export class GameUI {
     constructor(particleSystem, config = {}) {
         this.particleSystem = particleSystem;
 
-        // Only strings override a default, so a bad value cannot blank a popup.
+        // Only strings override a default, so a non-string cannot break a
+        // popup. An empty string is allowed and hides that text.
+        const textConfig = ownValue(config, 'text');
         this.text = { ...DEFAULT_TEXT };
         for (const key of Object.keys(DEFAULT_TEXT)) {
-            const value = config?.text?.[key];
+            const value = ownValue(textConfig, key);
             if (typeof value === 'string') this.text[key] = value;
         }
-        this.safeIcons = config?.safeIcons === true;
-        this._streakIcon = config?.icons?.streak ?? DEFAULT_STREAK_ICON;
+        this.safeIcons = ownValue(config, 'safeIcons') === true;
+        this._streakIcon = ownValue(ownValue(config, 'icons'), 'streak') ?? DEFAULT_STREAK_ICON;
         this.container = null;
         this.xpBar = null;
         this.levelDisplay = null;
@@ -236,16 +249,18 @@ export class GameUI {
      */
     _setIcon(el, icon) {
         el.textContent = '';
-        if (icon && typeof icon === 'object' && typeof icon.nodeType === 'number') {
+        if (typeof Node !== 'undefined' && icon instanceof Node) {
             el.appendChild(icon);
+        } else if (typeof icon !== 'string') {
+            return;
         } else if (!this.safeIcons) {
-            el.innerHTML = icon ?? '';
+            el.innerHTML = icon;
         } else {
-            const svg = typeof icon === 'string' ? parseSafeSvg(icon) : null;
+            const svg = parseSafeSvg(icon);
             if (svg) {
                 el.appendChild(svg);
             } else {
-                el.textContent = icon ?? '';
+                el.textContent = icon;
             }
         }
     }

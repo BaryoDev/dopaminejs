@@ -115,8 +115,9 @@ onto the bus.
 - **Saved state is untrusted.** Anything read from storage goes through
   `RewardSystem._migrate`.
 - **`achievement.icon` is rendered as HTML on purpose**, unless `GameUI` is
-  built with `safeIcons: true` (sanitised SVG or text; the default from 3.0).
-  A Node icon is always appended. Every other field is text. See `SECURITY.md`.
+  built with `safeIcons: true` (allowlisted SVG or text; the default from
+  3.0). A string `icons.streak` is the same sink. A Node icon is always moved
+  in, never parsed. Every other field is text. See `SECURITY.md`.
 - **Anything that adds a listener, timer or DOM node removes it in
   `destroy()`**, and a test proves it.
 - **The v1 globals stay.** `GlobalPhysics`, `GlobalInput` and `GlobalLoader`

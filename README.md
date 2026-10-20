@@ -61,8 +61,8 @@ rewards.on('level_up', ({ oldLevel, newLevel }) => ui.showLevelUp(oldLevel, newL
 ```javascript
 new GameUI(particles, {
     text: { levelUp: 'Level up', achievementUnlocked: 'Unlocked', nearMiss: 'Close' },
-    icons: { streak: '*' },   // a string or a DOM Node
-    safeIcons: true           // string achievement icons become sanitised SVG or text
+    icons: { streak: '*' },   // a string or a DOM Node (a Node is moved, not copied)
+    safeIcons: true           // string icons become allowlisted SVG or text
 });
 ```
 

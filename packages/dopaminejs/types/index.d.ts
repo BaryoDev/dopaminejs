@@ -40,8 +40,8 @@ export interface AchievementDefinition {
     description?: string;
     /**
      * A string is rendered as HTML (an <img> or inline SVG is allowed), or as
-     * sanitised SVG or text when GameUI is built with `safeIcons: true`. A
-     * Node is appended.
+     * allowlisted SVG or text when GameUI is built with `safeIcons: true`. A
+     * Node is moved into the popup, not copied.
      */
     icon?: string | Node;
     /** Omitted means 0. Never undefined at runtime. */
@@ -182,9 +182,11 @@ export interface SummaryData {
 
 export interface GameUIConfig {
     /**
-     * When true, a string icon is parsed as SVG and sanitised (scripts, on*
-     * attributes and javascript: links removed), and any other string is
-     * shown as text. Default false: string icons are HTML.
+     * When true, a string icon (achievement or streak) is parsed as SVG and
+     * rebuilt from an allowlist of elements and attributes, and any other
+     * string is shown as text. The string must be well-formed XML, so
+     * `&nbsp;` falls back to text. An `<svg>` with no xmlns is accepted.
+     * Default false: string icons are HTML.
      */
     safeIcons?: boolean;
     /** Replaces the built-in popup strings. Rendered as text. */
@@ -197,7 +199,10 @@ export interface GameUIConfig {
         nearMiss?: string;
     };
     icons?: {
-        /** A string is HTML, a Node is appended. Default is a fire emoji. */
+        /**
+         * A string is HTML (unless `safeIcons` is on), a Node is moved into
+         * the badge, not copied. Default is a fire emoji.
+         */
         streak?: string | Node;
     };
 }

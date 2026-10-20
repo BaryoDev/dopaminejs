@@ -21,6 +21,10 @@ describe('GameUI text and icon options', () => {
     });
 
     afterEach(() => {
+        for (const key of ['text', 'icons', 'safeIcons', 'levelUp', 'achievementUnlocked', 'nearMiss', 'streak']) {
+            delete Object.prototype[key];
+        }
+        vi.unstubAllGlobals();
         ui?.destroy();
         ui = null;
         document.body.innerHTML = '';
@@ -84,6 +88,48 @@ describe('GameUI text and icon options', () => {
         ui.showAchievement({ icon: node, name: 'A', xp: 1 });
 
         expect(popupIcon().firstChild).toBe(node);
+    });
+
+    it('should ignore options inherited from a polluted prototype', () => {
+        Object.prototype.nearMiss = 'POLLUTED';
+        Object.prototype.levelUp = 'POLLUTED';
+        Object.prototype.streak = 'POLLUTED';
+        Object.prototype.safeIcons = true;
+        ui = new GameUI(stubParticles());
+
+        expect(ui.text.nearMiss).toBe('CLOSE CALL!');
+        expect(ui.text.levelUp).toBe('LEVEL UP!');
+        expect(ui.safeIcons).toBe(false);
+        expect(document.querySelector('.streak-icon').textContent).toBe('🔥');
+    });
+
+    it('should ignore an inherited text or icons object', () => {
+        Object.prototype.text = { nearMiss: 'POLLUTED' };
+        Object.prototype.icons = { streak: 'POLLUTED' };
+        ui = new GameUI(stubParticles());
+
+        expect(ui.text.nearMiss).toBe('CLOSE CALL!');
+        expect(document.querySelector('.streak-icon').textContent).toBe('🔥');
+    });
+
+    it('should render nothing for an icon that is not a string or Node', () => {
+        ui = new GameUI(stubParticles());
+        ui.showAchievement({ icon: 42, name: 'A', xp: 1 });
+        expect(popupIcon().childNodes.length).toBe(0);
+
+        ui.destroy();
+        ui = new GameUI(stubParticles(), { safeIcons: true });
+        ui.showAchievement({ icon: { nodeType: 1 }, name: 'B', xp: 1 });
+        expect(popupIcon().childNodes.length).toBe(0);
+    });
+
+    it('should release the streak icon on destroy', () => {
+        ui = new GameUI(stubParticles(), { icons: { streak: document.createElement('i') } });
+        const held = ui;
+        ui.destroy();
+        ui = null;
+
+        expect(held._streakIcon).toBeNull();
     });
 
     it('should remove everything on destroy', () => {
@@ -226,6 +272,72 @@ describe('GameUI text and icon options', () => {
                 expect(new Set(ids).size).toBe(2);
                 expect(first).not.toBeNull();
                 second.destroy();
+            });
+
+            it('should render an svg with no xmlns', () => {
+                const root = render('<svg viewBox="0 0 1 1"><path d="M0 0"/></svg>');
+                expect(root).not.toBeNull();
+                expect(root.namespaceURI).toBe('http://www.w3.org/2000/svg');
+                expect(root.querySelector('path')).not.toBeNull();
+
+                const padded = new GameUI(stubParticles(), { safeIcons: true });
+                padded.showAchievement({ icon: '  <svg><circle r="1"/></svg>', name: 'B', xp: 1 });
+                expect(document.querySelectorAll('.achievement-icon svg circle').length).toBe(2);
+                padded.destroy();
+            });
+
+            it('should fall back to text when the markup is not well-formed XML', () => {
+                const markup = '<svg viewBox="0 0 1 1"><text>a&nbsp;b</text></svg>';
+                ui = new GameUI(stubParticles(), { safeIcons: true });
+                ui.showAchievement({ icon: markup, name: 'A', xp: 1 });
+                expect(popupIcon().querySelector('svg')).toBeNull();
+                expect(popupIcon().textContent).toBe(markup);
+            });
+
+            it('should fall back to text when the root is not svg', () => {
+                const markup = '<g xmlns="http://www.w3.org/2000/svg"><circle r="1"/></g>';
+                ui = new GameUI(stubParticles(), { safeIcons: true });
+                ui.showAchievement({ icon: markup, name: 'A', xp: 1 });
+                expect(popupIcon().querySelector('g, circle')).toBeNull();
+                expect(popupIcon().textContent).toBe(markup);
+            });
+
+            it('should fall back to text when the parser reports an error', () => {
+                // Some browsers return the partial document with a parsererror
+                // element inside it instead of replacing the root.
+                const real = new DOMParser().parseFromString(svg, 'image/svg+xml');
+                vi.stubGlobal('DOMParser', class {
+                    parseFromString() {
+                        return {
+                            documentElement: real.documentElement,
+                            getElementsByTagName: () => [{}]
+                        };
+                    }
+                });
+                ui = new GameUI(stubParticles(), { safeIcons: true });
+                ui.showAchievement({ icon: svg, name: 'A', xp: 1 });
+                expect(popupIcon().querySelector('svg')).toBeNull();
+                expect(popupIcon().textContent).toBe(svg);
+            });
+
+            it('should drop elements that are not in the svg namespace', () => {
+                const root = render(wrap('<title xmlns="http://www.w3.org/1999/xhtml">x</title>'
+                    + '<desc xmlns="http://www.w3.org/1999/xhtml">y</desc>'
+                    + '<text xmlns="http://www.w3.org/1999/xhtml">z</text><circle r="1"/>'));
+                expect(root.children.length).toBe(1);
+                expect(root.textContent).toBe('');
+            });
+
+            it('should drop a url() stop-color', () => {
+                const root = render(wrap('<stop stop-color="url(a)"/><stop stop-color="url(#a)"/>'));
+                for (const stop of root.querySelectorAll('stop')) {
+                    expect(stop.hasAttribute('stop-color')).toBe(false);
+                }
+            });
+
+            it('should keep CDATA text', () => {
+                const root = render(wrap('<text><![CDATA[a<b]]></text>'));
+                expect(root.querySelector('text').textContent).toBe('a<b');
             });
 
             it('should drop the class attribute', () => {
