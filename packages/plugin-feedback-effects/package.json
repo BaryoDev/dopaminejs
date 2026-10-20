@@ -32,7 +32,7 @@
         "dopaminejs": "^2.0.1"
     },
     "devDependencies": {
-        "vite": "^8.3.2"
+        "vite": "^8.3.4"
     },
     "repository": {
         "type": "git",
