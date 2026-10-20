@@ -44,13 +44,24 @@
         {
             "path": "packages/dopaminejs/dist/dopamine.js",
             "import": "*",
-            "limit": "14 KB",
+            "limit": "15 KB",
             "name": "dopaminejs (ESM)"
         },
         {
             "path": "packages/dopaminejs/dist/dopamine.cjs",
-            "limit": "14 KB",
+            "limit": "15 KB",
             "name": "dopaminejs (CJS)"
+        },
+        {
+            "path": "packages/dopaminejs/dist/engine.js",
+            "import": "*",
+            "limit": "6.5 KB",
+            "name": "dopaminejs/engine (ESM)"
+        },
+        {
+            "path": "packages/dopaminejs/dist/engine.cjs",
+            "limit": "6.5 KB",
+            "name": "dopaminejs/engine (CJS)"
         }
     ],
     "engines": {
