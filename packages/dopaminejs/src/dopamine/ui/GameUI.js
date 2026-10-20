@@ -13,9 +13,62 @@ const DEFAULT_TEXT = {
 
 const DEFAULT_STREAK_ICON = '🔥';
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+const SVG_ELEMENTS = new Set([
+    'svg', 'g', 'path', 'circle', 'ellipse', 'rect', 'line', 'polyline',
+    'polygon', 'text', 'tspan', 'title', 'desc', 'defs', 'linearGradient',
+    'radialGradient', 'stop', 'clipPath', 'mask'
+]);
+
+// No style, no href, no event handlers: only geometry and paint.
+const SVG_ATTRIBUTES = new Set([
+    'viewBox', 'width', 'height', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy',
+    'r', 'rx', 'ry', 'd', 'points', 'transform', 'fill', 'fill-opacity',
+    'fill-rule', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin',
+    'stroke-opacity', 'opacity', 'offset', 'stop-color', 'stop-opacity',
+    'gradientUnits', 'gradientTransform', 'clip-path', 'mask', 'clip-rule',
+    'font-size', 'font-family', 'font-weight', 'text-anchor', 'id', 'class',
+    'aria-hidden', 'aria-label', 'role'
+]);
+
+const LOCAL_URL = /url\(\s*#[^)\s]+\s*\)/gi;
+
+function isSafeValue(value) {
+    // A backslash could spell "url(" through a CSS escape.
+    if (value.includes('\\')) return false;
+    return !/url\(/i.test(value.replace(LOCAL_URL, ''));
+}
+
+function cleanNode(source) {
+    if (source.nodeType === 3) {
+        return document.createTextNode(source.data);
+    }
+    if (source.nodeType !== 1
+        || source.namespaceURI !== SVG_NS
+        || !SVG_ELEMENTS.has(source.localName)) {
+        return null;
+    }
+
+    const clean = document.createElementNS(SVG_NS, source.localName);
+    for (const attr of Array.from(source.attributes)) {
+        if (attr.namespaceURI === null
+            && SVG_ATTRIBUTES.has(attr.name)
+            && isSafeValue(attr.value)) {
+            clean.setAttribute(attr.name, attr.value);
+        }
+    }
+    for (const child of Array.from(source.childNodes)) {
+        const kept = cleanNode(child);
+        if (kept) clean.appendChild(kept);
+    }
+    return clean;
+}
+
 /**
- * Parse a string as SVG and strip anything that can run script. Returns null
- * unless the whole string is one valid <svg> document.
+ * Parse a string as SVG and rebuild it from an allowlist of elements and
+ * attributes, so nothing that can run script or load a resource survives.
+ * Returns null unless the whole string is one valid <svg> document.
  */
 function parseSafeSvg(markup) {
     let doc;
@@ -28,22 +81,7 @@ function parseSafeSvg(markup) {
     if (!root || root.localName !== 'svg' || doc.getElementsByTagName('parsererror').length > 0) {
         return null;
     }
-
-    const all = [root, ...root.querySelectorAll('*')];
-    for (const node of all) {
-        if (node.localName === 'script') continue;
-        for (const attr of Array.from(node.attributes)) {
-            const name = attr.name.toLowerCase();
-            const isLink = name === 'href' || name.endsWith(':href');
-            if (name.startsWith('on')
-                || (isLink && /^[\s\u0000-\u001f]*javascript:/i.test(attr.value))) {
-                node.removeAttribute(attr.name);
-            }
-        }
-    }
-    root.querySelectorAll('script').forEach((n) => n.remove());
-
-    return document.importNode(root, true);
+    return cleanNode(root);
 }
 
 export class GameUI {

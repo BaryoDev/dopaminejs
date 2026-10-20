@@ -94,8 +94,8 @@ onto the bus.
 - `GameObject` has `x`, `y`, `rotation` and `scale: { x, y }`. No `position`.
 - `kernel.systems.register(name, system, { priority, dependencies })`.
 - `new ParticleSystem(config)` takes a config object, not a canvas.
-- `new GameUI(particleSystem)` builds its DOM in the constructor. Do not call
-  `init()` again.
+- `new GameUI(particleSystem, config?)` builds its DOM in the constructor. Do
+  not call `init()` again. `config` takes `text`, `icons.streak` and `safeIcons`.
 - `ui.showLevelUp(oldLevel, newLevel)`.
 - `rewards.getXPForNextLevel()` returns `{ total, needed, progress }`.
 - `rewards.init()` must resolve before `addXP` or `recordGame`.

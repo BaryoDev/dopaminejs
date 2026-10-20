@@ -133,9 +133,8 @@ describe('GameUI text and icon options', () => {
             ui.showAchievement({
                 icon: '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" onload="window.__pwned = true">'
                     + '<script>window.__pwned = true</script>'
-                    + '<a href="javascript:alert(1)"><circle r="1" onclick="x()"/></a>'
-                    + '<a xlink:href="javascript:alert(2)"><rect/></a>'
-                    + '<a href="https://example.com"><rect/></a></svg>',
+                    + '<a href="javascript:alert(1)"><rect/></a>'
+                    + '<circle r="1" onclick="x()"/></svg>',
                 name: 'A',
                 xp: 1
             });
@@ -145,10 +144,75 @@ describe('GameUI text and icon options', () => {
             expect(root.hasAttribute('onload')).toBe(false);
             expect(root.querySelector('script')).toBeNull();
             expect(root.querySelector('circle').hasAttribute('onclick')).toBe(false);
-            const links = root.querySelectorAll('a');
-            expect(links[0].getAttribute('href')).toBeNull();
-            expect(links[1].getAttributeNS('http://www.w3.org/1999/xlink', 'href')).toBeNull();
-            expect(links[2].getAttribute('href')).toBe('https://example.com');
+            expect(root.querySelector('a')).toBeNull();
+        });
+
+        describe('allowlist', () => {
+            const wrap = (inner, attrs = '') => '<svg xmlns="http://www.w3.org/2000/svg" '
+                + 'xmlns:xlink="http://www.w3.org/1999/xlink" ' + attrs + '>' + inner + '</svg>';
+
+            const render = (markup) => {
+                ui = new GameUI(stubParticles(), { safeIcons: true });
+                ui.showAchievement({ icon: markup, name: 'A', xp: 1 });
+                return popupIcon().querySelector('svg');
+            };
+
+            it('should drop foreignObject and its subtree', () => {
+                const root = render(wrap('<foreignObject><div xmlns="http://www.w3.org/1999/xhtml"><img src="x"/></div></foreignObject><circle r="1"/>'));
+                expect(root.querySelector('foreignObject')).toBeNull();
+                expect(root.querySelector('img, div')).toBeNull();
+                expect(root.querySelector('circle')).not.toBeNull();
+            });
+
+            it('should drop use elements', () => {
+                const root = render(wrap('<use href="data:image/svg+xml,x"/><use xlink:href="https://evil.test/a.svg#b"/>'));
+                expect(root.querySelector('use')).toBeNull();
+            });
+
+            it('should drop animate, set and animateTransform', () => {
+                const root = render(wrap('<a><set attributeName="href" to="javascript:alert(1)"/></a>'
+                    + '<circle r="1"><animate attributeName="href" to="javascript:alert(1)"/>'
+                    + '<animateTransform attributeName="transform"/></circle>'));
+                expect(root.querySelector('set, animate, animateTransform, a')).toBeNull();
+                expect(root.querySelector('circle')).not.toBeNull();
+            });
+
+            it('should drop iframe, embed, object and script', () => {
+                const root = render(wrap('<iframe/><embed/><object/><script>window.__pwned = true</script>'));
+                expect(root.querySelector('iframe, embed, object, script')).toBeNull();
+            });
+
+            it('should drop style elements and style attributes', () => {
+                const root = render(wrap('<style>circle { fill: url(https://evil.test/x) }</style><circle r="1" style="fill:red"/>'));
+                expect(root.querySelector('style')).toBeNull();
+                expect(root.querySelector('circle').hasAttribute('style')).toBe(false);
+            });
+
+            it('should remove external url() references', () => {
+                const root = render(wrap('<circle r="1" fill="url(https://evil.test/x)" stroke="URL( #ok ) red" clip-path="u\\72l(https://evil.test)"/>'));
+                const circle = root.querySelector('circle');
+                expect(circle.hasAttribute('fill')).toBe(false);
+                expect(circle.getAttribute('stroke')).toBe('URL( #ok ) red');
+                expect(circle.hasAttribute('clip-path')).toBe(false);
+            });
+
+            it('should drop comments and processing instructions', () => {
+                const root = render(wrap('<!-- hi --><?pi x?><circle r="1"/>'));
+                expect(root.innerHTML).not.toContain('hi');
+                expect(root.childNodes.length).toBe(1);
+            });
+
+            it('should still render an ordinary icon', () => {
+                const root = render(wrap(
+                    '<defs><linearGradient id="grad" gradientUnits="objectBoundingBox"><stop offset="0" stop-color="#f00"/><stop offset="1" stop-color="#00f"/></linearGradient></defs>'
+                    + '<path d="M0 0L10 10" fill="url(#grad)" stroke-width="2"/><text x="1" y="2">hi</text>',
+                    'viewBox="0 0 10 10" width="24" height="24"'
+                ));
+                expect(root.getAttribute('viewBox')).toBe('0 0 10 10');
+                expect(root.querySelector('linearGradient stop')).not.toBeNull();
+                expect(root.querySelector('path').getAttribute('fill')).toBe('url(#grad)');
+                expect(root.querySelector('text').textContent).toBe('hi');
+            });
         });
 
         it('should still append Node icons', () => {
