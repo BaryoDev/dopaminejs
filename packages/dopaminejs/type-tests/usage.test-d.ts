@@ -26,6 +26,19 @@ import Dopamine, {
     type AchievementDefinition,
     type Plugin
 } from '../types/index.js';
+import {
+    RewardSystem as CoreRewardSystem,
+    DataService as CoreDataService,
+    EventEmitter as CoreEmitter,
+    createMemoryStorage as createCoreMemoryStorage,
+    resolveStorage as resolveCoreStorage,
+    type StorageLike as CoreStorage
+} from '../types/core.js';
+// The web-only layer is not part of the core entry, so this must not compile.
+// @ts-expect-error
+import { GameUI as CoreGameUI } from '../types/core.js';
+
+void CoreGameUI;
 
 // The zero-config path.
 async function quickstart(): Promise<void> {
@@ -162,7 +175,17 @@ function engine(): void {
     game.destroy();
 }
 
+function coreEntry(): void {
+    const rewards = new CoreRewardSystem(new CoreDataService({ storage: createCoreMemoryStorage() }));
+    const stop = rewards.on('level_up', () => { });
+    stop();
+    void new CoreEmitter();
+    const store: CoreStorage = resolveCoreStorage();
+    void store;
+}
+
 void quickstart;
 void wiredUp;
 void effectsAndSound;
 void engine;
+void coreEntry;

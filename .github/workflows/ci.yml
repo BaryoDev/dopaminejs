@@ -74,5 +74,8 @@ jobs:
       - name: Check every entry point resolves
         run: node scripts/check-versions.js --dist
 
+      - name: Check dopaminejs/core runs without browser globals
+        run: node scripts/check-core-import.js
+
       - name: Enforce bundle size budget
         run: npm run size

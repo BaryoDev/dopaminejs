@@ -160,4 +160,9 @@ describe('public API surface', () => {
         const mod = await import('../src/engine.js');
         expect(() => compare('dopaminejs-engine', renderSurface(mod))).not.toThrow();
     });
+
+    it('dopaminejs/core subpath has not changed', async () => {
+        const mod = await import('../src/progression.js');
+        expect(() => compare('dopaminejs-core', renderSurface(mod))).not.toThrow();
+    });
 });

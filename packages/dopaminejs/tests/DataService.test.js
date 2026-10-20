@@ -76,4 +76,23 @@ describe('DataService', () => {
 
         expect(await service.load('player')).toEqual({ xp: 30 });
     });
+
+    it('should round trip through promise storage', async () => {
+        const stored = new Map();
+        const service = new DataService({
+            storage: {
+                getItem: async (key) => stored.get(key) ?? null,
+                setItem: async (key, value) => { stored.set(key, value); },
+                removeItem: async (key) => { stored.delete(key); }
+            }
+        });
+
+        expect(await service.save('player', { xp: 5 })).toBe(true);
+        expect(stored.get('dopamine_player')).toBe('{"xp":5}');
+        expect(await service.load('player')).toEqual({ xp: 5 });
+
+        await service.clear('player');
+
+        expect(await service.load('player', 'none')).toBe('none');
+    });
 });

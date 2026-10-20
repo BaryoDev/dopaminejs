@@ -63,6 +63,12 @@
             "path": "packages/dopaminejs/dist/engine.cjs",
             "limit": "6.5 KB",
             "name": "dopaminejs/engine (CJS)"
+        },
+        {
+            "path": "packages/dopaminejs/dist/core.js",
+            "import": "*",
+            "limit": "3.1 KB",
+            "name": "dopaminejs/core (ESM)"
         }
     ],
     "engines": {
