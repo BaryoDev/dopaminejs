@@ -53,6 +53,13 @@ jobs:
       - name: Test
         run: npm run test:ci
 
+      # A zone with a daylight saving change, so the fixture that guards
+      # "yesterday" against a now-minus-24-hours shortcut can fail.
+      - name: Test conformance fixtures in a DST zone
+        run: npm run test:ci -- conformance
+        env:
+          DOPAMINE_TEST_TZ: America/Los_Angeles
+
       - name: Check manifests
         run: node scripts/check-versions.js
 

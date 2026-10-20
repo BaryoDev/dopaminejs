@@ -1,0 +1,466 @@
+{
+    "suite": "migrate",
+    "description": "Loading saved state. Storage is untrusted, so every field is checked on load.",
+    "cases": [
+        {
+            "name": "corrupt json falls back to a default player",
+            "clock": "2026-08-07T09:00:00",
+            "savedRaw": "{not json",
+            "afterInit": {
+                "player": {
+                    "name": "Player",
+                    "xp": 0,
+                    "level": 1,
+                    "totalGamesPlayed": 0,
+                    "streak": {
+                        "current": 1,
+                        "longest": 1,
+                        "lastPlayDate": "2026-08-07"
+                    }
+                },
+                "playerExact": {
+                    "stats": {},
+                    "achievements": {}
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "numeric string xp is accepted",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "xp": "250"
+            },
+            "note": "Number() coercion: a string xp is kept as a number. Level comes from the curve.",
+            "afterInit": {
+                "player": {
+                    "xp": 250,
+                    "level": 2
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "non-numeric xp becomes 0",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "xp": "abc"
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 0,
+                    "level": 1
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "negative numbers fall back to defaults",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "xp": -50,
+                "level": -3,
+                "totalGamesPlayed": -4,
+                "streak": {
+                    "current": -2,
+                    "longest": -9,
+                    "lastPlayDate": "2026-08-07"
+                }
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 0,
+                    "level": 1,
+                    "totalGamesPlayed": 0,
+                    "streak": {
+                        "current": 1,
+                        "longest": 1,
+                        "lastPlayDate": "2026-08-07"
+                    }
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "level above the curve is kept",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "xp": 0,
+                "level": 7
+            },
+            "note": "Older versions banked levels at half the XP. Those players keep the level; progress to the next level starts at 0.",
+            "afterInit": {
+                "player": {
+                    "xp": 0,
+                    "level": 7
+                },
+                "events": []
+            },
+            "steps": [
+                {
+                    "op": "getXPForNextLevel",
+                    "expect": {
+                        "returns": {
+                            "total": 2800,
+                            "needed": 2800,
+                            "progress": 0
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "level below the curve is raised",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "xp": 1000,
+                "level": 2
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 1000,
+                    "level": 5
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "streak current of 0 resets to 1 but longest is kept",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "streak": {
+                    "current": 0,
+                    "longest": 3,
+                    "lastPlayDate": "2026-08-07"
+                }
+            },
+            "afterInit": {
+                "player": {
+                    "streak": {
+                        "current": 1,
+                        "longest": 3,
+                        "lastPlayDate": "2026-08-07"
+                    }
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "streak longest below current is raised",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "streak": {
+                    "current": 4,
+                    "longest": 2,
+                    "lastPlayDate": "2026-08-07"
+                }
+            },
+            "afterInit": {
+                "player": {
+                    "streak": {
+                        "current": 4,
+                        "longest": 4,
+                        "lastPlayDate": "2026-08-07"
+                    }
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "a date-shaped lastPlayDate is not checked for being a real date",
+            "clock": "2026-08-07T09:00:00",
+            "note": "9999-99-99 matches the YYYY-MM-DD shape check, so it is kept, then treated as a broken streak.",
+            "savedJson": {
+                "streak": {
+                    "current": 5,
+                    "longest": 5,
+                    "lastPlayDate": "9999-99-99"
+                }
+            },
+            "afterInit": {
+                "player": {
+                    "streak": {
+                        "current": 1,
+                        "longest": 5,
+                        "lastPlayDate": "2026-08-07"
+                    }
+                },
+                "events": [
+                    {
+                        "event": "streak_updated",
+                        "current": 1,
+                        "longest": 5
+                    }
+                ]
+            }
+        },
+        {
+            "name": "hostile stats keys and values are dropped",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "stats": {
+                    "__proto__": {
+                        "totalPlays": 5
+                    },
+                    "constructor": {
+                        "x": 1
+                    },
+                    "prototype": {},
+                    "good": {
+                        "totalPlays": "3",
+                        "highScore": 12,
+                        "kills": 4,
+                        "bad": "x",
+                        "__proto__": 9,
+                        "nothing": null
+                    },
+                    "arr": [
+                        1
+                    ],
+                    "str": "x"
+                }
+            },
+            "note": "totalPlays \"3\" is dropped by the finite-number loop, then restored by the count check (Number() coercion).",
+            "afterInit": {
+                "playerExact": {
+                    "stats": {
+                        "good": {
+                            "totalPlays": 3,
+                            "highScore": 12,
+                            "kills": 4
+                        }
+                    }
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "bad stat numbers are repaired and missing fields added",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "stats": {
+                    "g": {
+                        "totalPlays": -2,
+                        "highScore": "99",
+                        "x": 1.5
+                    },
+                    "h": {
+                        "wins": 2
+                    }
+                }
+            },
+            "afterInit": {
+                "playerExact": {
+                    "stats": {
+                        "g": {
+                            "totalPlays": 0,
+                            "highScore": 0,
+                            "x": 1.5
+                        },
+                        "h": {
+                            "wins": 2,
+                            "totalPlays": 0,
+                            "highScore": 0
+                        }
+                    }
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "hostile achievement entries are dropped",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "achievements": {
+                    "__proto__": {
+                        "unlockedAt": 1,
+                        "seen": true
+                    },
+                    "constructor": {
+                        "unlockedAt": 1
+                    },
+                    "first_game": {
+                        "unlockedAt": "x",
+                        "seen": "true"
+                    },
+                    "level_5": {
+                        "unlockedAt": 123,
+                        "seen": true
+                    },
+                    "unknown_id": {
+                        "seen": true
+                    },
+                    "bad": 5,
+                    "arr": []
+                }
+            },
+            "note": "Ids are not checked against the defined achievements. Entries that are not objects are dropped. seen is true only for the boolean true.",
+            "afterInit": {
+                "player": {
+                    "achievements": {
+                        "first_game": {
+                            "seen": false
+                        },
+                        "level_5": {
+                            "unlockedAt": 123,
+                            "seen": true
+                        },
+                        "unknown_id": {
+                            "seen": true
+                        }
+                    }
+                },
+                "achievements": [
+                    "first_game",
+                    "level_5",
+                    "unknown_id"
+                ],
+                "absent": [
+                    "achievements.__proto__",
+                    "achievements.constructor",
+                    "achievements.bad",
+                    "achievements.arr"
+                ],
+                "events": []
+            }
+        },
+        {
+            "name": "unknown top level fields are kept",
+            "clock": "2026-08-07T09:00:00",
+            "note": "The saved record is spread over the defaults, so fields the core does not know survive a load and save.",
+            "savedJson": {
+                "xp": 30,
+                "custom": {
+                    "a": 1
+                },
+                "flags": [
+                    1,
+                    2
+                ]
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 30,
+                    "custom": {
+                        "a": 1
+                    },
+                    "flags": [
+                        1,
+                        2
+                    ]
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "an xp that overflows to infinity becomes 0",
+            "clock": "2026-08-07T09:00:00",
+            "savedRaw": "{\"xp\":1e999}",
+            "note": "JSON.parse reads 1e999 as Infinity, which is not finite.",
+            "afterInit": {
+                "player": {
+                    "xp": 0,
+                    "level": 1
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "a lastPlayDate that is not date-shaped is replaced by today",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "streak": {
+                    "current": 5,
+                    "longest": 5,
+                    "lastPlayDate": "hello"
+                }
+            },
+            "afterInit": {
+                "player": {
+                    "streak": {
+                        "current": 5,
+                        "longest": 5,
+                        "lastPlayDate": "2026-08-07"
+                    }
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "a numeric name becomes Player",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "name": 123
+            },
+            "afterInit": {
+                "player": {
+                    "name": "Player"
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "a null name becomes Player",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "name": null
+            },
+            "afterInit": {
+                "player": {
+                    "name": "Player"
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "fractional counts fall back",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "level": 2.5,
+                "totalGamesPlayed": 1.5,
+                "streak": {
+                    "current": 2.5,
+                    "longest": 3.5,
+                    "lastPlayDate": "2026-08-07"
+                }
+            },
+            "afterInit": {
+                "player": {
+                    "level": 1,
+                    "totalGamesPlayed": 0,
+                    "streak": {
+                        "current": 1,
+                        "longest": 1,
+                        "lastPlayDate": "2026-08-07"
+                    }
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "unsafe keys inside a stats entry are dropped",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "stats": {
+                    "g": {
+                        "constructor": 5,
+                        "prototype": 1,
+                        "kills": 2
+                    }
+                }
+            },
+            "afterInit": {
+                "playerExact": {
+                    "stats": {
+                        "g": {
+                            "kills": 2,
+                            "totalPlays": 0,
+                            "highScore": 0
+                        }
+                    }
+                },
+                "events": []
+            }
+        }
+    ]
+}
