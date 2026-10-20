@@ -19,7 +19,9 @@ const dist = resolve(here, '../packages/dopaminejs/dist');
 const BROWSER_GLOBALS = [
     'window', 'document', 'localStorage', 'sessionStorage', 'navigator',
     'self', 'location', 'AudioContext', 'webkitAudioContext', 'requestAnimationFrame',
-    'HTMLElement', 'Element'
+    'HTMLElement', 'Element', 'Image', 'Audio', 'matchMedia', 'indexedDB',
+    'MutationObserver', 'IntersectionObserver', 'CustomEvent', 'getComputedStyle',
+    'cancelAnimationFrame'
 ];
 
 const reads = [];
@@ -57,7 +59,8 @@ async function roundTrip(label, mod, makeStorage) {
         `${label}: RewardSystem is not an EventEmitter`);
 
     const storage = makeStorage(createMemoryStorage);
-    const rewards = new RewardSystem(new DataService({ storage }));
+    const data = new DataService({ storage });
+    const rewards = new RewardSystem(data);
     const seen = [];
     rewards.on('xp_gained', (event) => seen.push(event));
 
@@ -68,7 +71,8 @@ async function roundTrip(label, mod, makeStorage) {
     check(seen.length > 0, `${label}: xp_gained never fired`);
 
     // A fresh instance over the same storage must see the saved player.
-    const again = new RewardSystem(new DataService({ storage }));
+    check(typeof await data.storage.getItem('dopamine_player') === 'string', `${label}: nothing was saved to the store`);
+    const again = new RewardSystem(data);
     await again.init();
     check(again.player.xp === rewards.player.xp, `${label}: saved XP did not survive a reload`);
 
@@ -97,8 +101,16 @@ try {
     check(reads.length === 0, `browser globals were read: ${[...new Set(reads)].join(', ')}`);
     check(esmXp === esmAsyncXp && esmXp === cjsXp, 'storage kind or module format changed the XP awarded');
 
-    // With no storage given, the fallback probes localStorage on purpose and must end up usable.
-    check(typeof esm.resolveStorage().getItem === 'function', 'resolveStorage did not return a store');
+    // No storage given: DataService falls back through resolveStorage, which
+    // probes localStorage and nothing else, then lands on a memory store.
+    reads.length = 0;
+    armed = true;
+    const defaultXp = await roundTrip('esm default storage', esm, () => undefined);
+    check(defaultXp === esmXp, 'default storage changed the XP awarded');
+    armed = false;
+    const other = [...new Set(reads)].filter((name) => name !== 'localStorage');
+    check(other.length === 0, `default storage read more than localStorage: ${other.join(', ')}`);
+    check(reads.includes('localStorage'), 'default storage never probed localStorage, the check is stale');
 } catch (error) {
     failures.push(`import or round trip threw: ${error?.stack || error}`);
 }

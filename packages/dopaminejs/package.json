@@ -17,7 +17,7 @@
             "require": "./dist/engine.cjs"
         },
         "./core": {
-            "types": "./types/index.d.ts",
+            "types": "./types/core.d.ts",
             "import": "./dist/core.js",
             "require": "./dist/core.cjs"
         },

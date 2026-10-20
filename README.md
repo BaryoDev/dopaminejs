@@ -137,7 +137,9 @@ npm install dopaminejs dopaminejs-react
 
 ## React Native, Expo and other non-browser runtimes
 
-`dopaminejs/core` exports only the progression API: `RewardSystem`, `DataService`, `EventEmitter`, `createMemoryStorage` and `resolveStorage`. It has no UI, particles, sound or engine, and nothing in it touches `window`, `document` or `localStorage`. CI imports the built output in plain Node with those globals unset and runs `init` and `recordGame` (`scripts/check-core-import.js`).
+`dopaminejs/core` exports only the progression API: `RewardSystem`, `DataService`, `EventEmitter`, `createMemoryStorage` and `resolveStorage`. It has no UI, particles, sound or engine, and nothing in it touches `window`, `document` or `localStorage` at import time. Only the default-storage fallback (`resolveStorage`) probes `localStorage`, so pass `storage` outside a browser. CI imports the built output in plain Node with those globals unset and runs `init` and `recordGame` (`scripts/check-core-import.js`).
+
+The entry resolves only through the `exports` field of `package.json`. Metro honours it by default from React Native 0.79 and Expo SDK 53. Older versions need `config.resolver.unstable_enablePackageExports = true` in `metro.config.js`.
 
 `DataService` awaits every storage call, so AsyncStorage works as is:
 
