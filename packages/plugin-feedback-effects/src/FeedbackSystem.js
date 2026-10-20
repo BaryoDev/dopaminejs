@@ -40,7 +40,7 @@ export class FeedbackSystem {
         const color = options.color || preset.color || '#FFFFFF';
 
         if (preset.confetti) {
-            this.emitConfetti(x, y, options.count || preset.confetti);
+            this.emitConfetti(x, y, options.count ?? preset.confetti);
         }
 
         if (text) {

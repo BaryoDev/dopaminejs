@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`dopaminejs-plugin-feedback-effects` 1.0.3: `count: 0` emits no confetti.**
+  `trigger` read the count with `||`, so 0 fell back to the effect's default
+  and a milestone still burst 50 pieces. A game that wanted the text without
+  the burst, for example under `prefers-reduced-motion`, had no way to ask for
+  it. A missing count still uses the default.
+
 ### Added
 
 - **`dopaminejs-react` 1.0.0 is published to npm.** `RewardsProvider` and
