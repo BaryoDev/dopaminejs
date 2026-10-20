@@ -46,6 +46,16 @@ export class RewardSystem extends EventEmitter {
         // Set when init() could not read storage. Saving stays off until a
         // later init() reads it, so the saved player is never replaced.
         this._loadFailed = false;
+        this._readFailed = false;
+    }
+
+    /**
+     * True when the last init() could not read the saved player, so nothing
+     * is saved until init() is called again and the read works.
+     * @returns {boolean}
+     */
+    get loadFailed() {
+        return this._readFailed;
     }
 
     /**
@@ -118,15 +128,18 @@ export class RewardSystem extends EventEmitter {
             // without this protection.
             const saved = await this.dataService.load('player', null, { strict: true });
             this._loadFailed = false;
+            this._readFailed = false;
             return saved;
         } catch (error) {
             if (error?.code === 'DOPAMINE_CORRUPT') {
                 // Keep the unreadable value instead of losing it on the next save.
                 const kept = await this.dataService.save('player_corrupt', error.raw);
                 if (kept) this._loadFailed = false;
+                this._readFailed = !kept;
                 this._publish('load_failed', { key: 'player', reason: 'corrupt', backedUp: kept });
                 return null;
             }
+            this._readFailed = true;
             this._publish('load_failed', { key: 'player', reason: 'read', error });
             return null;
         }

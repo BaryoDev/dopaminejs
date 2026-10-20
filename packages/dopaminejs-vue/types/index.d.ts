@@ -27,6 +27,8 @@ export interface RewardsState {
     ready: Ref<boolean>;
     /** Null until init() rejects, then the rejection. */
     error: Ref<unknown>;
+    /** True when init() could not read the saved player, so nothing is saved this session. */
+    loadFailed: Ref<boolean>;
     addXP(amount: number, reason?: string): Promise<AddXPResult>;
     recordGame(gameId: string, stats: object): Promise<void>;
     /** Resolves false when the id is unknown or already unlocked. */

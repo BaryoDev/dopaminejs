@@ -66,7 +66,17 @@ describe('RewardsProvider', () => {
         await settle();
 
         expect(dispatched).toHaveLength(1);
-        expect(dispatched[0].payload).toMatchObject({ ready: true, level: 1 });
+        expect(dispatched[0].payload).toMatchObject({ ready: true, level: 1, loadFailed: false });
+    });
+
+    it('should dispatch loadFailed when the saved player cannot be read', async () => {
+        const storage = createMemoryStorage();
+        storage.getItem = () => { throw new Error('offline'); };
+        const value = RewardsProvider({ storage, children: null }).props.value;
+        expect(value.loadFailed).toBe(false);
+        await settle();
+
+        expect(dispatched[0].payload).toMatchObject({ ready: true, loadFailed: true });
     });
 
     it('should catch an init rejection and dispatch it as error', async () => {

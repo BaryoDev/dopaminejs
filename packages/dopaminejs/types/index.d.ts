@@ -111,6 +111,11 @@ export class RewardSystem extends EventEmitter {
     achievements: Record<string, AchievementDefinition>;
     /** Kernel bus events are mirrored onto, if one was supplied. */
     events: EventBus | null;
+    /**
+     * True when the last `init()` could not read the saved player, so nothing
+     * is saved until `init()` is called again and the read works.
+     */
+    readonly loadFailed: boolean;
 
     init(): Promise<Player>;
     save(): Promise<void>;

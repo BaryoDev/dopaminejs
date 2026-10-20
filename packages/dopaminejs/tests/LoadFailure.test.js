@@ -47,6 +47,7 @@ describe('RewardSystem when the saved player cannot be read', () => {
             expect(failed.mock.calls[0][0].error).toBeInstanceOf(Error);
             expect(rewards.player.xp).toBeGreaterThan(10);
             expect(rewards.player.totalGamesPlayed).toBe(1);
+            expect(rewards.loadFailed).toBe(true);
         });
     }
 
@@ -69,9 +70,11 @@ describe('RewardSystem when the saved player cannot be read', () => {
 
         await rewards.init();
         expect(rewards.player.xp).toBe(0);
+        expect(rewards.loadFailed).toBe(true);
 
         await rewards.init();
         expect(rewards.player.xp).toBe(5000);
+        expect(rewards.loadFailed).toBe(false);
         await rewards.addXP(10);
         expect(JSON.parse(storage.getItem(KEY)).xp).toBe(5010);
     });
@@ -99,6 +102,7 @@ describe('RewardSystem when the saved player cannot be read', () => {
 
         expect(failed).toHaveBeenCalledWith({ key: 'player', reason: 'corrupt', backedUp: true });
         expect(JSON.parse(storage.getItem('dopamine_player_corrupt'))).toBe('{not json');
+        expect(rewards.loadFailed).toBe(false);
         expect(JSON.parse(storage.getItem(KEY)).xp).toBe(0);
     });
 
@@ -163,6 +167,7 @@ describe('RewardSystem when the saved player cannot be read', () => {
 
         expect(storage.getItem(KEY)).toBe('{not json');
         expect(failed.mock.calls[0][0]).toMatchObject({ reason: 'corrupt', backedUp: false });
+        expect(rewards.loadFailed).toBe(true);
     });
 });
 

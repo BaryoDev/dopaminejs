@@ -23,7 +23,7 @@ ParticleSystem: class(0) proto[clear,coinShower,confetti,destroy,emit,fire,play,
 Physics: class(0) proto[add,addBody,checkCollision,checkOverlap,destroy,fixedUpdate,init,raycast,remove,removeBody,setGravity,step]
 PluginRegistry: class(1) proto[clear,get,getLoadOrder,getPluginNames,has,remove,use,useAsync]
 Renderer: class(0) proto[clear,resize]
-RewardSystem: class(1) proto[addXP,checkAchievements,getStreakMultiplier,getUnlockedAchievements,getUnseenAchievements,getXPForNextLevel,init,markAchievementsSeen,recordGame,save,unlockAchievement]
+RewardSystem: class(1) proto[addXP,checkAchievements,getStreakMultiplier,getUnlockedAchievements,getUnseenAchievements,getXPForNextLevel,init,loadFailed,markAchievementsSeen,recordGame,save,unlockAchievement]
 Scene: class(0) proto[add,kernel,onEnter,onExit,remove,render,update]
 ScreenShake: class(0) proto[shake,update]
 SoundManager: class(0) proto[destroy,getVolume,initAudio,loadSound,play,playClick,playError,playGameOver,playJump,playScore,playSuccess,playTone,preloadSounds,registerSound,setVolume,toggleMute]
