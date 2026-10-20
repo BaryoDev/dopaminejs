@@ -38,8 +38,12 @@ export interface Player {
 export interface AchievementDefinition {
     name: string;
     description?: string;
-    /** Rendered as HTML, so an <img> or inline SVG is allowed here. */
-    icon?: string;
+    /**
+     * A string is rendered as HTML (an <img> or inline SVG is allowed), or as
+     * allowlisted SVG or text when GameUI is built with `safeIcons: true`. A
+     * Node is moved into the popup, not copied.
+     */
+    icon?: string | Node;
     /** Omitted means 0. Never undefined at runtime. */
     xp?: number;
     check(player: Player, gameName?: string, result?: GameResult): boolean;
@@ -176,8 +180,35 @@ export interface SummaryData {
     onExit?: () => void;
 }
 
+export interface GameUIConfig {
+    /**
+     * When true, a string icon (achievement or streak) is parsed as SVG and
+     * rebuilt from an allowlist of elements and attributes, and any other
+     * string is shown as text. The string must be well-formed XML, so
+     * `&nbsp;` falls back to text. An `<svg>` with no xmlns is accepted.
+     * Default false: string icons are HTML.
+     */
+    safeIcons?: boolean;
+    /** Replaces the built-in popup strings. Rendered as text. */
+    text?: {
+        /** Default `LEVEL UP!`. */
+        levelUp?: string;
+        /** Default `Achievement Unlocked!`. */
+        achievementUnlocked?: string;
+        /** Default `CLOSE CALL!`. */
+        nearMiss?: string;
+    };
+    icons?: {
+        /**
+         * A string is HTML (unless `safeIcons` is on), a Node is moved into
+         * the badge, not copied. Default is a fire emoji.
+         */
+        streak?: string | Node;
+    };
+}
+
 export class GameUI {
-    constructor(particleSystem: ParticleSystem);
+    constructor(particleSystem: ParticleSystem, config?: GameUIConfig);
 
     container: HTMLElement | null;
 

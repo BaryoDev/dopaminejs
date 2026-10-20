@@ -98,8 +98,8 @@ onto the bus.
 - `GameObject` has `x`, `y`, `rotation` and `scale: { x, y }`. No `position`.
 - `kernel.systems.register(name, system, { priority, dependencies })`.
 - `new ParticleSystem(config)` takes a config object, not a canvas.
-- `new GameUI(particleSystem)` builds its DOM in the constructor. Do not call
-  `init()` again.
+- `new GameUI(particleSystem, config?)` builds its DOM in the constructor. Do
+  not call `init()` again. `config` takes `text`, `icons.streak` and `safeIcons`.
 - `ui.showLevelUp(oldLevel, newLevel)`.
 - `rewards.getXPForNextLevel()` returns `{ total, needed, progress }`.
 - `rewards.init()` must resolve before `addXP` or `recordGame`.
@@ -121,8 +121,10 @@ onto the bus.
   `key in obj`.
 - **Saved state is untrusted.** Anything read from storage goes through
   `RewardSystem._migrate`.
-- **`achievement.icon` is rendered as HTML on purpose.** Every other field is
-  text. See `SECURITY.md`.
+- **`achievement.icon` is rendered as HTML on purpose**, unless `GameUI` is
+  built with `safeIcons: true` (allowlisted SVG or text; the default from
+  3.0). A string `icons.streak` is the same sink. A Node icon is always moved
+  in, never parsed. Every other field is text. See `SECURITY.md`.
 - **Anything that adds a listener, timer or DOM node removes it in
   `destroy()`**, and a test proves it.
 - **The v1 globals stay.** `GlobalPhysics`, `GlobalInput` and `GlobalLoader`

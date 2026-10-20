@@ -108,6 +108,12 @@ function effectsAndSound(): void {
     }
 
     const ui = new GameUI(particles);
+    const custom = new GameUI(particles, {
+        text: { levelUp: 'Level!', nearMiss: 'Whoa' },
+        icons: { streak: document.createElement('span') },
+        safeIcons: true
+    });
+    custom.destroy();
     ui.showSummary({
         score: 4200,
         metrics: { Coins: 12, Time: '2:04' },
