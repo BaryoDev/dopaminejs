@@ -369,6 +369,53 @@
                     }
                 }
             ]
+        },
+        {
+            "name": "a failed write fires save_failed",
+            "clock": "2026-08-07T09:00:00",
+            "config": {
+                "builtinAchievements": false
+            },
+            "storage": {
+                "failWrites": true
+            },
+            "note": "Every storage write throws. The core logs, fires save_failed and carries on with the in-memory player.",
+            "afterInit": {
+                "player": {
+                    "xp": 0
+                },
+                "events": [
+                    {
+                        "event": "save_failed",
+                        "key": "player"
+                    }
+                ]
+            },
+            "steps": [
+                {
+                    "op": "addXP",
+                    "amount": 5,
+                    "expect": {
+                        "player": {
+                            "xp": 5
+                        },
+                        "events": [
+                            {
+                                "event": "save_failed",
+                                "key": "player"
+                            },
+                            {
+                                "event": "xp_gained",
+                                "amount": 5,
+                                "reason": "",
+                                "leveledUp": false,
+                                "newLevel": 1,
+                                "total": 5
+                            }
+                        ]
+                    }
+                }
+            ]
         }
     ]
 }

@@ -17,7 +17,8 @@ const CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-const CASE_KEYS = ['name', 'note', 'config', 'clock', 'savedJson', 'savedRaw', 'afterInit', 'steps'];
+const CASE_KEYS = ['name', 'note', 'config', 'clock', 'savedJson', 'savedRaw', 'afterInit', 'steps', 'storage'];
+const STORAGE_OPTION_KEYS = ['failWrites'];
 const CONFIG_KEYS = ['builtinAchievements', 'achievements'];
 const ACHIEVEMENT_KEYS = ['name', 'description', 'icon', 'xp', 'when'];
 const EXPECT_KEYS = ['player', 'playerExact', 'absent', 'achievements', 'events', 'returns', 'throws'];
@@ -82,11 +83,20 @@ function makeCheck(id, when) {
     if (hasOwn(when, 'throws')) { only('throws'); return () => { throw new Error('check failed on purpose'); }; }
     if (hasOwn(when, 'player')) {
         only('player', 'gte');
+        if (typeof when.player !== 'string' || typeof when.gte !== 'number') {
+            throw new Error(`achievement ${id}: "player" must be a path and "gte" a number`);
+        }
+        const probe = new RewardSystem(new DataService({ storage: createMemoryStorage() }))._getDefaultPlayer();
+        const field = getPath(probe, when.player);
+        if (!field.found || typeof field.value !== 'number') {
+            throw new Error(`achievement ${id}: "${when.player}" is not a numeric player field`);
+        }
         return (player) => getPath(player, when.player).value >= when.gte;
     }
     if (hasOwn(when, 'game')) { only('game'); return (player, game) => game === when.game; }
     if (hasOwn(when, 'score_gte')) {
         only('score_gte');
+        if (typeof when.score_gte !== 'number') throw new Error(`achievement ${id}: "score_gte" must be a number`);
         return (player, game, result) => result.score !== undefined && result.score >= when.score_gte;
     }
     throw new Error(`achievement ${id}: unknown condition ${JSON.stringify(keys)}`);
@@ -103,10 +113,20 @@ function buildConfig(config = {}) {
     return achievements;
 }
 
+function nonEmpty(value, where) {
+    const size = Array.isArray(value) ? value.length : isRecord(value) ? Object.keys(value).length : -1;
+    if (size < 0) throw new Error(`${where}: expected an object or array`);
+    if (size === 0) throw new Error(`${where}: empty, so it checks nothing`);
+}
+
 function runCase(testCase) {
     return async () => {
         assertKeys('case', testCase, CASE_KEYS);
         if (!CLOCK.test(testCase.clock || '')) throw new Error('clock must be YYYY-MM-DDTHH:MM:SS local time');
+        if (!testCase.afterInit && !(Array.isArray(testCase.steps) && testCase.steps.length > 0)) {
+            throw new Error('case has no afterInit and no steps, so it checks nothing');
+        }
+        assertKeys('storage', testCase.storage || {}, STORAGE_OPTION_KEYS);
         const customAchievements = buildConfig(testCase.config);
         const builtins = testCase.config?.builtinAchievements !== false;
 
@@ -115,9 +135,12 @@ function runCase(testCase) {
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
         try {
-            const storage = createMemoryStorage();
-            if (testCase.savedRaw !== undefined) storage.setItem(STORAGE_KEY, testCase.savedRaw);
-            if (testCase.savedJson !== undefined) storage.setItem(STORAGE_KEY, JSON.stringify(testCase.savedJson));
+            const memory = createMemoryStorage();
+            if (testCase.savedRaw !== undefined) memory.setItem(STORAGE_KEY, testCase.savedRaw);
+            if (testCase.savedJson !== undefined) memory.setItem(STORAGE_KEY, JSON.stringify(testCase.savedJson));
+            const storage = testCase.storage?.failWrites === true
+                ? { ...memory, setItem: () => { throw new Error('storage write blocked'); } }
+                : memory;
 
             let events = [];
             let rewards;
@@ -134,7 +157,23 @@ function runCase(testCase) {
 
             const verify = (expectation, label, returned) => {
                 assertKeys(`${label} expect`, expectation, EXPECT_KEYS);
-                if (Object.keys(expectation).length === 0) throw new Error(`${label}: empty expectation`);
+                nonEmpty(expectation, `${label} expect`);
+                for (const key of ['player', 'playerExact']) {
+                    if (hasOwn(expectation, key)) {
+                        if (!isRecord(expectation[key])) throw new Error(`${label} ${key}: expected an object`);
+                        nonEmpty(expectation[key], `${label} ${key}`);
+                    }
+                }
+                if (hasOwn(expectation, 'returns') && isRecord(expectation.returns)) {
+                    nonEmpty(expectation.returns, `${label} returns`);
+                }
+                for (const key of ['absent', 'achievements', 'events']) {
+                    if (hasOwn(expectation, key)) {
+                        if (!Array.isArray(expectation[key])) throw new Error(`${label} ${key}: expected an array`);
+                        // Empty events or achievements lists are real checks (nothing fired, nothing unlocked).
+                        if (key === 'absent') nonEmpty(expectation[key], `${label} ${key}`);
+                    }
+                }
                 const player = rewards.player;
 
                 if (hasOwn(expectation, 'player')) matchSubset(player, expectation.player, `${label} player`);
@@ -142,7 +181,7 @@ function runCase(testCase) {
                     for (const [path, want] of Object.entries(expectation.playerExact)) {
                         const found = getPath(player, path);
                         if (!found.found) throw new Error(`${label} playerExact.${path}: missing`);
-                        expect(found.value, `${label} playerExact.${path}`).toEqual(want);
+                        expect(found.value, `${label} playerExact.${path}`).toStrictEqual(want);
                     }
                 }
                 for (const path of expectation.absent || []) {
@@ -170,6 +209,8 @@ function runCase(testCase) {
                 assertKeys(label, step, ['op', 'expect', ...OPS[step.op]]);
                 if (step.op !== 'setClock' && !step.expect) throw new Error(`${label}: expect is required`);
 
+                if (step.op === 'setClock' && !CLOCK.test(step.at || '')) throw new Error(`${label}: at must be YYYY-MM-DDTHH:MM:SS local time`);
+
                 events = [];
                 let returned;
                 let thrown = null;
@@ -177,7 +218,6 @@ function runCase(testCase) {
                 try {
                     switch (step.op) {
                         case 'setClock':
-                            if (!CLOCK.test(step.at || '')) throw new Error(`${label}: at must be YYYY-MM-DDTHH:MM:SS local time`);
                             vi.setSystemTime(new Date(step.at));
                             break;
                         case 'reload':

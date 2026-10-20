@@ -476,6 +476,135 @@
                     }
                 }
             ]
+        },
+        {
+            "name": "level_5 unlocks when the level is exactly 5",
+            "clock": "2026-08-07T09:00:00",
+            "note": "The game takes xp from 990 to exactly 1000, the level 5 threshold.",
+            "savedJson": {
+                "xp": 990,
+                "level": 4,
+                "totalGamesPlayed": 5,
+                "achievements": {
+                    "first_game": {
+                        "unlockedAt": 1,
+                        "seen": true
+                    }
+                }
+            },
+            "steps": [
+                {
+                    "op": "recordGame",
+                    "game": "g",
+                    "expect": {
+                        "player": {
+                            "xp": 1100,
+                            "level": 5
+                        },
+                        "achievements": [
+                            "first_game",
+                            "level_5"
+                        ],
+                        "events": [
+                            {
+                                "event": "xp_gained",
+                                "amount": 10,
+                                "reason": "Played g",
+                                "leveledUp": true,
+                                "newLevel": 5,
+                                "total": 1000
+                            },
+                            {
+                                "event": "level_up",
+                                "oldLevel": 4,
+                                "newLevel": 5,
+                                "totalXP": 1000
+                            },
+                            {
+                                "event": "xp_gained",
+                                "amount": 100,
+                                "reason": "Achievement: Rising Star",
+                                "leveledUp": false,
+                                "newLevel": 5,
+                                "total": 1100
+                            },
+                            {
+                                "event": "achievement_unlocked",
+                                "id": "level_5",
+                                "name": "Rising Star",
+                                "xp": 100
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "level_10 unlocks when the level is exactly 10",
+            "clock": "2026-08-07T09:00:00",
+            "note": "The game takes xp from 4490 to exactly 4500, the level 10 threshold.",
+            "savedJson": {
+                "xp": 4490,
+                "level": 9,
+                "totalGamesPlayed": 50,
+                "achievements": {
+                    "first_game": {
+                        "unlockedAt": 1,
+                        "seen": true
+                    },
+                    "level_5": {
+                        "unlockedAt": 1,
+                        "seen": true
+                    }
+                }
+            },
+            "steps": [
+                {
+                    "op": "recordGame",
+                    "game": "g",
+                    "expect": {
+                        "player": {
+                            "xp": 4750,
+                            "level": 10
+                        },
+                        "achievements": [
+                            "first_game",
+                            "level_5",
+                            "level_10"
+                        ],
+                        "events": [
+                            {
+                                "event": "xp_gained",
+                                "amount": 10,
+                                "reason": "Played g",
+                                "leveledUp": true,
+                                "newLevel": 10,
+                                "total": 4500
+                            },
+                            {
+                                "event": "level_up",
+                                "oldLevel": 9,
+                                "newLevel": 10,
+                                "totalXP": 4500
+                            },
+                            {
+                                "event": "xp_gained",
+                                "amount": 250,
+                                "reason": "Achievement: Expert Player",
+                                "leveledUp": false,
+                                "newLevel": 10,
+                                "total": 4750
+                            },
+                            {
+                                "event": "achievement_unlocked",
+                                "id": "level_10",
+                                "name": "Expert Player",
+                                "xp": 250
+                            }
+                        ]
+                    }
+                }
+            ]
         }
     ]
 }

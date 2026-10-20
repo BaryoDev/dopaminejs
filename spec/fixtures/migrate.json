@@ -351,6 +351,116 @@
                 },
                 "events": []
             }
+        },
+        {
+            "name": "an xp that overflows to infinity becomes 0",
+            "clock": "2026-08-07T09:00:00",
+            "savedRaw": "{\"xp\":1e999}",
+            "note": "JSON.parse reads 1e999 as Infinity, which is not finite.",
+            "afterInit": {
+                "player": {
+                    "xp": 0,
+                    "level": 1
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "a lastPlayDate that is not date-shaped is replaced by today",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "streak": {
+                    "current": 5,
+                    "longest": 5,
+                    "lastPlayDate": "hello"
+                }
+            },
+            "afterInit": {
+                "player": {
+                    "streak": {
+                        "current": 5,
+                        "longest": 5,
+                        "lastPlayDate": "2026-08-07"
+                    }
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "a numeric name becomes Player",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "name": 123
+            },
+            "afterInit": {
+                "player": {
+                    "name": "Player"
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "a null name becomes Player",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "name": null
+            },
+            "afterInit": {
+                "player": {
+                    "name": "Player"
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "fractional counts fall back",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "level": 2.5,
+                "totalGamesPlayed": 1.5,
+                "streak": {
+                    "current": 2.5,
+                    "longest": 3.5,
+                    "lastPlayDate": "2026-08-07"
+                }
+            },
+            "afterInit": {
+                "player": {
+                    "level": 1,
+                    "totalGamesPlayed": 0,
+                    "streak": {
+                        "current": 1,
+                        "longest": 1,
+                        "lastPlayDate": "2026-08-07"
+                    }
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "unsafe keys inside a stats entry are dropped",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "stats": {
+                    "g": {
+                        "constructor": 5,
+                        "prototype": 1,
+                        "kills": 2
+                    }
+                }
+            },
+            "afterInit": {
+                "playerExact": {
+                    "stats": {
+                        "g": {
+                            "kills": 2,
+                            "totalPlays": 0,
+                            "highScore": 0
+                        }
+                    }
+                },
+                "events": []
+            }
         }
     ]
 }

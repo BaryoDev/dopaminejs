@@ -712,6 +712,44 @@
                     }
                 }
             ]
+        },
+        {
+            "name": "an unsafe key in the result is dropped",
+            "clock": "2026-08-07T09:00:00",
+            "config": {
+                "builtinAchievements": false
+            },
+            "steps": [
+                {
+                    "op": "recordGame",
+                    "game": "g",
+                    "result": {
+                        "constructor": 4,
+                        "kills": 1
+                    },
+                    "expect": {
+                        "playerExact": {
+                            "stats": {
+                                "g": {
+                                    "totalPlays": 1,
+                                    "highScore": 0,
+                                    "kills": 1
+                                }
+                            }
+                        },
+                        "events": [
+                            {
+                                "event": "xp_gained",
+                                "amount": 10,
+                                "reason": "Played g",
+                                "leveledUp": false,
+                                "newLevel": 1,
+                                "total": 10
+                            }
+                        ]
+                    }
+                }
+            ]
         }
     ]
 }

@@ -538,6 +538,34 @@
                     }
                 }
             ]
+        },
+        {
+            "name": "yesterday is a calendar day across a daylight saving change",
+            "clock": "2026-03-09T00:30:00",
+            "note": "US clocks went forward on 2026-03-08. Yesterday is 2026-03-08 even though less than 24 hours passed since that day ended. CI also runs this file in America/Los_Angeles, where a \"now minus 24 hours\" implementation gets 2026-03-07.",
+            "savedJson": {
+                "streak": {
+                    "current": 3,
+                    "longest": 3,
+                    "lastPlayDate": "2026-03-08"
+                }
+            },
+            "afterInit": {
+                "player": {
+                    "streak": {
+                        "current": 4,
+                        "longest": 4,
+                        "lastPlayDate": "2026-03-09"
+                    }
+                },
+                "events": [
+                    {
+                        "event": "streak_updated",
+                        "current": 4,
+                        "longest": 4
+                    }
+                ]
+            }
         }
     ]
 }

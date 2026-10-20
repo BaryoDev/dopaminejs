@@ -107,6 +107,9 @@ onto the bus.
   means updating the approved file in the same commit. `tests/types.test.js`
   checks that `types/index.d.ts` declares exactly what the module exports.
 - **No runtime dependencies in the core.**
+- **`spec/` holds the language-neutral conformance fixtures**, and
+  `tests/conformance.test.js` runs them. A rule change in `RewardSystem` means
+  changing a fixture in the same commit. See `spec/README.md`.
 - **Streak dates are local calendar dates**, never UTC. The test timezone is
   pinned so a UTC assumption fails.
 - **Look up by own property.** Game names, achievement ids and sound keys come

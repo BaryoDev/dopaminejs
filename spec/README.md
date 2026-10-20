@@ -20,14 +20,16 @@ caught up goes red.
 |---|---|
 | `name` | Unique within the file. |
 | `note` | Optional. Why the case exists, or a quirk it pins. |
-| `clock` | Start time, local `YYYY-MM-DDTHH:MM:SS`. No offset. |
+| `clock` | Required. Start time, local `YYYY-MM-DDTHH:MM:SS`. No offset. |
 | `config` | Optional. See below. |
+| `storage` | Optional. `{ "failWrites": true }` makes every storage write throw, to exercise `save_failed`. Reads still work and `savedJson`/`savedRaw` are seeded first. |
 | `savedJson` | Optional. Any JSON value, stored as `JSON.stringify(value)`. |
 | `savedRaw` | Optional. A string stored as is, for corrupt data. |
 | `afterInit` | Optional. Expectation checked after the first `init`. |
 | `steps` | Optional. Ordered list of steps. |
 
-With neither `savedJson` nor `savedRaw`, storage is empty.
+With neither `savedJson` nor `savedRaw`, storage is empty. A case needs
+`afterInit`, or at least one step, or it checks nothing and fails.
 
 Storage is an in-memory string store. The player lives under the key
 `dopamine_player` (prefix `dopamine_` plus `player`).
@@ -41,7 +43,9 @@ sets its clock to the local wall time given, and must not convert through UTC.
 ### Config
 
 - `builtinAchievements`: `false` removes the five built-ins (`first_game`,
-  `level_5`, `level_10`, `streak_3`, `streak_7`). Default `true`.
+  `level_5`, `level_10`, `streak_3`, `streak_7`). Default `true`. The JS core
+  has no such option; the runner emulates it by replacing the achievement table
+  after construction. A port must do the same.
 - `achievements`: extra achievements by id, `{ name, description?, icon?, xp?, when }`.
 
 `when` replaces the check function. One of:
@@ -56,12 +60,18 @@ sets its clock to the local wall time given, and must not convert through UTC.
 | `{ "score_gte": 100 }` | The result has a score and it is `>=` the number. |
 
 Achievements are checked in the order: built-ins in the order listed above,
-then `config.achievements` in file order.
+then `config.achievements` in file order. Two limits come from JS objects:
+integer-like ids (`"1"`, `"2"`) sort first regardless of file order, and a
+config entry that reuses a built-in id replaces its definition but keeps the
+built-in's position. Fixtures avoid both; do not rely on either.
+
+`gte` and `score_gte` must be numbers, and a `player` path must name a numeric
+field on a new player, or the runner rejects the case.
 
 ## Steps
 
 Every step is `{ "op": ..., ...args, "expect": {...} }`. `expect` is required
-except for `setClock`.
+except for `setClock`, where it is accepted and checked if present.
 
 | op | args | Does |
 |---|---|---|
@@ -83,12 +93,24 @@ Events are collected from the start of each step (and from construction for
 | Key | Checks |
 |---|---|
 | `player` | Subset match against the player. Every listed key must exist as an own key and match. Objects match by listed keys, arrays by length and element, numbers and strings exactly. |
-| `playerExact` | Map of dotted path to value. The value at that path must equal it exactly, no extra keys. |
+| `playerExact` | Map of dotted path to value. The value at that path must equal it strictly, no extra keys. |
 | `absent` | Dotted paths under the player that must not exist as own keys. |
 | `achievements` | Ids in `player.achievements`, as a set. |
 | `events` | The complete ordered list of events since the step began. Each is `{ "event": name, ...payload fields }`, matched as a subset. The list length must match. |
 | `returns` | Subset match against the operation's return value. |
 | `throws` | An error with this name (`TypeError`) is raised. State checks still run afterwards. |
+
+An empty `player`, `playerExact`, `returns` or `absent`, or an empty `expect`,
+is an error because it checks nothing. An empty `events` or `achievements`
+list is a real check (nothing fired, nothing unlocked).
+
+Each event is matched as `{ ...payload, "event": name }`. The `event` key is
+the event name, so it wins over a payload field called `event`; the
+`achievement_unlocked` payload has its own `name` (the achievement's name),
+which is why the event name is not under `name`.
+
+CI also runs the conformance file once in `America/Los_Angeles`
+(`DOPAMINE_TEST_TZ`), so the daylight saving case can fail.
 
 Event names: `xp_gained`, `level_up`, `achievement_unlocked`, `new_high_score`,
 `streak_updated`, `save_failed`.
