@@ -164,9 +164,12 @@ export class DataService {
     storage: StorageLike | AsyncStorageLike;
     prefix: string;
     save(key: string, data: unknown): Promise<boolean>;
-    load<T = unknown>(key: string, defaultValue?: T | null): Promise<T | null>;
-    /** Rejects when storage throws. Unparseable data resolves with `corrupt`. */
-    read<T = unknown>(key: string): Promise<{ value: T | null; corrupt?: string }>;
+    /**
+     * Resolves `defaultValue` when the read fails, unless `strict` is set:
+     * then a storage error rejects as is, and unparseable data rejects with
+     * `code: 'DOPAMINE_CORRUPT'` and the raw string on `raw`.
+     */
+    load<T = unknown>(key: string, defaultValue?: T | null, options?: { strict?: boolean }): Promise<T | null>;
     clear(key: string): Promise<void>;
 }
 

@@ -110,26 +110,21 @@ export class RewardSystem extends EventEmitter {
      */
     async _readSaved() {
         this._loadFailed = false;
-        // A custom data service may only have load().
-        if (typeof this.dataService.read !== 'function') {
-            return this.dataService.load('player', null);
-        }
-
-        let result;
         try {
-            result = await this.dataService.read('player');
+            // A custom data service that ignores the option still works,
+            // without this protection.
+            return await this.dataService.load('player', null, { strict: true });
         } catch (error) {
+            if (error?.code === 'DOPAMINE_CORRUPT') {
+                // Keep the unreadable value instead of losing it on the next save.
+                await this.dataService.save('player_corrupt', error.raw);
+                this._publish('load_failed', { key: 'player', reason: 'corrupt' });
+                return null;
+            }
             this._loadFailed = true;
             this._publish('load_failed', { key: 'player', reason: 'read', error });
             return null;
         }
-
-        if (result.corrupt !== undefined) {
-            // Keep the unreadable value instead of losing it on the next save.
-            await this.dataService.save('player_corrupt', result.corrupt);
-            this._publish('load_failed', { key: 'player', reason: 'corrupt' });
-        }
-        return result.value;
     }
 
     /**

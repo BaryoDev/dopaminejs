@@ -102,7 +102,7 @@ describe('RewardSystem when the saved player cannot be read', () => {
         expect(JSON.parse(storage.getItem(KEY)).xp).toBe(0);
     });
 
-    it('should fall back to load() for a data service without read()', async () => {
+    it('should still work with a data service whose load() ignores the option', async () => {
         const store = { player: saved() };
         const service = {
             load: async (key) => store[key] ?? null,
@@ -116,22 +116,30 @@ describe('RewardSystem when the saved player cannot be read', () => {
     });
 });
 
-describe('DataService.read', () => {
-    it('should reject when storage throws, where load() hides it', async () => {
+describe('DataService.load strict', () => {
+    it('should reject when storage throws, where the default hides it', async () => {
         const storage = flakyStorage({ failures: 2 });
         const service = new DataService({ storage });
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        await expect(service.read('player')).rejects.toThrow('offline');
+        await expect(service.load('player', null, { strict: true })).rejects.toThrow('offline');
         await expect(service.load('player')).resolves.toBeNull();
     });
 
-    it('should resolve a missing key as null and parse a saved one', async () => {
+    it('should reject corrupt data with its raw string', async () => {
         const storage = createMemoryStorage();
+        storage.setItem(KEY, '{not json');
         const service = new DataService({ storage });
 
-        await expect(service.read('player')).resolves.toEqual({ value: null });
+        await expect(service.load('player', null, { strict: true }))
+            .rejects.toMatchObject({ code: 'DOPAMINE_CORRUPT', raw: '{not json' });
+    });
+
+    it('should resolve a missing key as the default and parse a saved one', async () => {
+        const service = new DataService({ storage: createMemoryStorage() });
+
+        await expect(service.load('player', 7, { strict: true })).resolves.toBe(7);
         await service.save('player', { xp: 1 });
-        await expect(service.read('player')).resolves.toEqual({ value: { xp: 1 } });
+        await expect(service.load('player', null, { strict: true })).resolves.toEqual({ xp: 1 });
     });
 });
