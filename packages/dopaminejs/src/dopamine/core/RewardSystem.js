@@ -87,7 +87,8 @@ export class RewardSystem extends EventEmitter {
      */
     async init() {
         const saved = await this._readSaved();
-        this.player = this._migrate(saved);
+        // A failed retry keeps the progress made since the first init.
+        if (!(this._loadFailed && this.player)) this.player = this._migrate(saved);
 
         // Check daily streak
         const streakChanged = this._updateDailyStreak();
@@ -109,19 +110,23 @@ export class RewardSystem extends EventEmitter {
      * @private
      */
     async _readSaved() {
-        this._loadFailed = false;
+        // Stay blocked until the read succeeds, so a write made while a
+        // retry is in flight cannot land.
+        this._loadFailed = true;
         try {
             // A custom data service that ignores the option still works,
             // without this protection.
-            return await this.dataService.load('player', null, { strict: true });
+            const saved = await this.dataService.load('player', null, { strict: true });
+            this._loadFailed = false;
+            return saved;
         } catch (error) {
             if (error?.code === 'DOPAMINE_CORRUPT') {
                 // Keep the unreadable value instead of losing it on the next save.
-                await this.dataService.save('player_corrupt', error.raw);
-                this._publish('load_failed', { key: 'player', reason: 'corrupt' });
+                const kept = await this.dataService.save('player_corrupt', error.raw);
+                if (kept) this._loadFailed = false;
+                this._publish('load_failed', { key: 'player', reason: 'corrupt', backedUp: kept });
                 return null;
             }
-            this._loadFailed = true;
             this._publish('load_failed', { key: 'player', reason: 'read', error });
             return null;
         }

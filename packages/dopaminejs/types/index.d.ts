@@ -87,10 +87,13 @@ export type RewardEvent =
     /** Payload `{ key }`. The storage write failed; state lives in memory only. */
     | 'save_failed'
     /**
-     * Payload `{ key, reason, error? }`. `reason: 'read'`: storage could not be
-     * read, so nothing is saved this session (call `init()` again to retry).
-     * `reason: 'corrupt'`: the saved value was not JSON; it is kept under
-     * `player_corrupt` and a new player starts.
+     * Payload `{ key, reason, error?, backedUp? }`. `reason: 'read'`: storage
+     * could not be read, so nothing is saved this session (call `init()` again
+     * to retry). `reason: 'corrupt'`: the saved value was not JSON; it is kept
+     * under `player_corrupt` as a JSON string and a new player starts. If that
+     * backup fails, `backedUp` is false and nothing is saved this session.
+     * A `load()` override must pass its third argument on, or a failed read
+     * looks like an empty one.
      */
     | 'load_failed';
 
@@ -167,7 +170,8 @@ export class DataService {
     /**
      * Resolves `defaultValue` when the read fails, unless `strict` is set:
      * then a storage error rejects as is, and unparseable data rejects with
-     * `code: 'DOPAMINE_CORRUPT'` and the raw string on `raw`.
+     * `code: 'DOPAMINE_CORRUPT'` and the raw string on `raw`. `RewardSystem`
+     * relies on this, so an override must pass `options` on.
      */
     load<T = unknown>(key: string, defaultValue?: T | null, options?: { strict?: boolean }): Promise<T | null>;
     clear(key: string): Promise<void>;

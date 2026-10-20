@@ -97,7 +97,7 @@ describe('RewardSystem when the saved player cannot be read', () => {
 
         await rewards.init();
 
-        expect(failed).toHaveBeenCalledWith({ key: 'player', reason: 'corrupt' });
+        expect(failed).toHaveBeenCalledWith({ key: 'player', reason: 'corrupt', backedUp: true });
         expect(JSON.parse(storage.getItem('dopamine_player_corrupt'))).toBe('{not json');
         expect(JSON.parse(storage.getItem(KEY)).xp).toBe(0);
     });
@@ -113,6 +113,56 @@ describe('RewardSystem when the saved player cannot be read', () => {
         await rewards.init();
 
         expect(rewards.player.xp).toBe(5000);
+    });
+    it('should not write while a retry is still reading', async () => {
+        const storage = flakyStorage();
+        const rewards = new RewardSystem(new DataService({ storage }));
+        await rewards.init();
+
+        let release;
+        const getItem = storage.getItem;
+        storage.getItem = (key) => new Promise((resolve) => {
+            release = () => resolve(getItem(key));
+        });
+        const retry = rewards.init();
+        await rewards.addXP(7);
+        expect(JSON.parse(await getItem(KEY))).toEqual(saved());
+
+        release();
+        await retry;
+        expect(rewards.player.xp).toBe(5000);
+    });
+
+    it('should keep the session progress when a retry fails too', async () => {
+        const storage = flakyStorage({ failures: 2 });
+        const rewards = new RewardSystem(new DataService({ storage }));
+
+        await rewards.init();
+        await rewards.addXP(100);
+        await rewards.init();
+
+        expect(rewards.player.xp).toBe(100);
+        expect(JSON.parse(await storage.getItem(KEY))).toEqual(saved());
+    });
+
+    it('should save nothing when the corrupt value cannot be backed up', async () => {
+        const storage = createMemoryStorage();
+        storage.setItem(KEY, '{not json');
+        const setItem = storage.setItem.bind(storage);
+        storage.setItem = (key, value) => {
+            if (key === 'dopamine_player_corrupt') throw new Error('full');
+            return setItem(key, value);
+        };
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const rewards = new RewardSystem(new DataService({ storage }));
+        const failed = vi.fn();
+        rewards.on('load_failed', failed);
+
+        await rewards.init();
+        await rewards.addXP(10);
+
+        expect(storage.getItem(KEY)).toBe('{not json');
+        expect(failed.mock.calls[0][0]).toMatchObject({ reason: 'corrupt', backedUp: false });
     });
 });
 
