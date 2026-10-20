@@ -9,12 +9,13 @@ DopamineJS adds progression to web apps: XP, levels, achievements and daily
 streaks, plus the particles, sound and screen shake that go with them. A small
 game engine sits underneath and is exported too.
 
-npm workspaces monorepo, nine packages under `packages/`:
+npm workspaces monorepo, ten packages under `packages/`:
 
 | Package | Licence | Holds |
 |---|---|---|
 | `dopaminejs` | MPL-2.0 | Core: rewards, UI, effects, engine |
 | `dopaminejs-react` | MIT | `RewardsProvider`, `useRewards()` |
+| `dopaminejs-vue` | MIT | `provideRewards()`, `useRewards()` (private until first publish) |
 | `dopaminejs-themes` | MIT | CSS variable themes |
 | `plugin-webgl-particles`, `plugin-howler-audio`, `plugin-sound-packs`, `plugin-ecosystem`, `plugin-feedback-effects`, `plugin-debug-overlay` | MIT | One plugin each, published as `dopaminejs-plugin-*` |
 
@@ -42,7 +43,7 @@ CI (`.github/workflows/ci.yml`) runs all of these on Node 20.19 and 22.12.
 Run them all before saying a change is done.
 
 All tests live in `packages/dopaminejs/tests/`, including the tests for the
-plugin and React packages. A vite alias maps `dopaminejs` to the core source,
+plugin, React and Vue packages. A vite alias maps `dopaminejs` to the core source,
 so plugin sources can be imported directly.
 
 ## Layout of the core
@@ -110,6 +111,9 @@ onto the bus.
   means updating the approved file in the same commit. `tests/types.test.js`
   checks that `types/index.d.ts` declares exactly what the module exports.
 - **No runtime dependencies in the core.**
+- **`spec/` holds the language-neutral conformance fixtures**, and
+  `tests/conformance.test.js` runs them. A rule change in `RewardSystem` means
+  changing a fixture in the same commit. See `spec/README.md`.
 - **Streak dates are local calendar dates**, never UTC. The test timezone is
   pinned so a UTC assumption fails.
 - **Look up by own property.** Game names, achievement ids and sound keys come

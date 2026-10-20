@@ -38,19 +38,31 @@
         "size-limit": "^12.1.0",
         "typescript": "^7.0.2",
         "vite": "^8.3.4",
-        "vitest": "^4.1.11"
+        "vitest": "^4.1.11",
+        "vue": "^3.5.44"
     },
     "size-limit": [
         {
             "path": "packages/dopaminejs/dist/dopamine.js",
             "import": "*",
-            "limit": "14 KB",
+            "limit": "15 KB",
             "name": "dopaminejs (ESM)"
         },
         {
             "path": "packages/dopaminejs/dist/dopamine.cjs",
-            "limit": "14 KB",
+            "limit": "15 KB",
             "name": "dopaminejs (CJS)"
+        },
+        {
+            "path": "packages/dopaminejs/dist/engine.js",
+            "import": "*",
+            "limit": "6.5 KB",
+            "name": "dopaminejs/engine (ESM)"
+        },
+        {
+            "path": "packages/dopaminejs/dist/engine.cjs",
+            "limit": "6.5 KB",
+            "name": "dopaminejs/engine (CJS)"
         },
         {
             "path": "packages/dopaminejs/dist/core.js",

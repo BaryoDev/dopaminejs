@@ -59,6 +59,8 @@ export function RewardsProvider({ config, storage, children }) {
         xp: 0,
         progress: 0,
         achievements: [],
+        ready: false,
+        error: null,
     }));
     const rewardsRef = useRef(null);
 
@@ -76,9 +78,14 @@ export function RewardsProvider({ config, storage, children }) {
 
         let mounted = true;
 
+        // A rejected init() must not escape as an unhandled rejection, which
+        // can end a Node process during server rendering.
         rewards.init().then(() => {
             if (!mounted) return;
-            dispatchRef.current({ type: 'SYNC', payload: buildState(rewards) });
+            dispatchRef.current({ type: 'SYNC', payload: { ...buildState(rewards), ready: true } });
+        }).catch((error) => {
+            if (!mounted) return;
+            dispatchRef.current({ type: 'SYNC', payload: { error } });
         });
 
         function sync() {
@@ -152,10 +159,14 @@ export function RewardsProvider({ config, storage, children }) {
  *   xp: number,
  *   progress: number,
  *   achievements: object[],
+ *   ready: boolean,
+ *   error: unknown,
  *   addXP: (amount: number, reason?: string) => Promise<object> | undefined,
  *   recordGame: (gameId: string, stats: object) => Promise<void> | undefined,
  *   unlockAchievement: (key: string) => Promise<boolean> | undefined,
  * }}
+ * ready is true once init() has resolved. error is null until init() rejects,
+ * then holds the rejection.
  * The three methods return undefined until the provider's effect has
  * created the RewardSystem, which is after the effects of its children.
  */

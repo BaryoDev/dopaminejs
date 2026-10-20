@@ -135,6 +135,12 @@ npm install dopaminejs dopaminejs-react
 
 ---
 
+### Vue Package (MIT)
+
+Not on npm yet. `provideRewards()` and the `useRewards()` composable for Vue 3.3 or newer, with `dopaminejs` 2.3.0 or newer. See `packages/dopaminejs-vue/README.md`.
+
+---
+
 ## React Native, Expo and other non-browser runtimes
 
 `dopaminejs/core` exports only the progression API: `RewardSystem`, `DataService`, `EventEmitter`, `createMemoryStorage` and `resolveStorage`. It has no UI, particles, sound or engine, and nothing in it touches `window`, `document` or `localStorage` at import time. Only the default-storage fallback (`resolveStorage`) probes `localStorage`, so pass `storage` outside a browser. CI imports the built output in plain Node with those globals unset and runs `init` and `recordGame` (`scripts/check-core-import.js`).
