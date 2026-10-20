@@ -189,11 +189,61 @@ describe('GameUI text and icon options', () => {
             });
 
             it('should remove external url() references', () => {
-                const root = render(wrap('<circle r="1" fill="url(https://evil.test/x)" stroke="URL( #ok ) red" clip-path="u\\72l(https://evil.test)"/>'));
+                const root = render(wrap('<circle r="1" fill="url(https://evil.test/x)" stroke="url(#a) url(https://evil.test/y)" clip-path="u\\72l(https://evil.test)"/>'));
                 const circle = root.querySelector('circle');
                 expect(circle.hasAttribute('fill')).toBe(false);
-                expect(circle.getAttribute('stroke')).toBe('URL( #ok ) red');
+                expect(circle.hasAttribute('stroke')).toBe(false);
                 expect(circle.hasAttribute('clip-path')).toBe(false);
+            });
+
+            it('should drop chained, fallback and unknown-id url() values', () => {
+                const root = render(wrap('<defs><linearGradient id="a"/></defs>'
+                    + '<circle r="1" fill="url(#a) red" stroke="url(#missing)" mask="url(#a)url(#a)"/>'
+                    + '<rect fill="  url( #a )  "/>'));
+                const circle = root.querySelector('circle');
+                expect(circle.hasAttribute('fill')).toBe(false);
+                expect(circle.hasAttribute('stroke')).toBe(false);
+                expect(circle.hasAttribute('mask')).toBe(false);
+                expect(root.querySelector('rect').getAttribute('fill')).toMatch(/^url\(#dj-icon-\d+-a\)$/);
+            });
+
+            it('should prefix ids so an icon cannot clobber page globals', () => {
+                const root = render(wrap('<defs><linearGradient id="a"/></defs>'
+                    + '<circle id="rewards" r="1" fill="url(#a)"/>'));
+                const circle = root.querySelector('circle');
+                expect(circle.id).toMatch(/^dj-icon-\d+-rewards$/);
+                expect(window.rewards).toBeUndefined();
+                expect(document.getElementById('rewards')).toBeNull();
+                const grad = root.querySelector('linearGradient');
+                expect(circle.getAttribute('fill')).toBe(`url(#${grad.id})`);
+            });
+
+            it('should give two renders different id prefixes', () => {
+                const first = render(wrap('<circle id="x" r="1"/>'));
+                const second = new GameUI(stubParticles(), { safeIcons: true });
+                second.showAchievement({ icon: wrap('<circle id="x" r="1"/>'), name: 'B', xp: 1 });
+                const ids = [...document.querySelectorAll('.achievement-icon circle')].map((c) => c.id);
+                expect(new Set(ids).size).toBe(2);
+                expect(first).not.toBeNull();
+                second.destroy();
+            });
+
+            it('should drop the class attribute', () => {
+                const root = render(wrap('<circle class="btn" r="1"/>'));
+                expect(root.querySelector('circle').hasAttribute('class')).toBe(false);
+            });
+
+            it('should drop parenthesised values outside transforms and colours', () => {
+                const root = render(wrap('<circle r="1" font-family="foo(bar)" transform="rotate(45) url(x)" '
+                    + 'stop-color="rgb(1,2,3)"/><stop stop-color="rgb(1,2,3)"/>'
+                    + '<g transform="translate(1, 2) scale(2)" fill="rgb(1, 2, 3)"/>'));
+                const circle = root.querySelector('circle');
+                expect(circle.hasAttribute('font-family')).toBe(false);
+                expect(circle.hasAttribute('transform')).toBe(false);
+                const g = root.querySelector('g');
+                expect(g.getAttribute('transform')).toBe('translate(1, 2) scale(2)');
+                expect(g.getAttribute('fill')).toBe('rgb(1, 2, 3)');
+                expect(root.querySelector('stop').getAttribute('stop-color')).toBe('rgb(1,2,3)');
             });
 
             it('should drop comments and processing instructions', () => {
@@ -210,7 +260,9 @@ describe('GameUI text and icon options', () => {
                 ));
                 expect(root.getAttribute('viewBox')).toBe('0 0 10 10');
                 expect(root.querySelector('linearGradient stop')).not.toBeNull();
-                expect(root.querySelector('path').getAttribute('fill')).toBe('url(#grad)');
+                const grad = root.querySelector('linearGradient');
+                expect(grad.id).toMatch(/^dj-icon-\d+-grad$/);
+                expect(root.querySelector('path').getAttribute('fill')).toBe(`url(#${grad.id})`);
                 expect(root.querySelector('text').textContent).toBe('hi');
             });
         });
