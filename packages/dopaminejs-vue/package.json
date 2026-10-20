@@ -1,0 +1,57 @@
+{
+    "name": "dopaminejs-vue",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Vue 3 bindings for DopamineJS: a useRewards() composable and provideRewards() for XP, levels, achievements and daily streaks",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./types/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./types/index.d.ts",
+            "import": "./dist/index.js",
+            "require": "./dist/index.cjs"
+        }
+    },
+    "files": [
+        "dist",
+        "src",
+        "types"
+    ],
+    "scripts": {
+        "build": "vite build"
+    },
+    "keywords": [
+        "dopaminejs",
+        "vue",
+        "composable",
+        "gamification",
+        "xp",
+        "levels",
+        "achievements",
+        "streaks",
+        "rewards"
+    ],
+    "author": "BaryoDev",
+    "license": "MIT",
+    "engines": {
+        "node": ">=20.19"
+    },
+    "peerDependencies": {
+        "dopaminejs": "^2.3.0",
+        "vue": "^3.3.0"
+    },
+    "devDependencies": {
+        "vite": "^8.3.4"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/BaryoDev/dopaminejs.git",
+        "directory": "packages/dopaminejs-vue"
+    },
+    "bugs": {
+        "url": "https://github.com/BaryoDev/dopaminejs/issues"
+    },
+    "homepage": "https://github.com/BaryoDev/dopaminejs#readme"
+}

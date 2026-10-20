@@ -135,6 +135,12 @@ npm install dopaminejs dopaminejs-react
 
 ---
 
+### Vue Package (MIT)
+
+Not on npm yet. `provideRewards()` and the `useRewards()` composable for Vue 3.3 or newer, with `dopaminejs` 2.3.0 or newer. See `packages/dopaminejs-vue/README.md`.
+
+---
+
 ## Using the game engine directly
 
 The engine that powers the effects is exported too, if you are building an actual game
