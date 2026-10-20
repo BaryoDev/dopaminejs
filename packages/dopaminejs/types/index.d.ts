@@ -38,8 +38,12 @@ export interface Player {
 export interface AchievementDefinition {
     name: string;
     description?: string;
-    /** Rendered as HTML, so an <img> or inline SVG is allowed here. */
-    icon?: string;
+    /**
+     * A string is rendered as HTML (an <img> or inline SVG is allowed), or as
+     * sanitised SVG or text when GameUI is built with `safeIcons: true`. A
+     * Node is appended.
+     */
+    icon?: string | Node;
     /** Omitted means 0. Never undefined at runtime. */
     xp?: number;
     check(player: Player, gameName?: string, result?: GameResult): boolean;
@@ -176,8 +180,30 @@ export interface SummaryData {
     onExit?: () => void;
 }
 
+export interface GameUIConfig {
+    /**
+     * When true, a string icon is parsed as SVG and sanitised (scripts, on*
+     * attributes and javascript: links removed), and any other string is
+     * shown as text. Default false: string icons are HTML.
+     */
+    safeIcons?: boolean;
+    /** Replaces the built-in popup strings. Rendered as text. */
+    text?: {
+        /** Default `LEVEL UP!`. */
+        levelUp?: string;
+        /** Default `Achievement Unlocked!`. */
+        achievementUnlocked?: string;
+        /** Default `CLOSE CALL!`. */
+        nearMiss?: string;
+    };
+    icons?: {
+        /** A string is HTML, a Node is appended. Default is a fire emoji. */
+        streak?: string | Node;
+    };
+}
+
 export class GameUI {
-    constructor(particleSystem: ParticleSystem);
+    constructor(particleSystem: ParticleSystem, config?: GameUIConfig);
 
     container: HTMLElement | null;
 

@@ -56,6 +56,16 @@ const ui = new GameUI(new ParticleSystem());
 rewards.on('level_up', ({ oldLevel, newLevel }) => ui.showLevelUp(oldLevel, newLevel));
 ```
 
+`GameUI` takes a second argument to change its copy and icons:
+
+```javascript
+new GameUI(particles, {
+    text: { levelUp: 'Level up', achievementUnlocked: 'Unlocked', nearMiss: 'Close' },
+    icons: { streak: '*' },   // a string or a DOM Node
+    safeIcons: true           // string achievement icons become sanitised SVG or text
+});
+```
+
 ## Why streaks are the hard part
 
 A daily streak is a calendar question, not a clock question. "Did they come back yesterday"

@@ -5,9 +5,68 @@
 
 const OVERLAY_ID = 'game-ui-overlay';
 
+const DEFAULT_TEXT = {
+    levelUp: 'LEVEL UP!',
+    achievementUnlocked: 'Achievement Unlocked!',
+    nearMiss: 'CLOSE CALL!'
+};
+
+const DEFAULT_STREAK_ICON = '🔥';
+
+/**
+ * Parse a string as SVG and strip anything that can run script. Returns null
+ * unless the whole string is one valid <svg> document.
+ */
+function parseSafeSvg(markup) {
+    let doc;
+    try {
+        doc = new DOMParser().parseFromString(markup, 'image/svg+xml');
+    } catch {
+        return null;
+    }
+    const root = doc.documentElement;
+    if (!root || root.localName !== 'svg' || doc.getElementsByTagName('parsererror').length > 0) {
+        return null;
+    }
+
+    const all = [root, ...root.querySelectorAll('*')];
+    for (const node of all) {
+        if (node.localName === 'script') continue;
+        for (const attr of Array.from(node.attributes)) {
+            const name = attr.name.toLowerCase();
+            const isLink = name === 'href' || name.endsWith(':href');
+            if (name.startsWith('on')
+                || (isLink && /^[\s\u0000-\u001f]*javascript:/i.test(attr.value))) {
+                node.removeAttribute(attr.name);
+            }
+        }
+    }
+    root.querySelectorAll('script').forEach((n) => n.remove());
+
+    return document.importNode(root, true);
+}
+
 export class GameUI {
-    constructor(particleSystem) {
+    /**
+     * @param {Object} particleSystem
+     * @param {Object} [config]
+     * @param {{levelUp?: string, achievementUnlocked?: string, nearMiss?: string}} [config.text]
+     *   Replaces the built-in popup strings.
+     * @param {{streak?: string|Node}} [config.icons]
+     * @param {boolean} [config.safeIcons] - Render string icons as sanitised
+     *   SVG or plain text instead of HTML. Default false.
+     */
+    constructor(particleSystem, config = {}) {
         this.particleSystem = particleSystem;
+
+        // Only strings override a default, so a bad value cannot blank a popup.
+        this.text = { ...DEFAULT_TEXT };
+        for (const key of Object.keys(DEFAULT_TEXT)) {
+            const value = config?.text?.[key];
+            if (typeof value === 'string') this.text[key] = value;
+        }
+        this.safeIcons = config?.safeIcons === true;
+        this._streakIcon = config?.icons?.streak ?? DEFAULT_STREAK_ICON;
         this.container = null;
         this.xpBar = null;
         this.levelDisplay = null;
@@ -50,7 +109,7 @@ export class GameUI {
                 </div>
 
                 <div class="streak-badge">
-                    <span class="streak-icon">🔥</span>
+                    <span class="streak-icon"></span>
                     <span class="streak-number">1</span>
                 </div>
             </div>
@@ -82,6 +141,29 @@ export class GameUI {
         this.xpText = this.container.querySelector('.xp-text');
         this.levelDisplay = this.container.querySelector('.level-number');
         this.streakDisplay = this.container.querySelector('.streak-number');
+        this._setIcon(this.container.querySelector('.streak-icon'), this._streakIcon);
+    }
+
+    /**
+     * Single place where icons reach the DOM. A Node is appended. A string is
+     * HTML unless safeIcons is on (see SECURITY.md); then it is a sanitised
+     * SVG or plain text.
+     * @private
+     */
+    _setIcon(el, icon) {
+        el.textContent = '';
+        if (icon && typeof icon === 'object' && typeof icon.nodeType === 'number') {
+            el.appendChild(icon);
+        } else if (!this.safeIcons) {
+            el.innerHTML = icon ?? '';
+        } else {
+            const svg = typeof icon === 'string' ? parseSafeSvg(icon) : null;
+            if (svg) {
+                el.appendChild(svg);
+            } else {
+                el.textContent = icon ?? '';
+            }
+        }
     }
 
     /**
@@ -173,8 +255,9 @@ export class GameUI {
     /**
      * Show achievement unlocked popup
      *
-     * `icon` is rendered as HTML by design (documented in ARCHITECTURE.md, so
-     * games can pass an <img> or inline SVG). Every other field is game state
+     * A string `icon` is rendered as HTML by design (documented in
+     * ARCHITECTURE.md, so games can pass an <img> or inline SVG). A Node is
+     * appended as is. Every other field is game state
      * and could carry a player-supplied or server-supplied string, so it goes
      * in as text.
      */
@@ -186,7 +269,7 @@ export class GameUI {
             <div class="achievement-content">
                 <div class="achievement-icon"></div>
                 <div class="achievement-info">
-                    <div class="achievement-title">Achievement Unlocked!</div>
+                    <div class="achievement-title"></div>
                     <div class="achievement-name"></div>
                     <div class="achievement-desc"></div>
                     <div class="achievement-xp"></div>
@@ -194,7 +277,8 @@ export class GameUI {
             </div>
         `;
 
-        popup.querySelector('.achievement-icon').innerHTML = achievement.icon ?? '';
+        popup.querySelector('.achievement-title').textContent = this.text.achievementUnlocked;
+        this._setIcon(popup.querySelector('.achievement-icon'), achievement.icon);
         popup.querySelector('.achievement-name').textContent = achievement.name ?? '';
         popup.querySelector('.achievement-desc').textContent = achievement.description ?? '';
         popup.querySelector('.achievement-xp').textContent = `+${achievement.xp ?? 0} XP`;
@@ -223,11 +307,12 @@ export class GameUI {
         overlay.className = 'level-up-overlay';
         overlay.innerHTML = `
             <div class="level-up-content">
-                <div class="level-up-title">LEVEL UP!</div>
+                <div class="level-up-title"></div>
                 <div class="level-up-number"></div>
                 <div class="level-up-subtitle">Amazing progress!</div>
             </div>
         `;
+        overlay.querySelector('.level-up-title').textContent = this.text.levelUp;
         overlay.querySelector('.level-up-number').textContent = newLevel;
 
         this._mount(overlay);
@@ -280,7 +365,7 @@ export class GameUI {
      * Show "near miss" indicator
      */
     showNearMiss(x, y) {
-        this.showFloatingText('CLOSE CALL!', x, y, '#45b7d1', '20px');
+        this.showFloatingText(this.text.nearMiss, x, y, '#45b7d1', '20px');
         this.particleSystem.sparkle(x, y, 15, '#45b7d1');
     }
 
@@ -416,5 +501,7 @@ export class GameUI {
         this.streakBadge = null;
         this.levelDisplay = null;
         this.streakDisplay = null;
+        this.safeIcons = config?.safeIcons === true;
+        this._streakIcon = null;
     }
 }
