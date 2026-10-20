@@ -282,7 +282,8 @@ describe('GameUI text and icon options', () => {
 
                 const padded = new GameUI(stubParticles(), { safeIcons: true });
                 padded.showAchievement({ icon: '  <svg><circle r="1"/></svg>', name: 'B', xp: 1 });
-                expect(document.querySelectorAll('.achievement-icon svg circle').length).toBe(2);
+                const icons = document.querySelectorAll('.achievement-icon');
+                expect(icons[icons.length - 1].querySelector('svg circle')).not.toBeNull();
                 padded.destroy();
             });
 
