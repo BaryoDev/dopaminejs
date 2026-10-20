@@ -170,7 +170,11 @@ await rewards.init();
 await rewards.recordGame('quiz', { score: 80, won: true });
 ```
 
-Any object with promise-returning `getItem`, `setItem` and `removeItem` works the same way. Without a `storage` option, `DataService` falls back to `localStorage` if present, then to memory, so state is lost when the app closes. `GameUI`, `ParticleSystem` and `SoundManager` are web only and stay on the root `dopaminejs` entry.
+Any object with promise-returning `getItem`, `setItem` and `removeItem` works the same way.
+
+If the saved player cannot be read (`getItem` throws or rejects), `init()` still resolves with a new player in memory, fires `load_failed` with `reason: 'read'`, and saves nothing for the rest of the session, so the real player is never overwritten. Call `init()` again to retry; a retry that fails again keeps the progress made in memory. If the saved value is not valid JSON, it is kept under the `player_corrupt` key as a JSON string (`JSON.parse` it once to get the original), `load_failed` fires with `reason: 'corrupt'`, and a new player starts. If that backup cannot be written, `backedUp` is false and nothing is saved this session. A data service that overrides `load` must pass the third argument (`{ strict: true }`) on, or a failed read looks like an empty one. `rewards.loadFailed` is `true` after a failed read, and the React and Vue packages expose it as `loadFailed`. Show the visitor that progress is not being kept when it is. A failed write fires `save_failed`.
+
+Without a `storage` option, `DataService` falls back to `localStorage` if present, then to memory, so state is lost when the app closes. `GameUI`, `ParticleSystem` and `SoundManager` are web only and stay on the root `dopaminejs` entry.
 
 ---
 

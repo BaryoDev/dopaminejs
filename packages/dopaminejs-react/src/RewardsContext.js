@@ -61,6 +61,7 @@ export function RewardsProvider({ config, storage, children }) {
         achievements: [],
         ready: false,
         error: null,
+        loadFailed: false,
     }));
     const rewardsRef = useRef(null);
 
@@ -82,7 +83,7 @@ export function RewardsProvider({ config, storage, children }) {
         // can end a Node process during server rendering.
         rewards.init().then(() => {
             if (!mounted) return;
-            dispatchRef.current({ type: 'SYNC', payload: { ...buildState(rewards), ready: true } });
+            dispatchRef.current({ type: 'SYNC', payload: { ...buildState(rewards), ready: true, loadFailed: rewards.loadFailed } });
         }).catch((error) => {
             if (!mounted) return;
             dispatchRef.current({ type: 'SYNC', payload: { error } });
@@ -161,12 +162,14 @@ export function RewardsProvider({ config, storage, children }) {
  *   achievements: object[],
  *   ready: boolean,
  *   error: unknown,
+ *   loadFailed: boolean,
  *   addXP: (amount: number, reason?: string) => Promise<object> | undefined,
  *   recordGame: (gameId: string, stats: object) => Promise<void> | undefined,
  *   unlockAchievement: (key: string) => Promise<boolean> | undefined,
  * }}
  * ready is true once init() has resolved. error is null until init() rejects,
- * then holds the rejection.
+ * then holds the rejection. loadFailed is true when init() could not read the
+ * saved player, so nothing is saved this session.
  * The three methods return undefined until the provider's effect has
  * created the RewardSystem, which is after the effects of its children.
  */

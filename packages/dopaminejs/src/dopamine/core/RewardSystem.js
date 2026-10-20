@@ -42,6 +42,20 @@ export class RewardSystem extends EventEmitter {
         // recordGame produced four full serializations of the player object.
         this._batchDepth = 0;
         this._pendingSave = false;
+
+        // Set when init() could not read storage. Saving stays off until a
+        // later init() reads it, so the saved player is never replaced.
+        this._loadFailed = false;
+        this._readFailed = false;
+    }
+
+    /**
+     * True when the last init() could not read the saved player, so nothing
+     * is saved until init() is called again and the read works.
+     * @returns {boolean}
+     */
+    get loadFailed() {
+        return this._readFailed;
     }
 
     /**
@@ -82,8 +96,9 @@ export class RewardSystem extends EventEmitter {
      * @returns {Promise<Object>} Player data
      */
     async init() {
-        const saved = await this.dataService.load('player', null);
-        this.player = this._migrate(saved);
+        const saved = await this._readSaved();
+        // A failed retry keeps the progress made since the first init.
+        if (!(this._loadFailed && this.player)) this.player = this._migrate(saved);
 
         // Check daily streak
         const streakChanged = this._updateDailyStreak();
@@ -96,6 +111,38 @@ export class RewardSystem extends EventEmitter {
         }
 
         return this.player;
+    }
+
+    /**
+     * Read the saved player. A failed read turns off saving for this
+     * session, so the new player built from the default never overwrites
+     * the real one. Calling init() again retries the read.
+     * @private
+     */
+    async _readSaved() {
+        // Stay blocked until the read succeeds, so a write made while a
+        // retry is in flight cannot land.
+        this._loadFailed = true;
+        try {
+            // A custom data service that ignores the option still works,
+            // without this protection.
+            const saved = await this.dataService.load('player', null, { strict: true });
+            this._loadFailed = false;
+            this._readFailed = false;
+            return saved;
+        } catch (error) {
+            if (error?.code === 'DOPAMINE_CORRUPT') {
+                // Keep the unreadable value instead of losing it on the next save.
+                const kept = await this.dataService.save('player_corrupt', error.raw);
+                if (kept) this._loadFailed = false;
+                this._readFailed = !kept;
+                this._publish('load_failed', { key: 'player', reason: 'corrupt', backedUp: kept });
+                return null;
+            }
+            this._readFailed = true;
+            this._publish('load_failed', { key: 'player', reason: 'read', error });
+            return null;
+        }
     }
 
     /**
@@ -257,6 +304,7 @@ export class RewardSystem extends EventEmitter {
      * @private
      */
     async _write() {
+        if (this._loadFailed) return;
         this.player.lastPlayedAt = Date.now();
         const saved = await this.dataService.save('player', this.player);
 

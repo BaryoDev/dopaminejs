@@ -65,6 +65,7 @@ export function provideRewards({ config, storage } = {}) {
     const achievements = shallowRef([]);
     const ready = shallowRef(false);
     const error = shallowRef(null);
+    const loadFailed = shallowRef(false);
 
     const dataService = new DataService({ storage });
     const rewards = new RewardSystem(dataService, config);
@@ -89,6 +90,7 @@ export function provideRewards({ config, storage } = {}) {
     rewards.init().then(() => {
         if (!active) return;
         sync();
+        loadFailed.value = rewards.loadFailed;
         ready.value = true;
     }).catch((reason) => {
         if (active) error.value = reason;
@@ -109,6 +111,7 @@ export function provideRewards({ config, storage } = {}) {
         achievements,
         ready,
         error,
+        loadFailed,
 
         /**
          * Add XP to the current player.
@@ -147,7 +150,7 @@ export function provideRewards({ config, storage } = {}) {
 
 /**
  * Access the rewards from a component below one that called provideRewards().
- * player, level, xp, progress, achievements, ready and error are refs.
+ * player, level, xp, progress, achievements, ready, error and loadFailed are refs.
  */
 export function useRewards() {
     const ctx = inject(REWARDS_KEY, null);

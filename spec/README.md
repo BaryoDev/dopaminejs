@@ -113,7 +113,8 @@ CI also runs the conformance file once in `America/Los_Angeles`
 (`DOPAMINE_TEST_TZ`), so the daylight saving case can fail.
 
 Event names: `xp_gained`, `level_up`, `achievement_unlocked`, `new_high_score`,
-`streak_updated`, `save_failed`.
+`streak_updated`, `save_failed`. `load_failed` is not covered by the fixtures,
+which cannot make a read fail.
 
 Timestamps (`createdAt`, `lastPlayedAt`, `unlockedAt`) are not checked.
 Fixture paths use `.` as the separator, so keys in fixtures contain no dots.

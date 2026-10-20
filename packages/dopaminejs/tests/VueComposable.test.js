@@ -182,6 +182,18 @@ describe('provideRewards and useRewards', () => {
         expect(seen.rewards.ready.value).toBe(false);
     });
 
+    it('should set loadFailed when the saved player cannot be read', async () => {
+        const storage = createMemoryStorage();
+        storage.getItem = () => { throw new Error('offline'); };
+        const { app, seen } = mount({ storage });
+        expect(seen.rewards.loadFailed.value).toBe(false);
+        await flush();
+
+        expect(seen.rewards.ready.value).toBe(true);
+        expect(seen.rewards.loadFailed.value).toBe(true);
+        app.unmount();
+    });
+
     it('should catch an init rejection into error', async () => {
         const failure = new Error('storage down');
         vi.spyOn(RewardSystem.prototype, 'init').mockRejectedValue(failure);

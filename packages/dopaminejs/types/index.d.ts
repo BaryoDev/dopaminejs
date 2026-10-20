@@ -85,7 +85,17 @@ export type RewardEvent =
     /** Payload `{ current, longest }`. Fires when the day rolls over. */
     | 'streak_updated'
     /** Payload `{ key }`. The storage write failed; state lives in memory only. */
-    | 'save_failed';
+    | 'save_failed'
+    /**
+     * Payload `{ key, reason, error?, backedUp? }`. `reason: 'read'`: storage
+     * could not be read, so nothing is saved this session (call `init()` again
+     * to retry). `reason: 'corrupt'`: the saved value was not JSON; it is kept
+     * under `player_corrupt` as a JSON string and a new player starts. If that
+     * backup fails, `backedUp` is false and nothing is saved this session.
+     * A `load()` override must pass its third argument on, or a failed read
+     * looks like an empty one.
+     */
+    | 'load_failed';
 
 export class EventEmitter {
     on(event: string, callback: (data?: unknown) => void): () => void;
@@ -101,6 +111,11 @@ export class RewardSystem extends EventEmitter {
     achievements: Record<string, AchievementDefinition>;
     /** Kernel bus events are mirrored onto, if one was supplied. */
     events: EventBus | null;
+    /**
+     * True when the last `init()` could not read the saved player, so nothing
+     * is saved until `init()` is called again and the read works.
+     */
+    readonly loadFailed: boolean;
 
     init(): Promise<Player>;
     save(): Promise<void>;
@@ -157,7 +172,13 @@ export class DataService {
     storage: StorageLike | AsyncStorageLike;
     prefix: string;
     save(key: string, data: unknown): Promise<boolean>;
-    load<T = unknown>(key: string, defaultValue?: T | null): Promise<T | null>;
+    /**
+     * Resolves `defaultValue` when the read fails, unless `strict` is set:
+     * then a storage error rejects as is, and unparseable data rejects with
+     * `code: 'DOPAMINE_CORRUPT'` and the raw string on `raw`. `RewardSystem`
+     * relies on this, so an override must pass `options` on.
+     */
+    load<T = unknown>(key: string, defaultValue?: T | null, options?: { strict?: boolean }): Promise<T | null>;
     clear(key: string): Promise<void>;
 }
 

@@ -56,15 +56,35 @@ export class DataService {
 
     /**
      * Load data from local storage
-     * @param {string} key 
-     * @param {any} defaultValue 
+     *
+     * A failed read returns `defaultValue`, so a caller cannot tell "nothing
+     * saved" from "could not read". Pass `{ strict: true }` to get the error
+     * instead; unparseable data then rejects with `code: 'DOPAMINE_CORRUPT'`
+     * and the raw string on `raw`.
+     * @param {string} key
+     * @param {any} defaultValue
+     * @param {{ strict?: boolean }} [options]
      */
-    async load(key, defaultValue = null) {
+    async load(key, defaultValue = null, options = {}) {
+        let data;
         try {
             await this._tail;
-            const data = await this.storage.getItem(this.prefix + key);
-            return data ? JSON.parse(data) : defaultValue;
+            data = await this.storage.getItem(this.prefix + key);
         } catch (e) {
+            if (options.strict) throw e;
+            console.error('Error loading data:', e);
+            return defaultValue;
+        }
+        if (!data) return defaultValue;
+        try {
+            return JSON.parse(data);
+        } catch (e) {
+            if (options.strict) {
+                throw Object.assign(new Error(`[DopamineJS] saved "${key}" is not valid JSON`), {
+                    code: 'DOPAMINE_CORRUPT',
+                    raw: data,
+                });
+            }
             console.error('Error loading data:', e);
             return defaultValue;
         }
