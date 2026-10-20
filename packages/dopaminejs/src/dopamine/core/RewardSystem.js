@@ -42,6 +42,10 @@ export class RewardSystem extends EventEmitter {
         // recordGame produced four full serializations of the player object.
         this._batchDepth = 0;
         this._pendingSave = false;
+
+        // Set when init() could not read storage. Saving stays off until a
+        // later init() reads it, so the saved player is never replaced.
+        this._loadFailed = false;
     }
 
     /**
@@ -82,7 +86,7 @@ export class RewardSystem extends EventEmitter {
      * @returns {Promise<Object>} Player data
      */
     async init() {
-        const saved = await this.dataService.load('player', null);
+        const saved = await this._readSaved();
         this.player = this._migrate(saved);
 
         // Check daily streak
@@ -96,6 +100,36 @@ export class RewardSystem extends EventEmitter {
         }
 
         return this.player;
+    }
+
+    /**
+     * Read the saved player. A failed read turns off saving for this
+     * session, so the new player built from the default never overwrites
+     * the real one. Calling init() again retries the read.
+     * @private
+     */
+    async _readSaved() {
+        this._loadFailed = false;
+        // A custom data service may only have load().
+        if (typeof this.dataService.read !== 'function') {
+            return this.dataService.load('player', null);
+        }
+
+        let result;
+        try {
+            result = await this.dataService.read('player');
+        } catch (error) {
+            this._loadFailed = true;
+            this._publish('load_failed', { key: 'player', reason: 'read', error });
+            return null;
+        }
+
+        if (result.corrupt !== undefined) {
+            // Keep the unreadable value instead of losing it on the next save.
+            await this.dataService.save('player_corrupt', result.corrupt);
+            this._publish('load_failed', { key: 'player', reason: 'corrupt' });
+        }
+        return result.value;
     }
 
     /**
@@ -257,6 +291,7 @@ export class RewardSystem extends EventEmitter {
      * @private
      */
     async _write() {
+        if (this._loadFailed) return;
         this.player.lastPlayedAt = Date.now();
         const saved = await this.dataService.save('player', this.player);
 

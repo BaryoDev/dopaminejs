@@ -84,7 +84,7 @@ kernel.events.off('tick', this._onTick);
 
 Event names are lowercase strings: `tick`, `fixed_update`, `render`,
 `collision_enter`, `collision_exit`, `xp_gained`, `level_up`, `achievement_unlocked`,
-`new_high_score`, `streak_updated`, `save_failed`. `EventBus.Events.LEVEL_UP`
+`new_high_score`, `streak_updated`, `save_failed`, `load_failed`. `EventBus.Events.LEVEL_UP`
 is a constant whose value is `'level_up'`. Listening for `'LEVEL_UP'` never
 fires.
 

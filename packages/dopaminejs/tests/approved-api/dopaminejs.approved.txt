@@ -1,7 +1,7 @@
 Animator: class(0) proto[addAnimation,onAttach,play,update]
 Collider: class(0) proto[getBounds,kernel,onAttach,onDetach]
 Component: class(0) proto[events,input,loader,onAttach,onDetach,physics,render,update]
-DataService: class(0) proto[clear,load,save]
+DataService: class(0) proto[clear,load,read,save]
 Director: class(1) proto[run]
 DopamineKernel: class(0) proto[destroy,input,loader,physics,renderer,start,stop,ticker]
 EventBus: class(0) static[Events] proto[clear,emit,hasListeners,off,on,once]

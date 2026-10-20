@@ -85,7 +85,14 @@ export type RewardEvent =
     /** Payload `{ current, longest }`. Fires when the day rolls over. */
     | 'streak_updated'
     /** Payload `{ key }`. The storage write failed; state lives in memory only. */
-    | 'save_failed';
+    | 'save_failed'
+    /**
+     * Payload `{ key, reason, error? }`. `reason: 'read'`: storage could not be
+     * read, so nothing is saved this session (call `init()` again to retry).
+     * `reason: 'corrupt'`: the saved value was not JSON; it is kept under
+     * `player_corrupt` and a new player starts.
+     */
+    | 'load_failed';
 
 export class EventEmitter {
     on(event: string, callback: (data?: unknown) => void): () => void;
@@ -158,6 +165,8 @@ export class DataService {
     prefix: string;
     save(key: string, data: unknown): Promise<boolean>;
     load<T = unknown>(key: string, defaultValue?: T | null): Promise<T | null>;
+    /** Rejects when storage throws. Unparseable data resolves with `corrupt`. */
+    read<T = unknown>(key: string): Promise<{ value: T | null; corrupt?: string }>;
     clear(key: string): Promise<void>;
 }
 

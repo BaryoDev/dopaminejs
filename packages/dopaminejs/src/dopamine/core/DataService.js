@@ -71,6 +71,27 @@ export class DataService {
     }
 
     /**
+     * Read without hiding a storage failure.
+     *
+     * `load()` returns the default when the read throws, so a caller cannot
+     * tell "nothing saved" from "could not read" and may save over real
+     * data. This rejects instead. Unparseable data resolves with `corrupt`
+     * set to the raw string.
+     * @param {string} key
+     * @returns {Promise<{ value: any, corrupt?: string }>}
+     */
+    async read(key) {
+        await this._tail;
+        const data = await this.storage.getItem(this.prefix + key);
+        if (!data) return { value: null };
+        try {
+            return { value: JSON.parse(data) };
+        } catch {
+            return { value: null, corrupt: data };
+        }
+    }
+
+    /**
      * Clear specific data
      * @param {string} key 
      */

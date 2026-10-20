@@ -1,4 +1,4 @@
-DataService: class(0) proto[clear,load,save]
+DataService: class(0) proto[clear,load,read,save]
 EventEmitter: class(0) proto[clear,emit,off,on]
 RewardSystem: class(1) proto[addXP,checkAchievements,getStreakMultiplier,getUnlockedAchievements,getUnseenAchievements,getXPForNextLevel,init,markAchievementsSeen,recordGame,save,unlockAchievement]
 createMemoryStorage: function(0)
