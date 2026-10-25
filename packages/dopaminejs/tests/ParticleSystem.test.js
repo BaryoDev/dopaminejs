@@ -164,4 +164,23 @@ describe('ParticleSystem', () => {
         expect(particleSystem.particles[0]).toBe(p1);
         expect(particleSystem.pool.length).toBe(0);
     });
+
+    it('makes no particles when the user asked for less motion, unless told to ignore it', () => {
+        const original = window.matchMedia;
+        window.matchMedia = vi.fn(() => ({ matches: true }));
+        try {
+            const calm = new ParticleSystem();
+            calm.emit({ x: 0, y: 0, count: 5 });
+            expect(calm.particles.length).toBe(0);
+            expect(window.matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)');
+            calm.destroy();
+
+            const loud = new ParticleSystem({ respectReducedMotion: false });
+            loud.emit({ x: 0, y: 0, count: 5 });
+            expect(loud.particles.length).toBe(5);
+            loud.destroy();
+        } finally {
+            window.matchMedia = original;
+        }
+    });
 });
