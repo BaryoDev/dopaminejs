@@ -29,6 +29,27 @@ export class SoundManager {
 
         // Queued follow-up tones, so destroy() can cancel them.
         this._timers = new Set();
+
+        // unlockOn removers, so destroy() takes listeners that never fired off too.
+        this._unlocks = new Set();
+    }
+
+    /**
+     * Start audio on the first gesture on `target`. Browsers keep an
+     * AudioContext silent until the page gets one. Returns a remover.
+     */
+    unlockOn(target, events = ['pointerdown', 'touchend', 'keydown']) {
+        const remove = () => {
+            for (const type of events) target.removeEventListener(type, unlock);
+            this._unlocks.delete(remove);
+        };
+        const unlock = () => {
+            remove();
+            this.initAudio();
+        };
+        for (const type of events) target.addEventListener(type, unlock);
+        this._unlocks.add(remove);
+        return remove;
     }
 
     /**
@@ -300,6 +321,8 @@ export class SoundManager {
      * Browsers cap the number of live AudioContexts per page.
      */
     destroy() {
+        for (const remove of [...this._unlocks]) remove();
+
         for (const id of this._timers) {
             clearTimeout(id);
         }

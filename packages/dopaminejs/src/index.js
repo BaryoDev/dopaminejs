@@ -18,6 +18,10 @@ export { EventEmitter } from './dopamine/core/EventEmitter.js';
 // Storage resolution, useful for tests and for SSR where localStorage is absent.
 export { createMemoryStorage, resolveStorage } from './dopamine/utils/storage.js';
 
+// Feel helpers: vibration and the reduced-motion preference
+export { createHaptics } from './dopamine/feel/haptics.js';
+export { prefersReducedMotion } from './dopamine/feel/motion.js';
+
 // Export New Engine Core
 export { Game } from './core/Game.js';
 export { Scene } from './core/Scene.js';
