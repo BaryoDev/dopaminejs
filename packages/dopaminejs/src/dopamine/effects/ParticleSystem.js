@@ -3,6 +3,8 @@
  * Creates satisfying visual feedback for achievements and rewards
  */
 
+import { prefersReducedMotion } from '../feel/motion.js';
+
 export class ParticleSystem {
     constructor(config = {}) {
         this.container = config.container ?
@@ -19,9 +21,7 @@ export class ParticleSystem {
         this.maxParticles = Number.isFinite(config.maxParticles) ? Math.max(0, Math.floor(config.maxParticles)) : 5000;
 
         // Effects are skipped for users who asked the OS for less motion.
-        this._reducedMotion = config.respectReducedMotion !== false && typeof window.matchMedia === 'function'
-            ? window.matchMedia('(prefers-reduced-motion: reduce)')
-            : null;
+        this._reducedMotion = config.respectReducedMotion !== false ? prefersReducedMotion(window) : null;
 
         this.canvasId = config.canvasId || 'dopamine-particle-canvas';
 

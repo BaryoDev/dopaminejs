@@ -50,7 +50,7 @@
         },
         {
             "path": "packages/dopaminejs/dist/dopamine.cjs",
-            "limit": "15 KB",
+            "limit": "15.5 KB",
             "name": "dopaminejs (CJS)"
         },
         {

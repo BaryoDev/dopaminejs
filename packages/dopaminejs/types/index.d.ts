@@ -187,6 +187,20 @@ export function createMemoryStorage(): StorageLike;
 /** localStorage if present and writable, otherwise an in-memory store. */
 export function resolveStorage(): StorageLike;
 
+export interface Haptics {
+    /** A 10 ms buzz. */
+    tap(): void;
+    /** Buzzes 10, 40, 10 ms. */
+    double(): void;
+    setEnabled(enabled: boolean): void;
+}
+
+/** Silent where the Vibration API is missing or blocked. */
+export function createHaptics(options?: { nav?: { vibrate?: (pattern: number | number[]) => unknown }; enabled?: boolean }): Haptics;
+
+/** The reduced-motion query, or `{ matches: false }` without matchMedia. */
+export function prefersReducedMotion(win?: { matchMedia?: (query: string) => { matches: boolean } }): { matches: boolean };
+
 // ---------------------------------------------------------------------------
 // UI
 // ---------------------------------------------------------------------------
@@ -331,6 +345,8 @@ export class SoundManager {
 
     /** Returns false when no Web Audio API is available, rather than throwing. */
     initAudio(): boolean;
+    /** Calls initAudio() on the first of `events` on `target`, then removes its listeners. Returns a remover. */
+    unlockOn(target: EventTarget, events?: string[]): () => void;
     setVolume(value: number): number;
     getVolume(): number;
     toggleMute(): boolean;

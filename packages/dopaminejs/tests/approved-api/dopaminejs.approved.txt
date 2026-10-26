@@ -26,13 +26,15 @@ Renderer: class(0) proto[clear,resize]
 RewardSystem: class(1) proto[addXP,checkAchievements,getStreakMultiplier,getUnlockedAchievements,getUnseenAchievements,getXPForNextLevel,init,loadFailed,markAchievementsSeen,recordGame,save,unlockAchievement]
 Scene: class(0) proto[add,kernel,onEnter,onExit,remove,render,update]
 ScreenShake: class(0) proto[shake,update]
-SoundManager: class(0) proto[destroy,getVolume,initAudio,loadSound,play,playClick,playError,playGameOver,playJump,playScore,playSuccess,playTone,preloadSounds,registerSound,setVolume,toggleMute]
+SoundManager: class(0) proto[destroy,getVolume,initAudio,loadSound,play,playClick,playError,playGameOver,playJump,playScore,playSuccess,playTone,preloadSounds,registerSound,setVolume,toggleMute,unlockOn]
 Sprite: class(1) proto[render,setFrame,setTexture]
 System: class(0) proto[destroy,fixedUpdate,init,update]
 SystemRegistry: class(1) proto[clear,fixedUpdate,get,getSystemNames,has,register,unregister,update]
 TextureGenerator: class(0) static[createCharacterSheet,createGround]
 Ticker: class(0) proto[add,remove,start,stop]
 Vector2: class(0) static[distance] proto[add,clone,distance,normalize,scale,sub]
+createHaptics: function(0)
 createMemoryStorage: function(0)
 default: class(0) proto[destroy,init]
+prefersReducedMotion: function(0)
 resolveStorage: function(0)
