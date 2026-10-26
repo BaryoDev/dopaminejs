@@ -4,7 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-10-26
+
+Published with this release: `dopaminejs` 2.5.0, `dopaminejs-react` 1.1.0 and
+`dopaminejs-plugin-feedback-effects` 1.0.3. `dopaminejs-vue` stays private.
+
 ### Fixed
+
+- **A failed storage read no longer replaces the saved player.** If `getItem`
+  throws or rejects, `init()` still resolves with a new player in memory, fires
+  `load_failed` with `reason: 'read'`, and saves nothing for the rest of the
+  session. A saved value that is not valid JSON is kept under `player_corrupt`
+  and `load_failed` fires with `reason: 'corrupt'`. `rewards.loadFailed` is
+  `true` after a failed read. A data service that overrides `load` must pass
+  the third argument (`{ strict: true }`) on.
 
 - **`dopaminejs-plugin-feedback-effects` 1.0.3: `count: 0` emits no confetti.**
   `trigger` read the count with `||`, so 0 fell back to the effect's default
@@ -14,13 +27,28 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **`dopaminejs/core`, a browser-free subpath.** It exports only
+  `RewardSystem`, `DataService`, `EventEmitter`, `createMemoryStorage` and
+  `resolveStorage`, and touches no browser global at import time. CI runs it in
+  plain Node.
+
+- **`GameUI` text, streak icon and `safeIcons` options.** A second argument
+  changes the popup copy and the streak icon. With `safeIcons: true`, string
+  icons are rebuilt as allowlisted SVG or plain text.
+
+- **Conformance fixtures in `spec/fixtures`** for migration, streaks, scores,
+  levels and achievements. A port of the core must pass the same files. They
+  are not in any npm package.
+
+- **`dopaminejs-react` 1.1.0: `loadFailed`** from `useRewards()`, true after a
+  failed read. It needs `dopaminejs` 2.5.0; older versions leave it undefined.
+
 - **`createHaptics`, `prefersReducedMotion` and `SoundManager#unlockOn` in the
-  main entry.** `tap()` buzzes 10 ms and `double()` buzzes 10, 40, 10, silent where
-  the Vibration API is missing. `prefersReducedMotion()` gives `{ matches:
-  false }` without `matchMedia`, and `ParticleSystem` now uses it. `unlockOn`
-  starts audio on the first gesture (pointerup, touchend or keydown) and
-  removes its listeners; `destroy()`
-  removes them too.
+  main entry.** `tap()` buzzes 10 ms and `double()` buzzes 10, 40, 10,
+  silent where the Vibration API is missing. `prefersReducedMotion()` gives
+  `{ matches: false }` without `matchMedia`, and `ParticleSystem` now uses it.
+  `unlockOn` starts audio on the first gesture (pointerup, touchend or keydown)
+  and removes its listeners; `destroy()` removes them too.
 
 - **`dopaminejs-react` 1.0.0 is published to npm.** `RewardsProvider` and
   `useRewards()`. It needs `dopaminejs` 2.3.0 or newer, the first version with
