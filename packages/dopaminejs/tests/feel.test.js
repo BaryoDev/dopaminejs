@@ -61,6 +61,11 @@ describe('prefersReducedMotion', () => {
     it('is matches: false without matchMedia', () => {
         expect(prefersReducedMotion({})).toEqual({ matches: false });
         expect(prefersReducedMotion(undefined)).toEqual({ matches: false });
+        expect(prefersReducedMotion(null)).toEqual({ matches: false });
+    });
+
+    it('is matches: false when matchMedia returns nothing', () => {
+        expect(prefersReducedMotion({ matchMedia: () => null })).toEqual({ matches: false });
     });
 
     it('asks for the reduce query', () => {
@@ -78,11 +83,19 @@ describe('SoundManager#unlockOn', () => {
         const target = stubTarget();
         sound.unlockOn(target);
         expect(target.count()).toBe(3);
-        target.fire('pointerdown');
-        target.fire('pointerdown');
+        target.fire('pointerup');
+        target.fire('pointerup');
         target.fire('keydown');
         expect(init).toHaveBeenCalledTimes(1);
         expect(target.count()).toBe(0);
+        expect(sound._unlocks.size).toBe(0);
+    });
+
+    it('waits for pointerup, not pointerdown, since a touch pointerdown does not count as a gesture', () => {
+        const sound = new SoundManager();
+        const target = stubTarget();
+        sound.unlockOn(target);
+        expect([...target.listeners.keys()]).toEqual(['pointerup', 'touchend', 'keydown']);
     });
 
     it('takes its own event list and returns a remover', () => {

@@ -15,10 +15,11 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - **`createHaptics`, `prefersReducedMotion` and `SoundManager#unlockOn` in the
-  core.** `tap()` buzzes 10 ms and `double()` buzzes 10, 40, 10, silent where
+  main entry.** `tap()` buzzes 10 ms and `double()` buzzes 10, 40, 10, silent where
   the Vibration API is missing. `prefersReducedMotion()` gives `{ matches:
   false }` without `matchMedia`, and `ParticleSystem` now uses it. `unlockOn`
-  starts audio on the first gesture and removes its listeners; `destroy()`
+  starts audio on the first gesture (pointerup, touchend or keydown) and
+  removes its listeners; `destroy()`
   removes them too.
 
 - **`dopaminejs-react` 1.0.0 is published to npm.** `RewardsProvider` and

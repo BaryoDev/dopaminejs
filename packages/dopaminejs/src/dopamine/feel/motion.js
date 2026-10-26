@@ -5,5 +5,5 @@ const NO_PREFERENCE = Object.freeze({ matches: false });
  * matchMedia (SSR, tests). The live query updates when the user changes it.
  */
 export function prefersReducedMotion(win = globalThis.window) {
-    return typeof win?.matchMedia === 'function' ? win.matchMedia('(prefers-reduced-motion: reduce)') : NO_PREFERENCE;
+    return (typeof win?.matchMedia === 'function' && win.matchMedia('(prefers-reduced-motion: reduce)')) || NO_PREFERENCE;
 }

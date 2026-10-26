@@ -5,7 +5,8 @@
 export function createHaptics({ nav = globalThis.navigator, enabled = true } = {}) {
     let on = Boolean(enabled);
     const buzz = (pattern) => {
-        if (!on || typeof nav?.vibrate !== 'function') return;
+        if (!on) return;
+        // A missing or non-function vibrate throws here too.
         try {
             nav.vibrate(pattern);
         } catch {}

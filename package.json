@@ -45,7 +45,7 @@
         {
             "path": "packages/dopaminejs/dist/dopamine.js",
             "import": "*",
-            "limit": "15.5 KB",
+            "limit": "15 KB",
             "name": "dopaminejs (ESM)"
         },
         {
