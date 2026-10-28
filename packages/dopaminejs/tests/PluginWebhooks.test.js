@@ -114,7 +114,7 @@ describe('webhooks', () => {
         dispose();
         expect(count()).toBe(before);
         expect(dropped).toEqual([{ count: 2 }]);
-        expect(warn).toHaveBeenCalledWith(expect.stringContaining('2 event(s) were not sent'));
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('2 event(s) dropped without confirmed delivery'));
         test.progress.emit('level_up', LEVEL);
 
         release();

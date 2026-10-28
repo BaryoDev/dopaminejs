@@ -71,7 +71,8 @@ export class WebhookIntegration {
     /**
      * Drops the queue and aborts the request in flight. Call flush() first to
      * deliver what is queued.
-     * @returns {number} How many events were not delivered.
+     * @returns {number} How many events were dropped without confirmed
+     *   delivery. An aborted request counts, since the server may have got it.
      */
     close() {
         let dropped = this.queue.length;
@@ -191,8 +192,9 @@ export class WebhookIntegration {
  *
  * Nothing is sent without a `url`. Disposing the plugin stops listening,
  * aborts the request in flight and drops the queue. When anything is dropped
- * it warns and emits `webhooks:dropped` with `{ count }`. Await `flush()`
- * before disposing to deliver everything.
+ * it emits `webhooks:dropped` with `{ count }` and warns. Await `flush()`
+ * before disposing to send everything queued. Failed requests are logged,
+ * not retried.
  *
  * @param {Object} options
  * @param {string} options.url
@@ -242,8 +244,8 @@ export function webhooks(options = {}) {
                 for (const off of offs) off();
                 const count = integration.close();
                 if (count > 0) {
-                    ctx.log.warn(`[webhooks] ${count} event(s) were not sent. Await flush() before disposing to deliver them.`);
                     ctx.events.emit('webhooks:dropped', { count });
+                    ctx.log.warn(`[webhooks] ${count} event(s) dropped without confirmed delivery. Await flush() before disposing to send them.`);
                 }
             };
         }
