@@ -169,6 +169,55 @@ export class ThemeEngine {
     }
 }
 
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+/**
+ * A plugin that applies a theme to `parts.ui.root` and puts the old values
+ * back when it is disposed. It emits `theme:changed` with `{ theme }`.
+ *
+ *   createDopamine({ plugins: [theme('neon')] });
+ *
+ * @param {string|Object<string, string>} [nameOrVariables='modern'] - A built-in
+ *   theme name, or an object of `--dopamine-*` CSS variables.
+ */
+export function theme(nameOrVariables = 'modern') {
+    return {
+        name: 'theme',
+        version: '3.0.0',
+        api: 3,
+        requires: ['ui'],
+
+        install(ctx) {
+            const named = typeof nameOrVariables === 'string';
+            const variables = named
+                ? (hasOwn(Themes, nameOrVariables) ? Themes[nameOrVariables] : null)
+                : nameOrVariables;
+            if (variables === null || typeof variables !== 'object') {
+                ctx.log.warn(`[theme] unknown theme "${String(nameOrVariables)}", nothing was applied`);
+                return undefined;
+            }
+
+            const root = ctx.parts.ui.root;
+            if (!root || !root.style) return undefined;
+
+            const before = new Map();
+            for (const [key, value] of Object.entries(variables)) {
+                if (!key.startsWith('--') || typeof value !== 'string') continue;
+                before.set(key, root.style.getPropertyValue(key));
+                root.style.setProperty(key, value);
+            }
+            ctx.events.emit('theme:changed', { theme: named ? nameOrVariables : 'custom' });
+
+            return () => {
+                for (const [key, value] of before) {
+                    if (value === '') root.style.removeProperty(key);
+                    else root.style.setProperty(key, value);
+                }
+            };
+        }
+    };
+}
+
 // Export singleton instance
 export const themeEngine = new ThemeEngine();
 

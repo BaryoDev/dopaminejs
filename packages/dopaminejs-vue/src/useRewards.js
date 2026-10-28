@@ -6,8 +6,8 @@
  * itself uses the object provideRewards() returns, since inject() does not
  * see a component's own provides.
  *
- * The RewardSystem subscribes to xp_gained, level_up, achievement_unlocked and
- * streak_updated, and the listeners are removed when the calling scope is
+ * The RewardSystem subscribes to xp_gained, level_up, achievement_unlocked,
+ * personal_best and streak_updated, and the listeners are removed when the calling scope is
  * disposed. The emitter holds strong references, so a component that mounts
  * and unmounts repeatedly without cleanup would accumulate duplicate listeners.
  *
@@ -24,7 +24,7 @@ import {
     provide,
     shallowRef,
 } from 'vue';
-import { RewardSystem, DataService } from 'dopaminejs';
+import { RewardSystem, DataService, createDopamine } from 'dopaminejs';
 import { buildState } from './state.js';
 
 // Symbol.for, so the ESM and CJS copies of this package share one key.
@@ -34,15 +34,18 @@ const REWARDS_KEY = Symbol.for('dopaminejs-rewards');
 const provided = new WeakMap();
 
 // Event names emitted by RewardSystem are lowercase.
-const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'streak_updated'];
+const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated'];
 
 /**
  * @param {object} [options]
  * @param {object} [options.config]   passed straight to new RewardSystem(...)
  * @param {object} [options.storage]  custom storage (defaults to localStorage)
+ * @param {boolean|object} [options.dopamine]  true, or the createDopamine options
+ *   (ui, particles, sound, haptics, plugins, log), for popups, particles and
+ *   sound on top of the same RewardSystem. The host is disposed with the scope.
  * @returns the same object useRewards() returns
  */
-export function provideRewards({ config, storage } = {}) {
+export function provideRewards({ config, storage, dopamine } = {}) {
     const instance = getCurrentInstance();
     if (!instance) {
         throw new Error(
@@ -69,6 +72,11 @@ export function provideRewards({ config, storage } = {}) {
     const dataService = new DataService({ storage });
     const rewards = new RewardSystem(dataService, config);
 
+    // The host loads the player itself, so init() runs here only without a host.
+    const host = dopamine
+        ? createDopamine({ ...(dopamine === true ? {} : dopamine), progress: rewards, storage })
+        : null;
+
     let active = true;
 
     function sync() {
@@ -83,7 +91,7 @@ export function provideRewards({ config, storage } = {}) {
 
     // A rejected init() must not escape as an unhandled rejection, which can
     // end a Node process during server rendering.
-    rewards.init().then(() => {
+    (host ? host.ready : rewards.init()).then(() => {
         if (!active) return;
         sync();
         loadFailed.value = rewards.loadFailed;
@@ -97,6 +105,7 @@ export function provideRewards({ config, storage } = {}) {
     onScopeDispose(() => {
         active = false;
         for (const name of EVENTS) rewards.off(name, sync);
+        host?.dispose();
     });
 
     const value = {
@@ -120,13 +129,13 @@ export function provideRewards({ config, storage } = {}) {
         },
 
         /**
-         * Record a game session, which may award XP and update stats.
-         * @param {string} gameId
-         * @param {object} stats
-         * @returns {Promise<void>}
+         * Record an activity, which may award XP, update its best and mark a play day.
+         * @param {string} activity
+         * @param {object} result
+         * @returns {Promise<boolean>}
          */
-        record(gameId, stats) {
-            return rewards.record(gameId, stats);
+        record(activity, result) {
+            return rewards.record(activity, result);
         },
 
         /**

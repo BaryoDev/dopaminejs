@@ -109,20 +109,17 @@ Install only what you use. Each plugin is its own package.
 
 | Package | Provides |
 |---|---|
-| `dopaminejs-plugin-webgl-particles` | `WebGLParticlePlugin` - GPU particles (10,000+) |
-| `dopaminejs-plugin-howler-audio` | `HowlerAudioPlugin` - Advanced audio (Howler.js) |
-| `dopaminejs-plugin-sound-packs` | Sound packs (retro, modern, cute, scifi) |
-| `dopaminejs-plugin-ecosystem` | `BattlePassPlugin`, `LeaderboardPlugin`, webhooks |
-| `dopaminejs-plugin-feedback-effects` | Floating text and confetti feedback |
-| `dopaminejs-plugin-debug-overlay` | `DebugOverlayPlugin` - FPS and system inspector |
+| `dopaminejs-plugin-webgl-particles` | `webglParticles()` - a GPU particle part |
+| `dopaminejs-plugin-howler-audio` | `howlerSound()` - a sound part on Howler.js |
+| `dopaminejs-plugin-sound-packs` | `soundPack(name)` - retro, modern, cute, scifi |
+| `dopaminejs-plugin-ecosystem` | `webhooks()` - signed event webhooks with a queue |
+| `dopaminejs-plugin-debug-overlay` | `debugOverlay()` - live snapshot and event log |
 
 ```bash
 npm install dopaminejs-plugin-webgl-particles
 ```
 
-> The bundled `dopaminejs-plugins` package was retired in 2.1.0 and unpublished
-> from npm. Install the individual packages above instead; see
-> [docs/MIGRATION.md](./docs/MIGRATION.md).
+> Coming from 2.x? See [docs/MIGRATION-3.0.md](./docs/MIGRATION-3.0.md).
 
 **License**: MIT (use freely, even commercially)
 
@@ -190,8 +187,8 @@ Without a `storage` option, `DataService` falls back to `localStorage` if presen
 
 ## Plugins
 
-A plugin is `{ name, version, api: 3, install(ctx) }` and `install` returns a disposer.
-See [docs/PLUGIN_GUIDE.md](./docs/PLUGIN_GUIDE.md).
+A subscriber plugin is `{ name, version, api: 3, install(ctx) }` and `install` returns a disposer.
+Parts and middleware are the other two shapes. See [docs/PLUGIN_GUIDE.md](./docs/PLUGIN_GUIDE.md).
 
 ---
 

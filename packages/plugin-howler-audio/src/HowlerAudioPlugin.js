@@ -1,63 +1,76 @@
 /**
- * Howler.js Audio Plugin for DopamineJS
- * Requires: npm install howler
+ * Howler.js as the sound part. Pass it as the `sound` option:
+ *
+ *   createDopamine({ sound: howlerSound({ sounds: { xp: '/xp.mp3' } }) });
+ *
+ * Needs: npm install howler
  */
 
 import { Howl, Howler } from 'howler';
 
-class HowlerAudioSystem {
-    constructor() {
+const NOOP = () => {};
+
+const urlOf = (source) => {
+    if (typeof source === 'string') return source;
+    if (source !== null && typeof source === 'object') return source.src || source.url || '';
+    return '';
+};
+
+class HowlerSound {
+    constructor(options) {
+        const opts = options !== null && typeof options === 'object' ? options : {};
+        // A Map, so a key such as "__proto__" is only ever a key.
         this.sounds = new Map();
-        this.kernel = null;
-        this.muted = false;
-        this.volume = 1.0;
-    }
+        this._volume = 1;
+        this._muted = false;
+        this._destroyed = false;
 
-    init(kernel) {
-        this.kernel = kernel;
-        console.log('[HowlerAudio] Initialized');
-    }
-
-    destroy() {
-        for (const howl of this.sounds.values()) {
-            howl.unload();
+        if (opts.volume !== undefined) this.setVolume(opts.volume);
+        if (opts.muted === true) this.setMuted(true);
+        if (opts.sounds !== null && typeof opts.sounds === 'object') {
+            for (const [key, source] of Object.entries(opts.sounds)) this.register(key, source);
         }
-        this.sounds.clear();
     }
 
-    register(key, options = {}) {
-        const url = options.src || options.url;
-        if (!url) return;
-        this.registerSound(key, url);
-    }
-
-    registerSound(key, url) {
-        const howl = new Howl({
-            src: [url],
-            volume: this.volume,
-            mute: this.muted
-        });
+    /**
+     * Adds a key. A string is a file URL, an object takes `src` or `url`.
+     * @returns {() => void} Removes the key.
+     */
+    register(key, source) {
+        const url = urlOf(source);
+        if (this._destroyed || typeof key !== 'string' || key === '' || url === '') return NOOP;
+        this.sounds.get(key)?.unload();
+        const howl = new Howl({ src: [url], volume: this._volume, mute: this._muted });
         this.sounds.set(key, howl);
+        return () => {
+            if (this.sounds.get(key) !== howl) return;
+            howl.unload();
+            this.sounds.delete(key);
+        };
     }
 
-    async preloadSounds(soundMap) {
-        const promises = Object.entries(soundMap).map(([key, url]) => {
-            return new Promise((resolve) => {
-                this.registerSound(key, url);
-                const howl = this.sounds.get(key);
-                howl.once('load', resolve);
-                howl.once('loaderror', resolve);
-            });
-        });
-        await Promise.all(promises);
+    /** Registers many keys and resolves once each has loaded or failed. */
+    preloadSounds(soundMap) {
+        const pending = Object.entries(soundMap || {}).map(([key, source]) => new Promise((resolve) => {
+            this.register(key, source);
+            const howl = this.sounds.get(key);
+            if (!howl) return resolve();
+            howl.once('load', resolve);
+            howl.once('loaderror', resolve);
+        }));
+        return Promise.all(pending).then(() => undefined);
     }
 
+    /**
+     * An unknown key does nothing.
+     * @param {string} key
+     * @param {{ volume?: number, loop?: boolean, rate?: number }} [options]
+     * @returns {number|undefined} The Howler play id.
+     */
     play(key, options = {}) {
+        if (this._destroyed || typeof key !== 'string') return undefined;
         const howl = this.sounds.get(key);
-        if (!howl) {
-            console.warn(`[HowlerAudio] Sound "${key}" not registered`);
-            return;
-        }
+        if (!howl) return undefined;
         const id = howl.play();
         if (options.volume !== undefined) howl.volume(options.volume, id);
         if (options.loop !== undefined) howl.loop(options.loop, id);
@@ -66,38 +79,53 @@ class HowlerAudioSystem {
     }
 
     stop(key) {
-        const howl = this.sounds.get(key);
-        if (howl) howl.stop();
+        this.sounds.get(key)?.stop();
+    }
+
+    setVolume(value) {
+        if (!Number.isFinite(value)) return this._volume;
+        this._volume = Math.max(0, Math.min(1, value));
+        Howler.volume(this._volume);
+        return this._volume;
+    }
+
+    getVolume() {
+        return this._volume;
+    }
+
+    setMuted(muted) {
+        this._muted = muted === true;
+        Howler.mute(this._muted);
+        return this._muted;
+    }
+
+    isMuted() {
+        return this._muted;
     }
 
     toggleMute() {
-        this.muted = !this.muted;
-        Howler.mute(this.muted);
-        return this.muted;
+        return this.setMuted(!this._muted);
     }
 
-    setVolume(volume) {
-        this.volume = Math.max(0, Math.min(1, volume));
-        Howler.volume(this.volume);
+    /** Howler unlocks audio itself, so this adds nothing. It returns a disposer to match SoundManager. */
+    unlockOn() {
+        return NOOP;
+    }
+
+    destroy() {
+        this._destroyed = true;
+        for (const howl of this.sounds.values()) howl.unload();
+        this.sounds.clear();
     }
 }
 
-export const HowlerAudioPlugin = {
-    name: 'howler-audio',
-    version: '1.0.0',
-
-    init(kernel) {
-        console.log('[HowlerAudioPlugin] Installing Howler.js audio system...');
-
-        if (kernel.systems.has('audio')) {
-            kernel.systems.unregister('audio');
-        }
-
-        kernel.systems.register('audio', new HowlerAudioSystem(), { priority: 70 });
-        console.log('[HowlerAudioPlugin] Howler.js audio system installed');
-    },
-
-    destroy() {
-        console.log('[HowlerAudioPlugin] Uninstalled');
-    }
-};
+/**
+ * @param {Object} [options]
+ * @param {Object<string, string|{src: string}>} [options.sounds] - key to file
+ * @param {number} [options.volume=1] - 0 to 1
+ * @param {boolean} [options.muted=false]
+ * @returns {HowlerSound} A sound part.
+ */
+export function howlerSound(options) {
+    return new HowlerSound(options);
+}

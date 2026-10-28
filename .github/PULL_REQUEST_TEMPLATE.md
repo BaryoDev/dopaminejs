@@ -24,7 +24,6 @@ Closes #<!-- issue number -->
 - [ ] `dopaminejs-themes`
 - [ ] `dopaminejs-plugin-debug-overlay`
 - [ ] `dopaminejs-plugin-ecosystem`
-- [ ] `dopaminejs-plugin-feedback-effects`
 - [ ] `dopaminejs-plugin-howler-audio`
 - [ ] `dopaminejs-plugin-sound-packs`
 - [ ] `dopaminejs-plugin-webgl-particles`

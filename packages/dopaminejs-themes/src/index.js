@@ -3,4 +3,4 @@
  * Official theme collection (MIT License)
  */
 
-export { ThemeEngine, Themes, themeEngine } from './ThemeEngine.js';
+export { ThemeEngine, Themes, theme, themeEngine } from './ThemeEngine.js';

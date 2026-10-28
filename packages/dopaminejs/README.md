@@ -65,12 +65,11 @@ the first marked day.
 
 Install only what you need:
 
-- [`dopaminejs-plugin-webgl-particles`](https://www.npmjs.com/package/dopaminejs-plugin-webgl-particles) - GPU particles (10,000+)
-- [`dopaminejs-plugin-howler-audio`](https://www.npmjs.com/package/dopaminejs-plugin-howler-audio) - Howler.js audio
+- [`dopaminejs-plugin-webgl-particles`](https://www.npmjs.com/package/dopaminejs-plugin-webgl-particles) - GPU particle part
+- [`dopaminejs-plugin-howler-audio`](https://www.npmjs.com/package/dopaminejs-plugin-howler-audio) - Howler.js sound part
 - [`dopaminejs-plugin-sound-packs`](https://www.npmjs.com/package/dopaminejs-plugin-sound-packs) - retro, modern, cute, scifi
-- [`dopaminejs-plugin-ecosystem`](https://www.npmjs.com/package/dopaminejs-plugin-ecosystem) - battle pass, leaderboards, webhooks
-- [`dopaminejs-plugin-feedback-effects`](https://www.npmjs.com/package/dopaminejs-plugin-feedback-effects) - floating text, confetti
-- [`dopaminejs-plugin-debug-overlay`](https://www.npmjs.com/package/dopaminejs-plugin-debug-overlay) - FPS and system inspector
+- [`dopaminejs-plugin-ecosystem`](https://www.npmjs.com/package/dopaminejs-plugin-ecosystem) - signed webhooks
+- [`dopaminejs-plugin-debug-overlay`](https://www.npmjs.com/package/dopaminejs-plugin-debug-overlay) - live snapshot and event log
 - [`dopaminejs-themes`](https://www.npmjs.com/package/dopaminejs-themes) - five UI themes
 
 ```javascript
@@ -97,7 +96,7 @@ silent when there is no Web Audio API.
 
 ## Links
 
-- [Migration guide](https://github.com/BaryoDev/dopaminejs/blob/main/docs/MIGRATION.md)
+- [Migration guide](https://github.com/BaryoDev/dopaminejs/blob/main/docs/MIGRATION-3.0.md)
 - [Plugin development](https://github.com/BaryoDev/dopaminejs/blob/main/docs/PLUGIN_GUIDE.md)
 - [Changelog](https://github.com/BaryoDev/dopaminejs/blob/main/CHANGELOG.md)
 

@@ -24,6 +24,11 @@ provideRewards({
     }
 });
 
+provideRewards({ dopamine: true });
+provideRewards({ dopamine: { ui: false, particles: false, plugins: [] } });
+// @ts-expect-error progress comes from the provider
+provideRewards({ dopamine: { progress: null } });
+
 const rewards = useRewards();
 const level: Ref<number> = rewards.level;
 const ready: Ref<boolean> = rewards.ready;

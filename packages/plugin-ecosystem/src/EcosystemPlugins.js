@@ -1,93 +1,28 @@
 /**
- * Reward System Middleware
- * Allows plugins to hook into reward events and modify behavior
- */
-
-const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
-
-export class RewardMiddleware {
-    constructor() {
-        this.hooks = {
-            beforeXP: [],
-            afterXP: [],
-            beforeLevelUp: [],
-            afterLevelUp: [],
-            beforeAchievement: [],
-            afterAchievement: [],
-        };
-    }
-
-    /**
-     * Register a middleware hook
-     * @param {string} event - Event name (beforeXP, afterXP, etc.)
-     * @param {Function} callback - Middleware function
-     */
-    use(event, callback) {
-        // hasOwn: 'constructor' and friends are truthy on any object.
-        if (!hasOwn(this.hooks, event)) {
-            console.warn(`[RewardMiddleware] Unknown event: ${event}`);
-            return;
-        }
-        this.hooks[event].push(callback);
-    }
-
-    /**
-     * Execute before hooks
-     * @param {string} event - Event name
-     * @param {Object} data - Event data
-     * @returns {Object} Modified data
-     */
-    async executeBefore(event, data) {
-        const key = `before${event}`;
-        const hooks = hasOwn(this.hooks, key) ? this.hooks[key] : [];
-        let result = { ...data };
-
-        for (const hook of hooks) {
-            try {
-                const modified = await hook(result);
-                if (modified !== undefined) {
-                    result = { ...result, ...modified };
-                }
-            } catch (error) {
-                console.error(`[RewardMiddleware] Error in before${event} hook:`, error);
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * Execute after hooks
-     * @param {string} event - Event name
-     * @param {Object} data - Event data
-     */
-    async executeAfter(event, data) {
-        const key = `after${event}`;
-        const hooks = hasOwn(this.hooks, key) ? this.hooks[key] : [];
-
-        for (const hook of hooks) {
-            try {
-                await hook(data);
-            } catch (error) {
-                console.error(`[RewardMiddleware] Error in after${event} hook:`, error);
-            }
-        }
-    }
-}
-
-/**
- * Webhook Integration
- * Send reward events to backend servers
+ * Webhook integration: sends reward events to a URL you own.
  *
  * With a `secret`, each request carries
  *   X-Dopamine-Signature: sha256=<hex HMAC-SHA256 of the request body>
  * The server recomputes the HMAC over the raw body and compares.
  *
  * A secret shipped in browser code can be read by any player, so the
- * signature only proves the request came from a copy of your game. Treat the
+ * signature only proves the request came from a copy of your app. Treat the
  * numbers as claims and validate them on the server.
  */
+
+const DEFAULT_EVENTS = ['level_up', 'achievement_unlocked', 'personal_best'];
+
 export class WebhookIntegration {
+    /**
+     * @param {Object} config
+     * @param {string} config.webhookUrl
+     * @param {string} [config.secret]
+     * @param {boolean} [config.enabled=true]
+     * @param {number} [config.maxQueue=100] - The oldest body is dropped past this.
+     * @param {Function} [config.fetch] - Default: global fetch, read at send time.
+     * @param {() => number} [config.now] - Default: Date.now.
+     * @param {{ warn?: Function, error?: Function }} [config.log] - Default: console.
+     */
     constructor(config = {}) {
         this.webhookUrl = config.webhookUrl;
         this.secret = config.secret;
@@ -95,6 +30,9 @@ export class WebhookIntegration {
         this.maxQueue = Number.isFinite(config.maxQueue) ? Math.max(1, config.maxQueue) : 100;
         this.queue = [];
         this.sending = false;
+        this._fetch = config.fetch;
+        this._now = typeof config.now === 'function' ? config.now : Date.now;
+        this._log = config.log || console;
         this._draining = null;
         this._key = null;
         this._warnedNoCrypto = false;
@@ -110,7 +48,7 @@ export class WebhookIntegration {
         if (!this.enabled || !this.webhookUrl) return;
 
         // Serialised once. The signature covers these exact bytes.
-        const body = JSON.stringify({ event, data, timestamp: Date.now() });
+        const body = JSON.stringify({ event, data, timestamp: this._now() });
 
         // A dead endpoint must not grow the queue without limit.
         if (this.queue.length >= this.maxQueue) {
@@ -122,9 +60,16 @@ export class WebhookIntegration {
     }
 
     /**
-     * Process webhook queue. Every caller gets the promise of the drain in
-     * progress, so a send() made while another is in flight still waits for
-     * its own request.
+     * Resolves once everything queued so far has been sent or has failed.
+     * @returns {Promise<void>}
+     */
+    flush() {
+        return this._processQueue();
+    }
+
+    /**
+     * Every caller gets the promise of the drain in progress, so a send()
+     * made while another is in flight still waits for its own request.
      * @private
      */
     _processQueue() {
@@ -151,17 +96,18 @@ export class WebhookIntegration {
                         headers['X-Dopamine-Signature'] = `sha256=${signature}`;
                     }
 
-                    const response = await fetch(this.webhookUrl, {
+                    const send = this._fetch || globalThis.fetch;
+                    const response = await send(this.webhookUrl, {
                         method: 'POST',
                         headers,
                         body,
                     });
 
                     if (!response.ok) {
-                        console.error('[WebhookIntegration] Failed to send webhook:', response.statusText);
+                        this._log.error('[webhooks] Failed to send webhook:', response.statusText);
                     }
                 } catch (error) {
-                    console.error('[WebhookIntegration] Webhook error:', error);
+                    this._log.error('[webhooks] Webhook error:', error);
                 }
             }
         } finally {
@@ -182,7 +128,7 @@ export class WebhookIntegration {
         if (!subtle) {
             if (!this._warnedNoCrypto) {
                 this._warnedNoCrypto = true;
-                console.warn('[WebhookIntegration] crypto.subtle is unavailable. Sending unsigned.');
+                this._log.warn('[webhooks] crypto.subtle is unavailable. Sending unsigned.');
             }
             return '';
         }
@@ -205,149 +151,59 @@ export class WebhookIntegration {
 }
 
 /**
- * Example: Battle Pass Plugin
+ * A plugin that posts events to a URL.
  *
- * Emits 'battlepass:tier-unlocked' on kernel.events, and on window when there
- * is one. Needs a RewardSystem created with `{ events: kernel.events }`.
+ *   createDopamine({ plugins: [webhooks({ url: 'https://example.com/hook', secret })] });
+ *
+ * Nothing is sent without a `url`. Disposing the plugin stops listening and
+ * lets what is already queued finish.
+ *
+ * @param {Object} options
+ * @param {string} options.url
+ * @param {string} [options.secret]
+ * @param {string[]} [options.events] - Default: level_up, achievement_unlocked, personal_best.
+ * @param {number} [options.maxQueue=100]
+ * @param {Function} [options.fetch]
  */
-export const BattlePassPlugin = {
-    name: 'battle-pass',
-    version: '2.0.0',
+export function webhooks(options = {}) {
+    const opts = options !== null && typeof options === 'object' ? options : {};
+    const names = Array.isArray(opts.events)
+        ? opts.events.filter((name) => typeof name === 'string' && name !== '')
+        : DEFAULT_EVENTS;
+    let hook = null;
 
-    init(kernel) {
-        this.kernel = kernel;
+    return {
+        name: 'webhooks',
+        version: '3.0.0',
+        api: 3,
 
-        // Built here, not on the object, so a second init starts unclaimed.
-        this.tiers = [
-            { level: 1, xpRequired: 0, reward: 'Bronze Badge' },
-            { level: 5, xpRequired: 500, reward: 'Silver Badge' },
-            { level: 10, xpRequired: 1500, reward: 'Gold Badge' },
-            { level: 20, xpRequired: 5000, reward: 'Platinum Badge' },
-        ];
+        /** Resolves once everything queued so far has been sent or has failed. */
+        flush: () => (hook ? hook.flush() : Promise.resolve()),
 
-        this._onXP = ({ total }) => this._checkTierProgress(total);
-        kernel.events.on('xp_gained', this._onXP);
-    },
-
-    _checkTierProgress(totalXP) {
-        if (!Number.isFinite(totalXP)) return;
-
-        for (const tier of this.tiers) {
-            if (totalXP >= tier.xpRequired && !tier.claimed) {
-                tier.claimed = true;
-
-                this.kernel?.events.emit('battlepass:tier-unlocked', tier);
-
-                if (typeof window !== 'undefined' && typeof CustomEvent === 'function') {
-                    window.dispatchEvent(new CustomEvent('battlepass:tier-unlocked', {
-                        detail: tier
-                    }));
-                }
+        install(ctx) {
+            if (typeof opts.url !== 'string' || opts.url === '') {
+                ctx.log.warn('[webhooks] no url was given. Nothing will be sent.');
+                return undefined;
             }
-        }
-    },
 
-    destroy() {
-        if (this.kernel && this._onXP) {
-            this.kernel.events.off('xp_gained', this._onXP);
-        }
-        this._onXP = null;
-        this.kernel = null;
-    }
-};
-
-/**
- * Example: Leaderboard Plugin
- *
- * Sends nothing until it is given an endpoint:
- *
- *   kernel.plugins.use(LeaderboardPlugin.configure({
- *       webhookUrl: 'https://example.com/leaderboard',
- *       secret: '...',          // optional, see WebhookIntegration
- *       playerId: () => user.id // optional, string or function
- *   }));
- */
-export const LeaderboardPlugin = {
-    name: 'leaderboard',
-    version: '2.0.0',
-
-    /**
-     * @param {Object} config - WebhookIntegration options plus `playerId`
-     * @returns {Object} The plugin, for use()
-     */
-    configure(config = {}) {
-        this.config = { ...config };
-        return this;
-    },
-
-    init(kernel) {
-        const config = this.config ?? {};
-
-        if (!config.webhookUrl) {
-            console.warn('[LeaderboardPlugin] No webhookUrl. Call LeaderboardPlugin.configure({ webhookUrl }) before use(). Nothing will be sent.');
-            return;
-        }
-
-        this.kernel = kernel;
-        this.webhook = new WebhookIntegration(config);
-
-        // Send level-up events to backend
-        this._onLevelUp = (data) => {
-            this.webhook.send('level_up', {
-                playerId: this._getPlayerId(),
-                level: data.newLevel,
-                xp: data.totalXP,
+            const integration = new WebhookIntegration({
+                webhookUrl: opts.url,
+                secret: opts.secret,
+                maxQueue: opts.maxQueue,
+                fetch: opts.fetch,
+                now: () => ctx.clock.now(),
+                log: ctx.log
             });
-        };
+            hook = integration;
 
-        // Send achievement unlocks
-        this._onAchievement = (data) => {
-            this.webhook.send('achievement', {
-                playerId: this._getPlayerId(),
-                achievementId: data.id,
-                timestamp: Date.now(),
-            });
-        };
+            const offs = names.map((name) => ctx.events.on(name, (data) => {
+                integration.send(name, data);
+            }));
 
-        kernel.events.on('level_up', this._onLevelUp);
-        kernel.events.on('achievement_unlocked', this._onAchievement);
-    },
-
-    _getPlayerId() {
-        const configured = this.config?.playerId;
-        if (typeof configured === 'function') return configured();
-        if (configured) return configured;
-
-        if (this._playerId) return this._playerId;
-
-        // Get player ID from localStorage or generate one. Storage can throw
-        // (private mode, blocked cookies), so the id then lasts one session.
-        let playerId = null;
-        try {
-            playerId = localStorage.getItem('dopamine_player_id');
-        } catch { /* no storage */ }
-
-        if (!playerId) {
-            playerId = typeof globalThis.crypto?.randomUUID === 'function'
-                ? `player_${globalThis.crypto.randomUUID()}`
-                : `player_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-
-            try {
-                localStorage.setItem('dopamine_player_id', playerId);
-            } catch { /* no storage */ }
+            return () => {
+                for (const off of offs) off();
+                integration.flush();
+            };
         }
-
-        this._playerId = playerId;
-        return playerId;
-    },
-
-    destroy() {
-        if (this.kernel) {
-            this.kernel.events.off('level_up', this._onLevelUp);
-            this.kernel.events.off('achievement_unlocked', this._onAchievement);
-        }
-        this.kernel = null;
-        this.webhook = null;
-        this._playerId = null;
-    }
-};
+    };
+}

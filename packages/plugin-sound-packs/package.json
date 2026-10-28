@@ -18,7 +18,7 @@
         "build": "vite build"
     },
     "peerDependencies": {
-        "dopaminejs": "^2.0.0"
+        "dopaminejs": "^3.0.0"
     },
     "author": "BaryoDev",
     "license": "MIT",

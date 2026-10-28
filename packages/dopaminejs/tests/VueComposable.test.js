@@ -9,10 +9,10 @@ import { createMemoryStorage } from '../src/dopamine/utils/storage.js';
 import { provideRewards, useRewards } from '../../dopaminejs-vue/src/useRewards.js';
 import { buildState } from '../../dopaminejs-vue/src/state.js';
 
-const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'streak_updated'];
+const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated'];
 
 // Mounts a root that provides rewards and a child that consumes them.
-function mount({ storage = createMemoryStorage(), config } = {}) {
+function mount({ storage = createMemoryStorage(), config, dopamine } = {}) {
     const seen = {};
     const Child = defineComponent({
         setup() {
@@ -22,7 +22,7 @@ function mount({ storage = createMemoryStorage(), config } = {}) {
     });
     const Root = defineComponent({
         setup() {
-            seen.provided = provideRewards({ storage, config });
+            seen.provided = provideRewards({ storage, config, dopamine });
             return () => h(Child);
         }
     });
@@ -335,6 +335,48 @@ describe('provideRewards and useRewards', () => {
 
     it('should throw from provideRewards outside a scope', () => {
         expect(() => provideRewards({ storage: createMemoryStorage() })).toThrow(/setup/);
+    });
+
+    it('record calls progress.record', async () => {
+        const record = vi.spyOn(RewardSystem.prototype, 'record').mockResolvedValue(true);
+        const { app, seen } = mount();
+
+        await expect(seen.rewards.record('quiz', { score: 9 })).resolves.toBe(true);
+
+        expect(record).toHaveBeenCalledWith('quiz', { score: 9 });
+        app.unmount();
+    });
+
+    it('loadFailed reaches the state', async () => {
+        const storage = createMemoryStorage();
+        storage.getItem = () => { throw new Error('offline'); };
+        const { app, seen } = mount({ storage });
+        await flush();
+
+        expect(seen.rewards.loadFailed.value).toBe(true);
+        app.unmount();
+    });
+
+    it('createDopamine wrapper installs and disposes', async () => {
+        const calls = [];
+        const plugin = {
+            name: 'probe',
+            version: '1.0.0',
+            api: 3,
+            install() {
+                calls.push('install');
+                return () => calls.push('dispose');
+            }
+        };
+        const dopamine = { ui: false, particles: false, sound: false, haptics: false, plugins: [plugin] };
+        const { app, seen } = mount({ dopamine });
+        await flush();
+
+        expect(calls).toEqual(['install']);
+        expect(seen.rewards.ready.value).toBe(true);
+
+        app.unmount();
+        expect(calls).toEqual(['install', 'dispose']);
     });
 });
 

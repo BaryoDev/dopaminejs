@@ -1,1 +1,1 @@
-export { HowlerAudioPlugin } from './HowlerAudioPlugin.js';
+export { howlerSound } from './HowlerAudioPlugin.js';

@@ -9,7 +9,7 @@ DopamineJS adds progression to web apps: XP, levels, achievements and daily
 streaks, plus the particles and sound that go with them. `createDopamine()`
 wires swappable parts and plugins together.
 
-npm workspaces monorepo, ten packages under `packages/`:
+npm workspaces monorepo, nine packages under `packages/`:
 
 | Package | Licence | Holds |
 |---|---|---|
@@ -17,7 +17,7 @@ npm workspaces monorepo, ten packages under `packages/`:
 | `dopaminejs-react` | MIT | `RewardsProvider`, `useRewards()` |
 | `dopaminejs-vue` | MIT | `provideRewards()`, `useRewards()` (private until first publish) |
 | `dopaminejs-themes` | MIT | CSS variable themes |
-| `plugin-webgl-particles`, `plugin-howler-audio`, `plugin-sound-packs`, `plugin-ecosystem`, `plugin-feedback-effects`, `plugin-debug-overlay` | MIT | One plugin each, published as `dopaminejs-plugin-*` |
+| `plugin-webgl-particles`, `plugin-howler-audio`, `plugin-sound-packs`, `plugin-ecosystem`, `plugin-debug-overlay` | MIT | One each, published as `dopaminejs-plugin-*` |
 
 The source is plain JavaScript with JSDoc. The core has zero runtime
 dependencies (`npm run check-zero-deps`). TypeScript declarations are written
@@ -89,8 +89,11 @@ throwing one does not stop the others.
 - `streakDays` (`'any'` default, or `'record'`) on `RewardSystem` and `createDopamine`
   decides whether `addXP` marks a play day. Achievement reward XP never does.
 - `host.parts` has getters only. Read a part when you need it, never keep it.
-- A plugin is `{ name, version, api: 3, after?, requires?, install(ctx) }`.
-  `install` returns a disposer. A wrong `api` throws `plugin_api`.
+- There are three extension shapes (`docs/PLUGIN_GUIDE.md`): a subscriber plugin
+  `{ name, version, api: 3, after?, requires?, install(ctx) }` (`install` returns a
+  disposer, a wrong `api` throws `plugin_api`), a part, and middleware (`progress.use`).
+- `webglParticles()` and `howlerSound()` are parts, not plugins. `debugOverlay()`,
+  `webhooks()`, `soundPack()` and `theme()` are plugins.
 - Plugins install in array order and dispose in reverse. `ctx.events.on`
   listeners are removed on dispose. `ctx.storage` is namespaced `dopamine_<plugin>_`.
 
@@ -134,7 +137,7 @@ throwing one does not stop the others.
   changing a fixture in the same commit. See `spec/README.md`.
 - **Streak dates are local calendar dates**, never UTC. The test timezone is
   pinned so a UTC assumption fails.
-- **Look up by own property.** Game names, achievement ids and sound keys come
+- **Look up by own property.** Activity names, achievement ids and sound keys come
   from callers. Use an own-property check (the `hasOwn` helpers), never `obj[key]` alone or
   `key in obj`.
 - **Saved state is untrusted.** Anything read from storage, and anything

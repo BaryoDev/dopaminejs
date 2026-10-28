@@ -3,6 +3,8 @@
  * Pre-configured sound collections for different game aesthetics
  */
 
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
 export const SoundPacks = {
     /**
      * Retro/8-bit sound pack
@@ -205,10 +207,10 @@ export const SoundPacks = {
 /**
  * Get a sound pack by name
  * @param {string} packName - Name of the pack (retro, modern, cute, scifi)
- * @returns {Object} Sound pack configuration
+ * @returns {Object} Sound pack configuration. An unknown name gives `modern`.
  */
 export function getSoundPack(packName) {
-    return SoundPacks[packName] || SoundPacks.modern;
+    return typeof packName === 'string' && hasOwn(SoundPacks, packName) ? SoundPacks[packName] : SoundPacks.modern;
 }
 
 /**
@@ -217,4 +219,61 @@ export function getSoundPack(packName) {
  */
 export function listSoundPacks() {
     return Object.keys(SoundPacks);
+}
+
+// Pack keys that differ from the sound keys the host plays.
+const SOUND_KEYS = { levelUp: 'level_up' };
+
+// A spec is a tone, or a sequence of notes that share a waveform and volume.
+function synthOf(spec) {
+    const volume = spec.volume;
+    const waveform = spec.waveform;
+    if (spec.type === 'sequence') {
+        return (sound, later) => {
+            let at = 0;
+            spec.notes.forEach((note, i) => {
+                const play = () => sound.playTone(note.frequency, note.duration, waveform, volume);
+                if (i === 0) play();
+                else later(play, Math.round(at * 1000));
+                at += note.duration;
+            });
+        };
+    }
+    return (sound) => sound.playTone(spec.frequency, spec.duration, waveform, volume);
+}
+
+/**
+ * A plugin that registers a pack on the sound part with `sound.register(key, synth)`.
+ * It replaces the built-in xp, level_up, achievement and error sounds, and adds `coin`.
+ * Removing the plugin restores them.
+ *
+ *   createDopamine({ plugins: [soundPack('retro')] });
+ *
+ * @param {string} [name='modern']
+ */
+export function soundPack(name = 'modern') {
+    return {
+        name: 'sound-pack',
+        version: '3.0.0',
+        api: 3,
+        requires: ['sound'],
+
+        install(ctx) {
+            const known = typeof name === 'string' && hasOwn(SoundPacks, name);
+            if (!known) ctx.log.warn(`[sound-pack] unknown pack "${String(name)}", using modern`);
+            const pack = getSoundPack(name);
+            const sound = ctx.parts.sound;
+            if (typeof sound.register !== 'function') {
+                ctx.log.warn('[sound-pack] the sound part cannot register keys, nothing was added');
+                return undefined;
+            }
+            const removers = Object.keys(pack).map((key) => {
+                const soundKey = hasOwn(SOUND_KEYS, key) ? SOUND_KEYS[key] : key;
+                return sound.register(soundKey, synthOf(pack[key]));
+            });
+            return () => {
+                for (const remove of removers) if (typeof remove === 'function') remove();
+            };
+        }
+    };
 }

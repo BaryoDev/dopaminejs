@@ -39,6 +39,15 @@ const { level, progress, achievements, addXP } = useRewards();
 </template>
 ```
 
+## Popups, particles and sound
+
+Pass `dopamine` (true, or the `createDopamine` options such as `sound` and `plugins`) to add the
+core feedback on top of the same progress object. The host is disposed with the scope.
+
+```javascript
+provideRewards({ dopamine: { particles: false } });
+```
+
 ## API
 
 ### `provideRewards({ config, storage })`
@@ -65,12 +74,12 @@ Returns an object with:
 | `error` | `Ref<unknown>` | `null` until `init()` rejects, then the rejection. It is caught, so it never surfaces as an unhandled rejection |
 | `loadFailed` | `Ref<boolean>` | `true` when `init()` could not read the saved player. Nothing is saved this session, so show the visitor that progress is not being kept |
 | `addXP(amount, reason?)` | `(number, string?) => Promise<object>` | Add XP. Resolves with what `RewardSystem.addXP` returns |
-| `record(gameId, stats)` | `(string, object) => Promise<boolean>` | Record a game session |
+| `record(activity, result)` | `(string, object) => Promise<boolean>` | Record an activity result. May award XP, update its best and mark a play day |
 | `unlockAchievement(key)` | `(string) => Promise<boolean>` | Unlock an achievement by id. Resolves `false` when the id is unknown or already unlocked |
 
 ## Notes
 
-- Peer dependencies: `vue` 3.3 or newer and `dopaminejs` 2.3.0 or newer.
+- Peer dependencies: `vue` 3.3 or newer and `dopaminejs` 3.0.0 or newer.
 - `provideRewards()` creates one `RewardSystem` and removes its listeners when the calling scope is disposed (component unmount). Later changes to `config` or `storage` are ignored. To rebuild it, for example for another user, key the component that calls it (`<App :key="userId" />`).
 - `useRewards()` throws when no ancestor called `provideRewards()`. Calling `provideRewards()` twice in one component warns and returns the first instance.
 - Until `init()` resolves, the state is `{ player: {}, level: 1, xp: 0, progress: 0, achievements: [] }`, with `ready` false, `error` null and `loadFailed` false. The methods reject until `init()` resolves.

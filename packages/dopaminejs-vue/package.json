@@ -39,7 +39,7 @@
         "node": ">=20.19"
     },
     "peerDependencies": {
-        "dopaminejs": "^2.3.0",
+        "dopaminejs": "^3.0.0",
         "vue": "^3.3.0"
     },
     "devDependencies": {

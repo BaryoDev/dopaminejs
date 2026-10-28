@@ -1,9 +1,9 @@
 # DopamineJS Architecture
 
-**Vision**: Progression mechanics for web apps — a drop-in layer for XP, levels, achievements, and daily streaks that makes the feedback feel good.
+**Vision**: Progression mechanics for web apps. A drop-in layer for XP, levels, achievements, and daily streaks that makes the feedback feel good.
 
 ## Design Philosophy
-1.  **Zero-Config Start**: It must work beautifully out of the box.
+1.  **Zero-Config Start**: It must work well out of the box.
 2.  **Infinite Extensibility**: Every default (sound, particle, UI style) must be replaceable.
 3.  **Asset Agnostic**: Support synthesized sounds/shapes (no assets) AND custom assets (mp3/png).
 4.  **AI-First**: APIs should be self-documenting and predictable for AI agents to use effectively.
@@ -18,13 +18,18 @@ events and installs plugins.
     that returns null means use the default. `host.parts` has getters only, so a plugin reads the
     current part and cannot replace it.
 -   **One event bus.** The progress object is the bus. Core events have plain names
-    (`xp_gained`, `level_up`, `achievement_unlocked`, `streak_updated`, `personal_best`).
-    Plugin events are `<plugin>:<event>`. Listeners are synchronous and each one is wrapped.
--   **Plugins** are `{ name, version, api: 3, after?, requires?, install(ctx) }`. They install in
-    array order and dispose in reverse. See [docs/PLUGIN_GUIDE.md](./docs/PLUGIN_GUIDE.md).
+    (`xp_gained`, `level_up`, `achievement_unlocked`, `streak_updated`, `personal_best`,
+    `save_failed`, `load_failed`). Plugin events are `<plugin>:<event>`. Listeners are
+    synchronous and each one is wrapped.
+-   **Three extension shapes.** A subscriber plugin `{ name, version, api: 3, install(ctx) }`
+    reacts to events. A part replaces the ui, particles, sound or haptics. Middleware
+    (`progress.use`) changes or drops XP, records and unlocks. Plugins install in array order
+    and dispose in reverse. See [docs/PLUGIN_GUIDE.md](./docs/PLUGIN_GUIDE.md).
+-   **The save is a document that merges.** Two devices can merge their saves in any order.
 -   **No side effects at import.** The package touches no document, window or storage until
     `createDopamine()` or a part is constructed. CSS is `dopaminejs/style.css`.
--   **`dopaminejs/core`** is the progression API alone, for runtimes with no DOM.
+-   **Entries.** `dopaminejs/core` is the progression API alone, for runtimes with no DOM.
+    `dopaminejs/games` is the optional game feedback plugin. `dopaminejs/testing` is the
+    test kit.
 
-The engine layer from 1.x and 2.x (kernel, scenes, game objects, physics) is removed. Games
-keep working through `dopaminejs/games` in a later step of 3.0.
+The engine layer from 2.x is removed. See [docs/MIGRATION-3.0.md](./docs/MIGRATION-3.0.md).

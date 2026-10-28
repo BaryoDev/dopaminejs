@@ -132,13 +132,6 @@ describe('public API surface', () => {
         expect(() => compare('dopaminejs-plugin-ecosystem', renderSurface(mod))).not.toThrow();
     });
 
-    // Skipped until #66 ports the plugin packages to the new host.
-    it.skip('dopaminejs-plugin-feedback-effects has not changed', async () => {
-        const url = pathToFileURL(resolve(packagesDir, 'plugin-feedback-effects/src/index.js')).href;
-        const mod = await import(url);
-        expect(() => compare('dopaminejs-plugin-feedback-effects', renderSurface(mod))).not.toThrow();
-    });
-
     it('dopaminejs-plugin-howler-audio has not changed', async () => {
         const url = pathToFileURL(resolve(packagesDir, 'plugin-howler-audio/src/index.js')).href;
         const mod = await import(url);

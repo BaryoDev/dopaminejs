@@ -1,1 +1,1 @@
-DebugOverlayPlugin: object
+debugOverlay: function(0)

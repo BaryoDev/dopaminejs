@@ -1,6 +1,1 @@
-export {
-    BattlePassPlugin,
-    LeaderboardPlugin,
-    RewardMiddleware,
-    WebhookIntegration
-} from './EcosystemPlugins.js';
+export { WebhookIntegration, webhooks } from './EcosystemPlugins.js';

@@ -5,8 +5,9 @@ package's build; copy them into your own project as a starting point.
 
 ## `ToastPlugin.js`
 
-Shows the plugin contract: `install(ctx)` listens to a core event, reads a part at call
-time and returns a disposer.
+A subscriber plugin: `install(ctx)` listens to a core event, reads a part at call
+time and returns a disposer. See [the plugin guide](../../docs/PLUGIN_GUIDE.md) for the
+other two shapes.
 
 ```javascript
 import { createDopamine } from 'dopaminejs';

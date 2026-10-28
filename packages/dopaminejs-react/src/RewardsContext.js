@@ -4,8 +4,8 @@
  * Manages a single RewardSystem instance for the React tree it wraps.
  * Components call useRewards() to read player state and dispatch XP/games.
  *
- * The provider subscribes to xp_gained, level_up, achievement_unlocked and
- * streak_updated on mount and unsubscribes on unmount. The emitter holds
+ * The provider subscribes to xp_gained, level_up, achievement_unlocked,
+ * personal_best and streak_updated on mount and unsubscribes on unmount. The emitter holds
  * strong references, so a component that mounts and unmounts repeatedly
  * without cleanup would accumulate duplicate listeners.
  *
@@ -24,8 +24,11 @@ import React, {
     useReducer,
     useRef,
 } from 'react';
-import { RewardSystem, DataService } from 'dopaminejs';
+import { RewardSystem, DataService, createDopamine } from 'dopaminejs';
 import { buildState } from './state.js';
+
+// Event names emitted by RewardSystem are lowercase.
+const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated'];
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
@@ -48,9 +51,12 @@ function reducer(state, action) {
  * @param {object}   props
  * @param {object}   [props.config]   passed straight to new RewardSystem(...)
  * @param {object}   [props.storage]  custom storage (defaults to localStorage)
+ * @param {boolean|object} [props.dopamine]  true, or the createDopamine options
+ *   (ui, particles, sound, haptics, plugins, log), to get popups, particles and
+ *   sound on top of the same RewardSystem. The host is disposed on unmount.
  * @param {React.ReactNode} props.children
  */
-export function RewardsProvider({ config, storage, children }) {
+export function RewardsProvider({ config, storage, dopamine, children }) {
     // Safe initial state so consumers always have all fields defined before
     // the async init() resolves, even on the very first render.
     const [state, dispatch] = useReducer(reducer, null, () => ({
@@ -77,11 +83,17 @@ export function RewardsProvider({ config, storage, children }) {
         const rewards = new RewardSystem(dataService, config);
         rewardsRef.current = rewards;
 
+        // The host loads the player itself, so init() is only called here when
+        // there is no host.
+        const host = dopamine
+            ? createDopamine({ ...(dopamine === true ? {} : dopamine), progress: rewards, storage })
+            : null;
+
         let mounted = true;
 
         // A rejected init() must not escape as an unhandled rejection, which
         // can end a Node process during server rendering.
-        rewards.init().then(() => {
+        (host ? host.ready : rewards.init()).then(() => {
             if (!mounted) return;
             dispatchRef.current({ type: 'SYNC', payload: { ...buildState(rewards), ready: true, loadFailed: rewards.loadFailed } });
         }).catch((error) => {
@@ -94,20 +106,14 @@ export function RewardsProvider({ config, storage, children }) {
             dispatchRef.current({ type: 'SYNC', payload: buildState(rewards) });
         }
 
-        // Event names emitted by RewardSystem are lowercase.
-        rewards.on('xp_gained', sync);
-        rewards.on('level_up', sync);
-        rewards.on('achievement_unlocked', sync);
-        rewards.on('streak_updated', sync);
+        for (const name of EVENTS) rewards.on(name, sync);
 
         return () => {
             mounted = false;
             // Remove listeners so the emitter doesn't accumulate them across
             // re-mounts (it holds strong references).
-            rewards.off('xp_gained', sync);
-            rewards.off('level_up', sync);
-            rewards.off('achievement_unlocked', sync);
-            rewards.off('streak_updated', sync);
+            for (const name of EVENTS) rewards.off(name, sync);
+            host?.dispose();
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
     // config and storage are intentionally excluded: the RewardSystem is
@@ -127,13 +133,13 @@ export function RewardsProvider({ config, storage, children }) {
         },
 
         /**
-         * Record a game session, which may award XP and update stats.
-         * @param {string} gameId
-         * @param {object} stats
-         * @returns {Promise<void>|undefined}
+         * Record an activity, which may award XP, update its best and mark a play day.
+         * @param {string} activity
+         * @param {object} result
+         * @returns {Promise<boolean>|undefined}
          */
-        record(gameId, stats) {
-            return rewardsRef.current?.record(gameId, stats);
+        record(activity, result) {
+            return rewardsRef.current?.record(activity, result);
         },
 
         /**
@@ -164,7 +170,7 @@ export function RewardsProvider({ config, storage, children }) {
  *   error: unknown,
  *   loadFailed: boolean,
  *   addXP: (amount: number, reason?: string) => Promise<object> | undefined,
- *   record: (gameId: string, stats: object) => Promise<void> | undefined,
+ *   record: (activity: string, result: object) => Promise<boolean> | undefined,
  *   unlockAchievement: (key: string) => Promise<boolean> | undefined,
  * }}
  * ready is true once init() has resolved. error is null until init() rejects,
