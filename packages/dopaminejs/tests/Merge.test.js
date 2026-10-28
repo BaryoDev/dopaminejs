@@ -139,13 +139,13 @@ describe('merge', () => {
         expect(merged.playDates).toEqual(['2020-01-01', '2099-01-01']);
     });
 
-    it('should trim against the given today, not against the newest date', () => {
+    it('should trim against the given today, dropping dates past tomorrow', () => {
         const a = { v: 3, playDates: ['2025-07-03', '2025-07-04'] };
         const b = { v: 3, playDates: ['2099-01-01'] };
 
         const merged = merge(a, b, { today: '2026-08-07' });
 
-        expect(merged.playDates).toEqual(['2025-07-04', '2099-01-01']);
+        expect(merged.playDates).toEqual(['2025-07-04']);
         expect(same(merge(b, a, { today: '2026-08-07' }), merged)).toBe(true);
     });
 

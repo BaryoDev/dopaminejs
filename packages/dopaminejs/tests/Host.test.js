@@ -135,6 +135,54 @@ describe('createDopamine', () => {
         await expect(host.ready).rejects.toThrow('nope');
     });
 
+    it('disposes the installed plugins, last first, when an async install fails', async () => {
+        const seen = [];
+        const init = vi.fn();
+        const host = make({
+            progress: { on: () => () => {}, off: () => {}, init },
+            plugins: [
+                plugin('a', () => () => seen.push('a')),
+                plugin('b', () => () => seen.push('b')),
+                plugin('bad', async () => { throw new Error('nope'); })
+            ]
+        });
+        await expect(host.ready).rejects.toThrow('nope');
+        expect(seen).toEqual(['b', 'a']);
+        expect(init).not.toHaveBeenCalled();
+    });
+
+    it('lets a name be used again after it was disposed or failed', () => {
+        const host = make();
+        const off = host.use(plugin('again'));
+        off();
+        const second = vi.fn();
+        host.use(plugin('again', second));
+        expect(second).toHaveBeenCalledTimes(1);
+
+        expect(() => host.use(plugin('broken', () => { throw new Error('nope'); }))).toThrow('nope');
+        const third = vi.fn();
+        host.use(plugin('broken', third));
+        expect(third).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses plugin names outside a-z, 0-9 and -', () => {
+        for (const name of ['Bad', 'a b', 'a_b', 'a:b', '', 'é']) {
+            expect(codeOf(() => make({ plugins: [plugin(name)] }))).toBe('plugin_invalid');
+        }
+    });
+
+    it('keeps plugin storage keys apart and away from core keys', () => {
+        let ctxA;
+        let ctxAB;
+        make({ plugins: [plugin('a', (ctx) => { ctxA = ctx; }), plugin('a-b', (ctx) => { ctxAB = ctx; })] });
+        ctxA.storage.setItem('b-c', 'one');
+        ctxAB.storage.setItem('c', 'two');
+        expect(storage.getItem('dopamine_plugin_a:b-c')).toBe('one');
+        expect(storage.getItem('dopamine_plugin_a-b:c')).toBe('two');
+        ctxA.storage.setItem('../player', 'x');
+        expect(storage.getItem('dopamine_player')).toBeNull();
+    });
+
     it('use installs later and returns a disposer', () => {
         const dispose = vi.fn();
         const host = make();
@@ -209,16 +257,16 @@ describe('createDopamine', () => {
         expect(missing).toBeNull();
     });
 
-    it('namespaces plugin storage as dopamine_<plugin>_', () => {
+    it('namespaces plugin storage as dopamine_plugin_<plugin>:', () => {
         let ctxA;
         let ctxB;
         make({ plugins: [plugin('a', (ctx) => { ctxA = ctx; }), plugin('b', (ctx) => { ctxB = ctx; })] });
 
         ctxA.storage.setItem('key', 'one');
-        expect(storage.getItem('dopamine_a_key')).toBe('one');
+        expect(storage.getItem('dopamine_plugin_a:key')).toBe('one');
         expect(ctxB.storage.getItem('key')).toBeNull();
         ctxA.storage.removeItem('key');
-        expect(storage.getItem('dopamine_a_key')).toBeNull();
+        expect(storage.getItem('dopamine_plugin_a:key')).toBeNull();
     });
 
     it('limits ctx.events.emit to the plugin namespace', () => {

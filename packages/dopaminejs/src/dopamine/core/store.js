@@ -18,10 +18,11 @@ export const isRecord = (value) => value !== null && typeof value === 'object' &
 const isCount = (value) => Number.isInteger(value) && value >= 0;
 const isAmount = (value) => Number.isFinite(value) && value >= 0;
 const isNumber = (value) => Number.isFinite(value);
-const count = (value, fallback, min = 0) => (Number.isInteger(value) && value >= min ? value : fallback);
+export const cap = (value) => Math.min(value, Number.MAX_SAFE_INTEGER);
+const count = (value, fallback, min = 0) => (Number.isInteger(value) && value >= min ? cap(value) : fallback);
 
 // Summed in key order, so the same document always gives the same float.
-export const sum = (map, pick = (value) => value) => Object.keys(map).sort().reduce((total, key) => total + pick(map[key]), 0);
+export const sum = (map, pick = (value) => value) => Object.keys(map).sort().reduce((total, key) => cap(total + pick(map[key])), 0);
 
 export const emptyDoc = (now = 0) => ({
     v: VERSION,
@@ -44,7 +45,7 @@ function pickMap(source, accept) {
     const map = {};
     if (!isRecord(source)) return map;
     for (const key of Object.keys(source)) {
-        if (isSafeKey(key) && accept(source[key])) map[key] = source[key];
+        if (isSafeKey(key) && accept(source[key])) map[key] = cap(source[key]);
     }
     return map;
 }
@@ -67,7 +68,7 @@ function pickAchievements(source, now) {
         map[id] = {
             unlockedAt: isNumber(entry.unlockedAt) ? entry.unlockedAt : now,
             seen: entry.seen === true,
-            reward: isAmount(entry.reward) ? entry.reward : 0
+            reward: isAmount(entry.reward) ? cap(entry.reward) : 0
         };
     }
     return map;
@@ -125,13 +126,13 @@ function read2(input, now, rewards, today) {
 
     let granted = 0;
     for (const id of Object.keys(doc.achievements)) {
-        const reward = hasOwn(rewards, id) && isAmount(rewards[id]) ? rewards[id] : 0;
+        const reward = hasOwn(rewards, id) && isAmount(rewards[id]) ? cap(rewards[id]) : 0;
         doc.achievements[id].reward = reward;
         granted += reward;
     }
 
     // The old xp already holds the rewards of the unlocked achievements.
-    const xp = isAmount(input.xp) ? input.xp : 0;
+    const xp = isAmount(input.xp) ? cap(input.xp) : 0;
     const own = Math.max(0, xp - granted);
     if (own > 0) doc.xpBy[LEGACY] = own;
     doc.level = Math.max(levelFor(xp), count(input.level, 1, 1));
@@ -144,11 +145,11 @@ function read2(input, now, rewards, today) {
             if (!isSafeKey(activity) || !isRecord(entry)) continue;
             const plays = count(entry.totalPlays, 0);
             doc.playsBy[activity] = plays > 0 ? { [LEGACY]: plays } : {};
-            doc.best[activity] = isAmount(entry.highScore) ? entry.highScore : 0;
+            doc.best[activity] = isAmount(entry.highScore) ? cap(entry.highScore) : 0;
             doc.sumsBy[activity] = {};
             for (const key of Object.keys(entry)) {
                 if (isSafeKey(key) && key !== 'totalPlays' && key !== 'highScore' && isNumber(entry[key])) {
-                    doc.sumsBy[activity][key] = { [LEGACY]: entry[key] };
+                    doc.sumsBy[activity][key] = { [LEGACY]: cap(entry[key]) };
                 }
             }
         }
@@ -199,8 +200,8 @@ export function validate(input, options = {}) {
     if (!isRecord(input)) {
         throw new DopamineError('invalid_document', '[DopamineJS] a save must be an object');
     }
-    if (typeof input.v === 'number' && input.v > VERSION) {
-        throw new DopamineError('unsupported_version', `[DopamineJS] save version ${input.v} is newer than ${VERSION}`);
+    if (input.v !== undefined && input.v !== VERSION) {
+        throw new DopamineError('unsupported_version', `[DopamineJS] save version ${String(input.v)} is not ${VERSION}`);
     }
     const now = isNumber(options.now) ? options.now : 0;
     const today = isDay(options.today) ? options.today : undefined;
@@ -211,7 +212,7 @@ export function validate(input, options = {}) {
     return doc;
 }
 
-export const xpOf = (doc) => Math.max(0, sum(doc.xpBy) + sum(doc.achievements, (entry) => entry.reward) - sum(doc.xpSpentBy));
+export const xpOf = (doc) => cap(Math.max(0, sum(doc.xpBy) + sum(doc.achievements, (entry) => entry.reward) - sum(doc.xpSpentBy)));
 
 export const levelOf = (doc) => Math.max(doc.level, levelFor(xpOf(doc)));
 

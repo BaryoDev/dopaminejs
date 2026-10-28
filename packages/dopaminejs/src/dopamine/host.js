@@ -44,7 +44,7 @@ function resolvePart(option, env, makeDefault) {
 }
 
 function namespacedStorage(storage, name) {
-    const prefix = `dopamine_${name}_`;
+    const prefix = `dopamine_plugin_${name}:`;
     return {
         getItem: (key) => storage.getItem(prefix + key),
         setItem: (key, value) => storage.setItem(prefix + key, value),
@@ -167,9 +167,9 @@ export function createDopamine(options = {}) {
     const order = [];
 
     function check(plugin) {
-        if (plugin === null || typeof plugin !== 'object' || typeof plugin.name !== 'string' || plugin.name === ''
+        if (plugin === null || typeof plugin !== 'object' || typeof plugin.name !== 'string' || !/^[a-z0-9-]+$/.test(plugin.name)
             || typeof plugin.install !== 'function') {
-            throw new DopamineError('plugin_invalid', 'a plugin needs a name and an install function');
+            throw new DopamineError('plugin_invalid', 'a plugin needs a name (a-z, 0-9 and -) and an install function');
         }
         if (plugin.api !== HOST_API) {
             throw new DopamineError(
@@ -327,6 +327,12 @@ export function createDopamine(options = {}) {
         dispose();
         throw error;
     }
+
+    // An install that rejects undoes the rest, as a refused plugin does.
+    readyChain = readyChain.catch((error) => {
+        dispose();
+        throw error;
+    });
 
     function dispose() {
         if (disposed) return;

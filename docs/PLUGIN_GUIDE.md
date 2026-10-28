@@ -36,7 +36,7 @@ createDopamine({ plugins: [myAnalyticsPlugin] });
 | `progress` | The progress object (`RewardSystem` by default) |
 | `parts` | Live getters for `ui`, `particles`, `sound`, `haptics`. Read them when you need them, never keep them. |
 | `events` | `on`, `off`, and `emit` for names that start with `<plugin name>:` |
-| `storage` | Key value storage namespaced as `dopamine_<plugin name>_` |
+| `storage` | Key value storage namespaced as `dopamine_plugin_<plugin name>:` |
 | `clock` | The clock the host uses |
 | `log` | `debug`, `info`, `warn`, `error` |
 | `env` | `hasDom`, `reducedMotion` |
@@ -82,6 +82,10 @@ Plugins install in array order and dispose in reverse. `createDopamine` throws a
 - `plugin_order`: `after` names a plugin not installed yet.
 - `plugin_requires`: a required part is null.
 - `plugin_duplicate`: the name is already installed.
+- `plugin_invalid`: the plugin has no install function, or its name is not made of `a-z`, `0-9` and `-`.
+
+If an install that returns a promise rejects, the plugins installed before it are disposed, last
+first, and `ready` rejects.
 
 Listeners added through `ctx.events.on` are removed when the plugin is disposed, even if
 the disposer forgets them. A listener that throws does not stop the others.

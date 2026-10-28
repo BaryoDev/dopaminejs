@@ -592,7 +592,7 @@
         {
             "name": "a 2.x lastPlayDate in the future resets nothing",
             "clock": "2026-08-07T09:00:00",
-            "note": "The days after today stay in the document and do not count yet.",
+            "note": "Days more than 1 day after today are dropped. The day after today stays, it can be today in another zone.",
             "savedJson": {
                 "streak": {
                     "current": 5,
@@ -613,8 +613,7 @@
                         "2026-08-05",
                         "2026-08-06",
                         "2026-08-07",
-                        "2026-08-08",
-                        "2026-08-09"
+                        "2026-08-08"
                     ]
                 },
                 "events": []
@@ -780,6 +779,49 @@
                 "xpBy": {
                     "a": 900
                 }
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 0,
+                    "level": 1
+                },
+                "events": [
+                    {
+                        "event": "load_failed",
+                        "reason": "unsupported_version"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "a document whose version is a string is refused",
+            "clock": "2026-08-07T09:00:00",
+            "note": "Only a missing v is a 2.x save. Any other v that is not 3 is left alone in storage.",
+            "savedJson": {
+                "v": "3",
+                "xpBy": {
+                    "a": 900
+                }
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 0,
+                    "level": 1
+                },
+                "events": [
+                    {
+                        "event": "load_failed",
+                        "reason": "unsupported_version"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "a document whose version is null is refused",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "v": null,
+                "xp": 900
             },
             "afterInit": {
                 "player": {

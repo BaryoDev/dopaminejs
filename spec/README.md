@@ -43,7 +43,8 @@ Storage is an in-memory string store. The player document lives under the key
 `dopamine_device`, outside the document.
 
 A document with no `v` is a 2.x save. It is migrated on load and on `import`
-(see `migrate.json`).
+(see `migrate.json`). Any other `v` than 3, including a string, `null` or `NaN`,
+is refused with `unsupported_version`.
 
 ### Clock
 
@@ -177,7 +178,7 @@ a save join by taking the larger number per key. That is what `merge` does.
 | `best` | Max. |
 | `level` | Max. The shown level is never lower than the curve gives for the XP. |
 | `longest` | Max. |
-| `playDates` | Union. Days older than 400 days before today (inclusive) are dropped on load, record and import, never by `merge` itself, and a future date does not move that window. |
+| `playDates` | Union. When `today` is known (load, record, import), days older than 400 days before today (inclusive) and days more than 1 day after today are dropped. `merge` called without `today` drops nothing. A future date does not move the window. |
 | `achievements` | Union. The earliest `unlockedAt` decides the entry and its stored `reward`. `seen` is true if either side has it true. |
 | `name` | From the side with the later `lastPlayedAt`, ties take the larger string. |
 | `createdAt`, `lastPlayedAt` | Min of the set values, max. |
@@ -189,8 +190,12 @@ it. The current streak is derived from `playDates` as of today, so `merge` reads
 no clock.
 
 More than 20 devices across the per-device maps is refused with a
-`DopamineError` (`too_many_devices`). A document with `v` above 3 is refused
-with `unsupported_version`. A value that is not an object is `invalid_document`.
+`DopamineError` (`too_many_devices`). The `legacy` key counts as a device, so
+`legacy` plus 19 real devices is full. A device that would be the 21st does not
+write: `addXP` and `record` leave the stored save alone and publish `load_failed`
+with reason `too_many_devices`. A document with a `v` other than 3 is refused
+with `unsupported_version`. A value that is not an object is `invalid_document`. Counters and sums stop at
+`Number.MAX_SAFE_INTEGER`.
 
 ### From 2.x
 

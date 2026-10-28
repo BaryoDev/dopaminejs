@@ -68,8 +68,9 @@ The peer range of every package is `dopaminejs@^3.0.0`.
 ## Old saves
 
 A 2.x save loads on first use. Its XP and plays go under one fixed `legacy` entry, so
-the same save on two devices merges without doubling. Separate progress on two devices
-merges by the larger value, not the sum. Migrated XP is the old XP minus the rewards of
+the same save on two devices merges without doubling. Two 2.x saves that each migrated
+on their own share that entry, so their progress merges by the larger value, not the sum.
+Progress made on 3.0 adds up per device. Migrated XP is the old XP minus the rewards of
 achievements already unlocked, because the reward is now part of the achievement.
 
 A fresh player starts with an empty `playDates` list and a streak of 0.

@@ -15,7 +15,7 @@ import { Middleware } from './middleware.js';
 import { merge } from './merge.js';
 import { currentStreak, longestRun, trimDays } from './streaks.js';
 import {
-    LEGACY, emptyDoc, validate, view, xpOf, levelOf, clone, freeze, isSafeKey, hasOwn, isRecord
+    LEGACY, MAX_DEVICES, cap, deviceIds, emptyDoc, validate, view, xpOf, levelOf, clone, freeze, isSafeKey, hasOwn, isRecord
 } from './store.js';
 
 const DEVICE_KEY = 'device';
@@ -174,9 +174,8 @@ export class RewardSystem extends EventEmitter {
         try {
             stored = await this.dataService.load(DEVICE_KEY, null, { strict: true });
         } catch {
-            // Unreadable: use an id for this session and never write it.
+            // Unreadable: use a fresh id, saved with the first write that works.
             this._deviceId = randomId();
-            this._deviceSaved = true;
             return;
         }
         if (isDeviceId(stored)) {
@@ -185,6 +184,18 @@ export class RewardSystem extends EventEmitter {
         } else {
             this._deviceId = randomId();
         }
+    }
+
+    /**
+     * A write that would add a device past the cap is refused, so the stored
+     * save never becomes one that validate rejects.
+     * @private
+     */
+    _hasSlot() {
+        const ids = deviceIds(this._doc);
+        if (ids.has(this._deviceId) || ids.size < MAX_DEVICES) return true;
+        this._publish('load_failed', { key: 'player', reason: 'too_many_devices' });
+        return false;
     }
 
     _requirePlayer() {
@@ -300,8 +311,7 @@ export class RewardSystem extends EventEmitter {
         if (this._loadFailed) return;
         this._doc.lastPlayedAt = this.clock.now();
         if (!this._deviceSaved) {
-            this._deviceSaved = true;
-            await this.dataService.save(DEVICE_KEY, this._deviceId);
+            this._deviceSaved = (await this.dataService.save(DEVICE_KEY, this._deviceId)) !== false;
         }
         const saved = await this.dataService.save('player', this._doc);
 
@@ -327,19 +337,20 @@ export class RewardSystem extends EventEmitter {
         }
 
         this._requirePlayer();
+        if (!this._hasSlot()) return { leveledUp: false, newLevel: levelOf(this._doc), xpGained: 0 };
 
         const context = await this._middleware.before('beforeXP', { amount, reason }, (next) => Number.isFinite(next.amount));
         if (context === false) {
             return { leveledUp: false, newLevel: levelOf(this._doc), xpGained: 0 };
         }
 
-        if (this.streakDays === 'any') this._markDay();
+        if (this.streakDays === 'any' && context.amount > 0) this._markDay();
 
         const result = await this._applyXP(context.amount, context.reason, (doc, applied) => {
             if (applied >= 0) {
-                doc.xpBy[this._deviceId] = (hasOwn(doc.xpBy, this._deviceId) ? doc.xpBy[this._deviceId] : 0) + applied;
+                doc.xpBy[this._deviceId] = cap((hasOwn(doc.xpBy, this._deviceId) ? doc.xpBy[this._deviceId] : 0) + applied);
             } else {
-                doc.xpSpentBy[this._deviceId] = (hasOwn(doc.xpSpentBy, this._deviceId) ? doc.xpSpentBy[this._deviceId] : 0) - applied;
+                doc.xpSpentBy[this._deviceId] = cap((hasOwn(doc.xpSpentBy, this._deviceId) ? doc.xpSpentBy[this._deviceId] : 0) - applied);
             }
         });
 
@@ -432,6 +443,7 @@ export class RewardSystem extends EventEmitter {
     async record(activity, result = {}) {
         this._requirePlayer();
         this._checkRecord(activity, result);
+        if (!this._hasSlot()) return false;
 
         const context = await this._middleware.before('beforeRecord', { activity, result }, (next) => {
             try {
@@ -475,7 +487,7 @@ export class RewardSystem extends EventEmitter {
         const doc = this._doc;
         const device = this._deviceId;
         const bump = (map, by) => {
-            map[device] = (hasOwn(map, device) ? map[device] : 0) + by;
+            map[device] = cap((hasOwn(map, device) ? map[device] : 0) + by);
         };
 
         this._markDay();

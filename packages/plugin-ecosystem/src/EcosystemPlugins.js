@@ -19,6 +19,7 @@ export class WebhookIntegration {
      * @param {string} [config.secret]
      * @param {boolean} [config.enabled=true]
      * @param {number} [config.maxQueue=100] - The oldest body is dropped past this.
+     * @param {number} [config.timeout=10000] - Milliseconds before a request is aborted.
      * @param {Function} [config.fetch] - Default: global fetch, read at send time.
      * @param {() => number} [config.now] - Default: Date.now.
      * @param {{ warn?: Function, error?: Function }} [config.log] - Default: console.
@@ -28,6 +29,7 @@ export class WebhookIntegration {
         this.secret = config.secret;
         this.enabled = config.enabled !== false;
         this.maxQueue = Number.isFinite(config.maxQueue) ? Math.max(1, config.maxQueue) : 100;
+        this.timeout = Number.isFinite(config.timeout) && config.timeout > 0 ? config.timeout : 10000;
         this.queue = [];
         this.sending = false;
         this._fetch = config.fetch;
@@ -48,7 +50,14 @@ export class WebhookIntegration {
         if (!this.enabled || !this.webhookUrl) return;
 
         // Serialised once. The signature covers these exact bytes.
-        const body = JSON.stringify({ event, data, timestamp: this._now() });
+        let body;
+        try {
+            body = JSON.stringify({ event, data, timestamp: this._now() });
+        } catch {
+            // Circular data or a BigInt. The payload is not logged.
+            this._log.error(`[webhooks] ${event} was not sent: its data cannot be serialised`);
+            return;
+        }
 
         // A dead endpoint must not grow the queue without limit.
         if (this.queue.length >= this.maxQueue) {
@@ -89,6 +98,8 @@ export class WebhookIntegration {
             while (this.queue.length > 0) {
                 const body = this.queue.shift();
 
+                const abort = new AbortController();
+                const timer = setTimeout(() => abort.abort(), this.timeout);
                 try {
                     const headers = { 'Content-Type': 'application/json' };
                     const signature = await this._sign(body);
@@ -101,6 +112,7 @@ export class WebhookIntegration {
                         method: 'POST',
                         headers,
                         body,
+                        signal: abort.signal
                     });
 
                     if (!response.ok) {
@@ -108,6 +120,8 @@ export class WebhookIntegration {
                     }
                 } catch (error) {
                     this._log.error('[webhooks] Webhook error:', error);
+                } finally {
+                    clearTimeout(timer);
                 }
             }
         } finally {
@@ -163,6 +177,7 @@ export class WebhookIntegration {
  * @param {string} [options.secret]
  * @param {string[]} [options.events] - Default: level_up, achievement_unlocked, personal_best.
  * @param {number} [options.maxQueue=100]
+ * @param {number} [options.timeout=10000] - Milliseconds before a request is aborted.
  * @param {Function} [options.fetch]
  */
 export function webhooks(options = {}) {
@@ -190,6 +205,7 @@ export function webhooks(options = {}) {
                 webhookUrl: opts.url,
                 secret: opts.secret,
                 maxQueue: opts.maxQueue,
+                timeout: opts.timeout,
                 fetch: opts.fetch,
                 now: () => ctx.clock.now(),
                 log: ctx.log

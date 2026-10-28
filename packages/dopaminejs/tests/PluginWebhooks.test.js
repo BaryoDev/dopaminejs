@@ -145,6 +145,43 @@ describe('webhooks', () => {
         expect(calls).toEqual([1, 3, 4]);
     });
 
+    it('aborts a request that hangs, so the queue moves on', async () => {
+        const calls = [];
+        const hook = new WebhookIntegration({
+            webhookUrl: URL,
+            timeout: 20,
+            log: { error: vi.fn() },
+            fetch: (url, init) => {
+                calls.push(JSON.parse(init.body).data);
+                if (calls.length > 1) return Promise.resolve({ ok: true });
+                return new Promise((resolve, reject) => {
+                    init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+                });
+            }
+        });
+
+        hook.send('level_up', 1);
+        hook.send('level_up', 2);
+        await hook.flush();
+
+        expect(calls).toEqual([1, 2]);
+    });
+
+    it('logs data it cannot serialise, without the data, and rejects nothing', async () => {
+        const { calls, send } = fakeFetch();
+        const error = vi.fn();
+        const hook = new WebhookIntegration({ webhookUrl: URL, fetch: send, log: { error } });
+        const loop = { secret: 'do-not-log' };
+        loop.self = loop;
+
+        await expect(hook.send('level_up', loop)).resolves.toBeUndefined();
+        await expect(hook.send('level_up', { big: 1n })).resolves.toBeUndefined();
+
+        expect(calls).toHaveLength(0);
+        expect(error).toHaveBeenCalledTimes(2);
+        expect(JSON.stringify(error.mock.calls)).not.toContain('do-not-log');
+    });
+
     it('does not export the 2.x plugins', async () => {
         const mod = await import('../../plugin-ecosystem/src/index.js');
         expect(Object.keys(mod).sort()).toEqual(['WebhookIntegration', 'webhooks']);

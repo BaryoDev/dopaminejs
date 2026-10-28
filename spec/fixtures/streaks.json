@@ -395,9 +395,9 @@
             "note": "Day 3 of a streak pays x1.25, so the 10 XP play gives 12."
         },
         {
-            "name": "play dates after today change nothing",
+            "name": "a play date a day after today stays, later ones go",
             "clock": "2026-08-07T09:00:00",
-            "note": "A clock set back, or a save from a device with a fast clock. Nothing is reset or dropped: the days stay, they just do not count yet.",
+            "note": "The day after today stays, because the player can be a zone ahead of the clock. 2026-08-09 is two days ahead and is dropped. The kept day does not count yet.",
             "savedJson": {
                 "v": 3,
                 "longest": 2,
@@ -418,8 +418,7 @@
                 ],
                 "doc": {
                     "playDates": [
-                        "2026-08-08",
-                        "2026-08-09"
+                        "2026-08-08"
                     ]
                 },
                 "events": []
@@ -449,9 +448,9 @@
             }
         },
         {
-            "name": "a far future date does not push real history out",
+            "name": "a far future date is dropped and real history stays",
             "clock": "2026-08-07T09:00:00",
-            "note": "The window counts back from today, so a date in the year 2099 changes nothing about which days are kept.",
+            "note": "The window counts back from today and a date past tomorrow is dropped, so the year 2099 changes nothing.",
             "savedJson": {
                 "v": 3,
                 "longest": 1,
@@ -465,8 +464,7 @@
                 "doc": {
                     "playDates": [
                         "2025-07-04",
-                        "2026-08-06",
-                        "2099-01-01"
+                        "2026-08-06"
                     ]
                 },
                 "player": {

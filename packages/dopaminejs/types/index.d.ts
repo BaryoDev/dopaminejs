@@ -563,7 +563,7 @@ export interface PluginContext {
     /** Live getters. Read them at call time, never keep them. */
     parts: Readonly<Parts>;
     events: PluginEvents;
-    /** Keys are prefixed with `dopamine_<name>_`. */
+    /** Keys are prefixed with `dopamine_plugin_<name>:`. */
     storage: PluginStorage;
     clock: Clock;
     log: Logger;

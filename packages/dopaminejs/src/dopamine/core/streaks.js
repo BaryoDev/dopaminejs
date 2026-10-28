@@ -15,13 +15,15 @@ export const isDay = (text) => typeof text === 'string' && SHAPE.test(text) && d
 export const shiftDay = (text, days) => dayText(dayNum(text) + days);
 
 // Sorted and unique. With `today`, nothing older than 400 days counting today
-// goes. The window comes from today, never from the newest entry, so a date in
+// goes, and nothing more than a day ahead (a zone can put the player a day past
+// the clock). The window comes from today, never from the newest entry, so a date in
 // the future cannot push real history out. Without `today` nothing is dropped.
 export function trimDays(days, today) {
     const sorted = [...new Set(days)].sort();
     if (!today) return sorted;
     const floor = dayNum(today) - 399;
-    return sorted.filter((day) => dayNum(day) >= floor);
+    const ceiling = dayNum(today) + 1;
+    return sorted.filter((day) => dayNum(day) >= floor && dayNum(day) <= ceiling);
 }
 
 // Run of consecutive days ending today, or ending yesterday when today has

@@ -95,7 +95,7 @@ throwing one does not stop the others.
 - `webglParticles()` and `howlerSound()` are parts, not plugins. `debugOverlay()`,
   `webhooks()`, `soundPack()` and `theme()` are plugins.
 - Plugins install in array order and dispose in reverse. `ctx.events.on`
-  listeners are removed on dispose. `ctx.storage` is namespaced `dopamine_<plugin>_`.
+  listeners are removed on dispose. `ctx.storage` is namespaced `dopamine_plugin_<plugin>:`.
 
 ## Games and testing entries
 
