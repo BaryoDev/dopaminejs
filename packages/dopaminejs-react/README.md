@@ -37,6 +37,17 @@ function Dashboard() {
 }
 ```
 
+## Popups, particles and sound
+
+Pass `dopamine` (true, or the `createDopamine` options such as `sound` and `plugins`) to add the
+core feedback on top of the same progress object. The host is disposed when the provider unmounts.
+
+```jsx
+<RewardsProvider dopamine={{ particles: false }}>
+    <Dashboard />
+</RewardsProvider>
+```
+
 ## API
 
 ### `<RewardsProvider config={...} storage={...}>`
@@ -53,7 +64,7 @@ Returns an object with:
 
 | Property / method | Type | Description |
 |---|---|---|
-| `player` | `object` | Raw player state |
+| `player` | `object` | Frozen snapshot of the player |
 | `level` | `number` | Current player level |
 | `xp` | `number` | Current XP |
 | `progress` | `number` | 0 to 1, position inside the current level |
@@ -62,12 +73,12 @@ Returns an object with:
 | `error` | `unknown` | `null` until `init()` rejects, then the rejection. It is caught, so it never surfaces as an unhandled rejection |
 | `loadFailed` | `boolean` | `true` when `init()` could not read the saved player. Nothing is saved this session, so show the visitor that progress is not being kept |
 | `addXP(amount, reason?)` | `(number, string?) => Promise<object>` | Add XP; re-renders on `xp_gained` and `level_up`. Resolves with what `RewardSystem.addXP` returns |
-| `recordGame(gameId, stats)` | `(string, object) => Promise<void>` | Record a game session |
+| `record(activity, result)` | `(string, object) => Promise<boolean>` | Record an activity result. May award XP, update its best and mark a play day |
 | `unlockAchievement(key)` | `(string) => Promise<boolean>` | Unlock an achievement by id. Resolves `false` when the id is unknown or already unlocked |
 
 ## Notes
 
-- Peer dependencies: `react` 18 or newer and `dopaminejs` 2.3.0 or newer.
+- Peer dependencies: `react` 18 or newer and `dopaminejs` 3.0.0 or newer.
 - The provider creates one `RewardSystem` when it mounts and removes its listeners when it unmounts. Later changes to `config` or `storage` are ignored. To rebuild it, for example for another user, give the provider a new `key` (`<RewardsProvider key={userId}>`).
 - Until `init()` resolves, the state is `{ player: {}, level: 1, xp: 0, progress: 0, achievements: [], ready: false, error: null, loadFailed: false }`.
 - The state refreshes on `xp_gained`, `level_up`, `achievement_unlocked` and `streak_updated`.

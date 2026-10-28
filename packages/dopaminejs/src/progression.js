@@ -8,6 +8,9 @@
  */
 
 export { RewardSystem } from './dopamine/core/RewardSystem.js';
+export { DopamineError } from './dopamine/core/DopamineError.js';
+export { merge } from './dopamine/core/merge.js';
+export { validate } from './dopamine/core/store.js';
 export { DataService } from './dopamine/core/DataService.js';
 export { EventEmitter } from './dopamine/core/EventEmitter.js';
 export { createMemoryStorage, resolveStorage } from './dopamine/utils/storage.js';

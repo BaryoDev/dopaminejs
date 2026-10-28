@@ -1,7 +1,7 @@
 {
     "name": "dopaminejs-plugin-ecosystem",
-    "version": "2.0.0",
-    "description": "Ecosystem plugins for DopamineJS - BattlePass, Leaderboard, Rewards, and Webhooks",
+    "version": "3.0.0",
+    "description": "Webhook plugin for DopamineJS: posts reward events to your URL, optionally signed",
     "type": "module",
     "main": "./dist/index.umd.cjs",
     "module": "./dist/index.mjs",
@@ -18,7 +18,7 @@
         "build": "vite build"
     },
     "peerDependencies": {
-        "dopaminejs": "^2.3.0"
+        "dopaminejs": "^3.0.0"
     },
     "author": "BaryoDev",
     "license": "MIT",

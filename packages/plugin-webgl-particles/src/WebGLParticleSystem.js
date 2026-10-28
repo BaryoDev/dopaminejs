@@ -1,9 +1,75 @@
 /**
  * WebGL Particle System
  * 
- * High-performance particle renderer using WebGL for 10,000+ particles
- * Implements IParticleSystem interface
+ * Particle renderer using WebGL, for 10,000+ particles. It is a particles part
+ * (`burst(kind, at, opts)` and `destroy()`) and runs its own animation loop
+ * while particles are alive.
  */
+
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+const WHITE = [1, 1, 1, 1];
+
+// "#rgb" or "#rrggbb" to [r, g, b, 1]. Anything else is null.
+function parseColor(value) {
+    if (typeof value !== 'string') return null;
+    const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value.trim());
+    if (!match) return null;
+    const hex = match[1].length === 3 ? [...match[1]].map((c) => c + c).join('') : match[1];
+    return [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).concat(1);
+}
+
+const pick = (list) => list[Math.floor(Math.random() * list.length)];
+
+// Every built-in kind. `count` and `color` come from the caller and may be missing.
+const BURSTS = {
+    confetti: (s, x, y, count = 50, color) => {
+        const colors = color ? [color] : [
+            [1, 0, 0, 1], [0, 1, 0, 1], [0, 0, 1, 1], [1, 1, 0, 1], [1, 0, 1, 1]
+        ];
+        const total = s._room(count);
+        for (let i = 0; i < total; i++) {
+            s.emit({
+                x, y,
+                count: 1,
+                color: pick(colors),
+                size: Math.random() * 8 + 4,
+                lifetime: Math.random() * 2 + 1,
+                velocity: { x: 0, y: -300 },
+                spread: 100
+            });
+        }
+    },
+    sparkle: (s, x, y, count = 20, color) => {
+        s.emit({ x, y, count, color: color || WHITE, size: 3, lifetime: 0.5, velocity: { x: 0, y: -50 }, spread: 30 });
+    },
+    fire: (s, x, y, count = 15, color) => {
+        const colors = color ? [color] : [[1, 0.42, 0, 1], [1, 0.53, 0, 1], [1, 0.67, 0, 1], [1, 0.27, 0, 1]];
+        const total = s._room(count);
+        for (let i = 0; i < total; i++) {
+            s.emit({ x, y, count: 1, color: pick(colors), size: 6, lifetime: 0.6, velocity: { x: 0, y: -250 }, spread: 20 });
+        }
+    },
+    stars: (s, x, y, count = 8, color) => {
+        const total = s._room(count);
+        for (let i = 0; i < total; i++) {
+            s.emit({
+                x, y,
+                count: 1,
+                angle: (Math.PI * 2 / total) * i,
+                speed: 250,
+                color: color || WHITE,
+                size: 12,
+                lifetime: 0.8,
+                velocity: { x: 0, y: 0 },
+                spread: 0
+            });
+        }
+    },
+    coins: (s, x, y, count = 10, color) => {
+        s.emit({ x, y, count, color: color || [1, 0.84, 0, 1], size: 10, lifetime: 1.2, velocity: { x: 0, y: -350 }, spread: 30 });
+    }
+};
 
 export class WebGLParticleSystem {
     /**
@@ -12,6 +78,7 @@ export class WebGLParticleSystem {
      * @param {HTMLElement|string} [config.container=document.body] - Element or
      *   selector the overlay canvas is appended to. The drawing buffer is sized
      *   to this element, so particle coordinates share its coordinate space.
+     * @param {boolean} [config.reducedMotion=false] - Draw nothing.
      */
     constructor(config = {}) {
         // Sizes six typed arrays, so it has to be a sane positive integer.
@@ -19,7 +86,7 @@ export class WebGLParticleSystem {
             ? Math.min(Math.floor(config.maxParticles), 1000000)
             : 10000;
         this.container = config.container || null;
-        this.kernel = null;
+        this.reducedMotion = config.reducedMotion === true;
 
         // WebGL context and resources
         this.canvas = null;
@@ -36,20 +103,39 @@ export class WebGLParticleSystem {
         this.ages = new Float32Array(this.maxParticles);
 
         this.particleCount = 0;
-        this.registeredEffects = new Map();
+        this._raf = null;
+        this._last = null;
+        this._destroyed = false;
     }
 
-    // ISystem interface
-    init(kernel) {
-        this.kernel = kernel;
+    /**
+     * Builds the canvas and the GL program.
+     * @returns {boolean} false when WebGL is not available. Nothing is left in the page then.
+     */
+    init() {
         this._initWebGL();
-
-        // No WebGL: stay registered and inert rather than throw on gl.* below.
-        if (!this.gl) return;
+        if (!this.gl) return false;
 
         this._createShaders();
         this._createBuffers();
+        return true;
     }
+
+    // One frame at a time, and only while there are particles.
+    _startLoop() {
+        if (this._raf !== null || this._destroyed || typeof requestAnimationFrame !== 'function') return;
+        this._raf = requestAnimationFrame(this._tick);
+    }
+
+    _tick = (now) => {
+        this._raf = null;
+        if (this._destroyed) return;
+        const dt = this._last === null ? 1 / 60 : Math.min(0.1, Math.max(0, (now - this._last) / 1000));
+        this._last = now;
+        this.update(dt);
+        if (this.particleCount > 0) this._startLoop();
+        else this._last = null;
+    };
 
     update(dt) {
         // Update particle physics
@@ -81,6 +167,10 @@ export class WebGLParticleSystem {
     }
 
     destroy() {
+        this._destroyed = true;
+        if (this._raf !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._raf);
+        this._raf = null;
+        this.particleCount = 0;
         if (this._onResize) {
             window.removeEventListener('resize', this._onResize);
             this._onResize = null;
@@ -98,21 +188,23 @@ export class WebGLParticleSystem {
         }
     }
 
-    // IParticleSystem interface
-    registerSprite(key, url) {
-        // WebGL particles use point sprites, not textures (for simplicity)
-        console.warn('[WebGLParticles] Sprite registration not yet implemented');
+    /**
+     * @param {'confetti'|'sparkle'|'fire'|'stars'|'coins'} kind
+     * @param {{x: number, y: number}} [at] - Defaults to the middle of the canvas.
+     * @param {{count?: number, color?: string}} [opts]
+     */
+    burst(kind, at, opts) {
+        if (this._destroyed || this.reducedMotion || !this.gl) return;
+        if (typeof kind !== 'string' || !hasOwn(BURSTS, kind)) return;
+        const x = Number.isFinite(at?.x) ? at.x : this.canvas.width / 2;
+        const y = Number.isFinite(at?.y) ? at.y : this.canvas.height / 2;
+        const count = Number.isFinite(opts?.count) ? Math.max(0, Math.floor(opts.count)) : undefined;
+        BURSTS[kind](this, x, y, count, parseColor(opts?.color));
     }
 
-    registerEffect(name, callback) {
-        this.registeredEffects.set(name, callback);
-    }
-
-    play(name, x, y, ...args) {
-        const effect = this.registeredEffects.get(name);
-        if (effect) {
-            effect.call(this, x, y, ...args);
-        }
+    /** How many of `count` particles fit right now. */
+    _room(count) {
+        return Math.max(0, Math.min(count, this.maxParticles - this.particleCount));
     }
 
     emit(config) {
@@ -126,6 +218,8 @@ export class WebGLParticleSystem {
             velocity = { x: 0, y: -100 },
             spread = 50
         } = config;
+        const fixedAngle = Number.isFinite(config.angle) ? config.angle : null;
+        const fixedSpeed = Number.isFinite(config.speed) ? config.speed : null;
 
         for (let i = 0; i < count; i++) {
             if (this.particleCount >= this.maxParticles) break;
@@ -137,8 +231,8 @@ export class WebGLParticleSystem {
             this.positions[idx * 2 + 1] = y + (Math.random() - 0.5) * spread;
 
             // Velocity
-            const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 200 + 100;
+            const angle = fixedAngle ?? Math.random() * Math.PI * 2;
+            const speed = fixedSpeed ?? Math.random() * 200 + 100;
             this.velocities[idx * 2] = Math.cos(angle) * speed + velocity.x;
             this.velocities[idx * 2 + 1] = Math.sin(angle) * speed + velocity.y;
 
@@ -155,54 +249,21 @@ export class WebGLParticleSystem {
 
             this.particleCount++;
         }
+        if (this.particleCount > 0) this._startLoop();
     }
 
     clear() {
         this.particleCount = 0;
     }
 
-    // Built-in effects
-    confetti(x, y, count = 50) {
-        const colors = [
-            [1, 0, 0, 1],    // Red
-            [0, 1, 0, 1],    // Green
-            [0, 0, 1, 1],    // Blue
-            [1, 1, 0, 1],    // Yellow
-            [1, 0, 1, 1],    // Magenta
-        ];
-
-        // Bounded by free slots: emit() stops at the cap, this loop would not.
-        const total = Math.min(count, this.maxParticles - this.particleCount);
-
-        for (let i = 0; i < total; i++) {
-            this.emit({
-                x, y,
-                count: 1,
-                color: colors[Math.floor(Math.random() * colors.length)],
-                size: Math.random() * 8 + 4,
-                lifetime: Math.random() * 2 + 1,
-                velocity: { x: 0, y: -300 },
-                spread: 100
-            });
-        }
-    }
-
-    sparkle(x, y, count = 20, color = [1, 1, 1, 1]) {
-        this.emit({
-            x, y,
-            count,
-            color,
-            size: 3,
-            lifetime: 0.5,
-            velocity: { x: 0, y: -50 },
-            spread: 30
-        });
-    }
-
     // Private methods
     _initWebGL() {
-        // Create overlay canvas
-        this.canvas = document.createElement('canvas');
+        // Create overlay canvas. Without a context there is nothing to keep.
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (!gl) return;
+        this.canvas = canvas;
+        this.gl = gl;
 
         // Resolve the host element. Previously this looked for a hardcoded
         // '#game-container' id, which only worked for the one game it was
@@ -229,13 +290,6 @@ export class WebGLParticleSystem {
         this._container = container;
         container.appendChild(this.canvas);
         this._resizeCanvas();
-
-        // Get WebGL context
-        this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
-        if (!this.gl) {
-            console.error('[WebGLParticles] WebGL not supported');
-            return;
-        }
 
         // Setup WebGL state
         this.gl.enable(this.gl.BLEND);

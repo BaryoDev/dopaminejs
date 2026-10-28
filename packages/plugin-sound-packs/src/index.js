@@ -1,1 +1,1 @@
-export { getSoundPack, listSoundPacks, SoundPacks } from './SoundPacks.js';
+export { getSoundPack, listSoundPacks, soundPack, SoundPacks } from './SoundPacks.js';

@@ -1,5 +1,8 @@
 DataService: class(0) proto[clear,load,save]
+DopamineError: class(2)
 EventEmitter: class(0) proto[clear,emit,off,on]
-RewardSystem: class(1) proto[addXP,checkAchievements,getStreakMultiplier,getUnlockedAchievements,getUnseenAchievements,getXPForNextLevel,init,loadFailed,markAchievementsSeen,recordGame,save,unlockAchievement]
+RewardSystem: class(1) proto[addXP,checkAchievements,defineAchievement,export,getStreakMultiplier,getUnlockedAchievements,getUnseenAchievements,getXPForNextLevel,import,init,loadFailed,markAchievementsSeen,record,save,snapshot,unlockAchievement,use]
 createMemoryStorage: function(0)
+merge: function(3)
 resolveStorage: function(0)
+validate: function(1)

@@ -22,23 +22,23 @@ describe('RewardSystem input guards', () => {
 
     afterEach(() => {
         delete Object.prototype.polluted;
-        delete Object.prototype.totalPlays;
-        delete Object.prototype.highScore;
+        delete Object.prototype.plays;
+        delete Object.prototype.best;
     });
 
     it('should refuse game names that reach Object.prototype', async () => {
         for (const name of ['__proto__', 'constructor', 'prototype']) {
-            await expect(rewards.recordGame(name, { polluted: 7 })).rejects.toThrow(TypeError);
+            await expect(rewards.record(name, { polluted: 7 })).rejects.toThrow(TypeError);
         }
 
         expect({}.polluted).toBeUndefined();
-        expect({}.totalPlays).toBeUndefined();
-        expect(rewards.player.totalGamesPlayed).toBe(0);
+        expect({}.plays).toBeUndefined();
+        expect(rewards.snapshot().totalGamesPlayed).toBe(0);
     });
 
     it('should refuse an empty or non-string game name', async () => {
-        await expect(rewards.recordGame('', { score: 1 })).rejects.toThrow(TypeError);
-        await expect(rewards.recordGame(undefined, { score: 1 })).rejects.toThrow(TypeError);
+        await expect(rewards.record('', { score: 1 })).rejects.toThrow(TypeError);
+        await expect(rewards.record(undefined, { score: 1 })).rejects.toThrow(TypeError);
     });
 
     it('should not unlock inherited property names as achievements', async () => {
@@ -46,8 +46,8 @@ describe('RewardSystem input guards', () => {
             expect(await rewards.unlockAchievement(id)).toBe(false);
         }
 
-        expect(Object.keys(rewards.player.achievements)).toEqual([]);
-        expect(rewards.player.xp).toBe(0);
+        expect(Object.keys(rewards.snapshot().achievements)).toEqual([]);
+        expect(rewards.snapshot().xp).toBe(0);
     });
 
     it('should award an achievement only once', async () => {
@@ -57,7 +57,7 @@ describe('RewardSystem input guards', () => {
         expect(await rewards.unlockAchievement('level_10')).toBe(true);
         expect(await rewards.unlockAchievement('level_10')).toBe(false);
 
-        expect(rewards.player.xp).toBe(250);
+        expect(rewards.snapshot().xp).toBe(250);
         expect(spy).toHaveBeenCalledTimes(1);
     });
 
@@ -72,26 +72,26 @@ describe('RewardSystem input guards', () => {
 
     it('should reject a non-finite score before changing anything', async () => {
         for (const score of [Infinity, NaN, '500', null]) {
-            await expect(rewards.recordGame('snake', { score })).rejects.toThrow(TypeError);
+            await expect(rewards.record('snake', { score })).rejects.toThrow(TypeError);
         }
 
-        expect(rewards.player.totalGamesPlayed).toBe(0);
-        expect(rewards.player.stats.snake).toBeUndefined();
-        expect(rewards.player.xp).toBe(0);
+        expect(rewards.snapshot().totalGamesPlayed).toBe(0);
+        expect(rewards.snapshot().stats.snake).toBeUndefined();
+        expect(rewards.snapshot().xp).toBe(0);
     });
 
     it('should accept a game with no result', async () => {
-        await rewards.recordGame('snake');
+        await rewards.record('snake');
 
-        expect(rewards.player.stats.snake.totalPlays).toBe(1);
+        expect(rewards.snapshot().stats.snake.plays).toBe(1);
     });
 
     it('should never take XP away for a negative score', async () => {
         await rewards.addXP(40);
-        await rewards.recordGame('snake', { score: -1000 });
+        await rewards.record('snake', { score: -1000 });
 
         // 40 + the base 10 for playing + 50 for first_game.
-        expect(rewards.player.xp).toBe(100);
+        expect(rewards.snapshot().xp).toBe(100);
     });
 
     it('should floor total XP at zero and keep the level a number', async () => {
@@ -101,7 +101,7 @@ describe('RewardSystem input guards', () => {
         await rewards.addXP(-5000);
         const result = await rewards.addXP(10);
 
-        expect(rewards.player.xp).toBe(10);
+        expect(rewards.snapshot().xp).toBe(10);
         expect(result.newLevel).toBe(1);
         expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ newLevel: 1, total: 10 }));
     });
@@ -118,24 +118,24 @@ describe('RewardSystem input guards', () => {
     });
 
     it('should ignore non-finite extra metrics', async () => {
-        await rewards.recordGame('snake', { score: 5, apples: NaN, time: Infinity, moves: 3 });
+        await rewards.record('snake', { score: 5, apples: NaN, time: Infinity, moves: 3 });
 
-        expect(rewards.player.stats.snake.apples).toBe(0);
-        expect(rewards.player.stats.snake.time).toBe(0);
-        expect(rewards.player.stats.snake.moves).toBe(3);
+        expect(rewards.snapshot().stats.snake.apples).toBe(0);
+        expect(rewards.snapshot().stats.snake.time).toBe(0);
+        expect(rewards.snapshot().stats.snake.moves).toBe(3);
     });
 
     it('should say init() is missing instead of a null TypeError', async () => {
         const cold = new RewardSystem(new DataService({ storage: createMemoryStorage() }));
 
         await expect(cold.addXP(10)).rejects.toThrow(/init\(\)/);
-        await expect(cold.recordGame('snake', { score: 1 })).rejects.toThrow(/init\(\)/);
+        await expect(cold.record('snake', { score: 1 })).rejects.toThrow(/init\(\)/);
         expect(() => cold.getXPForNextLevel()).toThrow(/init\(\)/);
     });
 });
 
 describe('RewardSystem saved state', () => {
-    it('should coerce a tampered save back to valid numbers', async () => {
+    it('should drop tampered values back to the defaults', async () => {
         const storage = createMemoryStorage();
         seed(storage, {
             xp: '100',
@@ -147,20 +147,21 @@ describe('RewardSystem saved state', () => {
         });
 
         const rewards = await freshSystem(storage);
+        const player = rewards.snapshot();
 
-        expect(rewards.player.xp).toBe(100);
-        expect(rewards.player.level).toBe(2);
-        expect(rewards.player.totalGamesPlayed).toBe(0);
-        expect(rewards.player.streak.current).toBe(1);
-        expect(rewards.player.streak.longest).toBe(1);
-        expect(rewards.player.achievements).toEqual({});
-        expect(rewards.player.stats).toEqual({});
+        expect(player.xp).toBe(0);
+        expect(player.level).toBe(1);
+        expect(player.totalGamesPlayed).toBe(0);
+        expect(player.streak.current).toBe(0);
+        expect(player.streak.longest).toBe(0);
+        expect(player.achievements).toEqual({});
+        expect(player.stats).toEqual({});
 
         await rewards.addXP(5);
-        expect(rewards.player.xp).toBe(105);
+        expect(rewards.snapshot().xp).toBe(5);
 
-        await rewards.recordGame('snake', { score: 10 });
-        expect(rewards.player.stats.snake.highScore).toBe(10);
+        await rewards.record('snake', { score: 10 });
+        expect(rewards.snapshot().stats.snake.best).toBe(10);
     });
 
     it('should drop saved stats and achievements that are not plain records', async () => {
@@ -174,10 +175,10 @@ describe('RewardSystem saved state', () => {
 
         const rewards = await freshSystem(storage);
 
-        expect(rewards.player.stats.snake).toBeUndefined();
-        expect(rewards.player.stats.pong).toEqual({ totalPlays: 0, highScore: 9 });
-        expect(rewards.player.achievements.first_game).toBeUndefined();
-        expect(rewards.player.achievements.level_5).toEqual({ unlockedAt: 1, seen: true });
+        expect(rewards.snapshot().stats.snake).toBeUndefined();
+        expect(rewards.snapshot().stats.pong).toEqual({ plays: 0, best: 9 });
+        expect(rewards.snapshot().achievements.first_game).toBeUndefined();
+        expect(rewards.snapshot().achievements.level_5).toMatchObject({ unlockedAt: 1, seen: true });
     });
 
     it('should keep a level earned under an older curve and report it', async () => {
@@ -189,27 +190,36 @@ describe('RewardSystem saved state', () => {
 
         expect(result.leveledUp).toBe(false);
         expect(result.newLevel).toBe(5);
-        expect(rewards.player.level).toBe(5);
+        expect(rewards.snapshot().level).toBe(5);
     });
 });
 
 describe('RewardSystem daily streak', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const steppedClock = (start) => {
+        const state = { ms: Date.parse(start) };
+        const clock = {
+            now: () => state.ms,
+            localDate: (at = state.ms) => new Date(at).toISOString().slice(0, 10)
+        };
+        return { state, clock };
+    };
+
     it('should advance the streak when a game is recorded on a new day', async () => {
-        const rewards = await freshSystem();
+        const { state, clock } = steppedClock('2026-08-05T12:00:00Z');
+        const rewards = await freshSystem(createMemoryStorage(), { clock });
         const spy = vi.fn();
         rewards.on('streak_updated', spy);
 
-        rewards.player.streak = {
-            current: 2,
-            longest: 2,
-            lastPlayDate: rewards._getYesterdayDateString()
-        };
+        await rewards.record('snake', { score: 0 });
+        state.ms += DAY;
+        await rewards.record('snake', { score: 0 });
+        state.ms += DAY;
+        await rewards.record('snake', { score: 0 });
 
-        await rewards.recordGame('snake', { score: 0 });
-
-        expect(rewards.player.streak.current).toBe(3);
-        expect(rewards.player.streak.longest).toBe(3);
-        expect(spy).toHaveBeenCalledWith({ current: 3, longest: 3 });
+        expect(rewards.snapshot().streak.current).toBe(3);
+        expect(rewards.snapshot().streak.longest).toBe(3);
+        expect(spy).toHaveBeenLastCalledWith({ current: 3, longest: 3 });
     });
 
     it('should not emit streak_updated twice on the same day', async () => {
@@ -217,8 +227,8 @@ describe('RewardSystem daily streak', () => {
         const spy = vi.fn();
         rewards.on('streak_updated', spy);
 
-        await rewards.recordGame('snake', { score: 0 });
-        await rewards.recordGame('snake', { score: 0 });
+        await rewards.record('snake', { score: 0 });
+        await rewards.record('snake', { score: 0 });
 
         expect(spy).not.toHaveBeenCalled();
     });
@@ -238,8 +248,8 @@ describe('RewardSystem persistence', () => {
 
         const second = await freshSystem(storage);
 
-        expect(second.player.xp).toBe(150);
-        expect(second.player.level).toBe(2);
+        expect(second.snapshot().xp).toBe(150);
+        expect(second.snapshot().level).toBe(2);
     });
 
     it('should emit save_failed when storage rejects the write', async () => {
@@ -253,7 +263,7 @@ describe('RewardSystem persistence', () => {
         await rewards.addXP(10);
 
         expect(spy).toHaveBeenCalledTimes(1);
-        expect(rewards.player.xp).toBe(10);
+        expect(rewards.snapshot().xp).toBe(10);
         error.mockRestore();
     });
 

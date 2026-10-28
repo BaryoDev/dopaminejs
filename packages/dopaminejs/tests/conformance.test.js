@@ -1,35 +1,42 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { RewardSystem } from '../src/dopamine/core/RewardSystem.js';
 import { DataService } from '../src/dopamine/core/DataService.js';
 import { createMemoryStorage } from '../src/dopamine/utils/storage.js';
+import { merge } from '../src/dopamine/core/merge.js';
+import { emptyDoc, validate, view } from '../src/dopamine/core/store.js';
 
 // Runs the language-neutral cases in spec/fixtures. The format is described in
 // spec/README.md. Anything this runner does not understand fails the test, so
 // a fixture can never silently check nothing.
 
 const FIXTURE_DIR = fileURLToPath(new URL('../../../spec/fixtures/', import.meta.url));
-const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'new_high_score', 'streak_updated', 'save_failed'];
+const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated', 'save_failed', 'load_failed'];
 const STORAGE_KEY = 'dopamine_player';
+const DEVICE_KEY = 'dopamine_device';
 const CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
 
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-const CASE_KEYS = ['name', 'note', 'config', 'clock', 'savedJson', 'savedRaw', 'afterInit', 'steps', 'storage'];
+const CASE_KEYS = ['name', 'note', 'config', 'clock', 'device', 'savedJson', 'savedRaw', 'afterInit', 'steps', 'storage'];
 const STORAGE_OPTION_KEYS = ['failWrites'];
-const CONFIG_KEYS = ['builtinAchievements', 'achievements'];
+const CONFIG_KEYS = ['builtinAchievements', 'achievements', 'streakDays'];
 const ACHIEVEMENT_KEYS = ['name', 'description', 'icon', 'xp', 'when'];
-const EXPECT_KEYS = ['player', 'playerExact', 'absent', 'achievements', 'events', 'returns', 'throws'];
+const EXPECT_KEYS = ['player', 'playerExact', 'doc', 'docExact', 'absent', 'achievements', 'events', 'returns', 'returnsExact', 'same', 'throws', 'code'];
 const OPS = {
     setClock: ['at'],
-    reload: [],
+    reload: ['device'],
     addXP: ['amount', 'reason'],
-    recordGame: ['game', 'result'],
+    record: ['activity', 'result'],
     unlockAchievement: ['id'],
     markAchievementsSeen: ['ids'],
-    getXPForNextLevel: []
+    getXPForNextLevel: [],
+    export: ['as'],
+    import: ['doc', 'from', 'silent'],
+    merge: ['a', 'b', 'as'],
+    validate: ['doc', 'as']
 };
 
 function assertKeys(where, object, allowed) {
@@ -86,24 +93,27 @@ function makeCheck(id, when) {
         if (typeof when.player !== 'string' || typeof when.gte !== 'number') {
             throw new Error(`achievement ${id}: "player" must be a path and "gte" a number`);
         }
-        const probe = new RewardSystem(new DataService({ storage: createMemoryStorage() }))._getDefaultPlayer();
+        const probe = view(emptyDoc(0), '2026-01-01');
         const field = getPath(probe, when.player);
         if (!field.found || typeof field.value !== 'number') {
             throw new Error(`achievement ${id}: "${when.player}" is not a numeric player field`);
         }
         return (player) => getPath(player, when.player).value >= when.gte;
     }
-    if (hasOwn(when, 'game')) { only('game'); return (player, game) => game === when.game; }
+    if (hasOwn(when, 'activity')) { only('activity'); return (player, activity) => activity === when.activity; }
     if (hasOwn(when, 'score_gte')) {
         only('score_gte');
         if (typeof when.score_gte !== 'number') throw new Error(`achievement ${id}: "score_gte" must be a number`);
-        return (player, game, result) => result.score !== undefined && result.score >= when.score_gte;
+        return (player, activity, result) => result.score !== undefined && result.score >= when.score_gte;
     }
     throw new Error(`achievement ${id}: unknown condition ${JSON.stringify(keys)}`);
 }
 
 function buildConfig(config = {}) {
     assertKeys('config', config, CONFIG_KEYS);
+    if (config.streakDays !== undefined && !['any', 'record'].includes(config.streakDays)) {
+        throw new Error('config.streakDays must be "any" or "record"');
+    }
     const achievements = {};
     for (const [id, def] of Object.entries(config.achievements || {})) {
         assertKeys(`achievement ${id}`, def, ACHIEVEMENT_KEYS);
@@ -130,14 +140,31 @@ function runCase(testCase) {
         const customAchievements = buildConfig(testCase.config);
         const builtins = testCase.config?.builtinAchievements !== false;
 
-        vi.useFakeTimers({ toFake: ['Date'] });
-        vi.setSystemTime(new Date(testCase.clock));
+        // The core gets a clock object, so no test fakes Date.
+        let nowMs = new Date(testCase.clock).getTime();
+        const clock = {
+            now: () => nowMs,
+            localDate(ms = nowMs) {
+                const date = new Date(ms);
+                const pad = (value) => String(value).padStart(2, '0');
+                return `${String(date.getFullYear()).padStart(4, '0')}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+            }
+        };
+        const registry = {};
+        const docOf = (value, where) => {
+            if (typeof value === 'string') {
+                if (!hasOwn(registry, value)) throw new Error(`${where}: no saved document named "${value}"`);
+                return registry[value];
+            }
+            return value;
+        };
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
         try {
             const memory = createMemoryStorage();
             if (testCase.savedRaw !== undefined) memory.setItem(STORAGE_KEY, testCase.savedRaw);
             if (testCase.savedJson !== undefined) memory.setItem(STORAGE_KEY, JSON.stringify(testCase.savedJson));
+            if (testCase.device !== undefined) memory.setItem(DEVICE_KEY, JSON.stringify(testCase.device));
             const storage = testCase.storage?.failWrites === true
                 ? { ...memory, setItem: () => { throw new Error('storage write blocked'); } }
                 : memory;
@@ -146,7 +173,7 @@ function runCase(testCase) {
             let rewards;
 
             const start = async () => {
-                rewards = new RewardSystem(new DataService({ storage }), { achievements: customAchievements });
+                rewards = new RewardSystem(new DataService({ storage }), { achievements: customAchievements, clock, streakDays: testCase.config?.streakDays });
                 if (!builtins) rewards.achievements = { ...customAchievements };
                 for (const name of EVENTS) {
                     rewards.on(name, (payload) => events.push({ ...payload, event: name }));
@@ -158,7 +185,7 @@ function runCase(testCase) {
             const verify = (expectation, label, returned) => {
                 assertKeys(`${label} expect`, expectation, EXPECT_KEYS);
                 nonEmpty(expectation, `${label} expect`);
-                for (const key of ['player', 'playerExact']) {
+                for (const key of ['player', 'playerExact', 'doc', 'docExact', 'returnsExact']) {
                     if (hasOwn(expectation, key)) {
                         if (!isRecord(expectation[key])) throw new Error(`${label} ${key}: expected an object`);
                         nonEmpty(expectation[key], `${label} ${key}`);
@@ -174,7 +201,7 @@ function runCase(testCase) {
                         if (key === 'absent') nonEmpty(expectation[key], `${label} ${key}`);
                     }
                 }
-                const player = rewards.player;
+                const player = rewards.snapshot();
 
                 if (hasOwn(expectation, 'player')) matchSubset(player, expectation.player, `${label} player`);
                 if (hasOwn(expectation, 'playerExact')) {
@@ -182,6 +209,31 @@ function runCase(testCase) {
                         const found = getPath(player, path);
                         if (!found.found) throw new Error(`${label} playerExact.${path}: missing`);
                         expect(found.value, `${label} playerExact.${path}`).toStrictEqual(want);
+                    }
+                }
+                if (hasOwn(expectation, 'doc')) matchSubset(rewards.export(), expectation.doc, `${label} doc`);
+                if (hasOwn(expectation, 'docExact')) {
+                    const doc = rewards.export();
+                    for (const [path, want] of Object.entries(expectation.docExact)) {
+                        const found = getPath(doc, path);
+                        if (!found.found) throw new Error(`${label} docExact.${path}: missing`);
+                        expect(found.value, `${label} docExact.${path}`).toStrictEqual(want);
+                    }
+                }
+                if (hasOwn(expectation, 'returnsExact')) {
+                    for (const [path, want] of Object.entries(expectation.returnsExact)) {
+                        const found = getPath(returned, path);
+                        if (!found.found) throw new Error(`${label} returnsExact.${path}: missing`);
+                        expect(found.value, `${label} returnsExact.${path}`).toStrictEqual(want);
+                    }
+                }
+                if (hasOwn(expectation, 'same')) {
+                    if (!Array.isArray(expectation.same) || expectation.same.length === 0) throw new Error(`${label} same: expected a list of pairs`);
+                    for (const pair of expectation.same) {
+                        if (!Array.isArray(pair) || pair.length !== 2 || !hasOwn(registry, pair[0]) || !hasOwn(registry, pair[1])) {
+                            throw new Error(`${label} same: ${JSON.stringify(pair)} must name two saved documents`);
+                        }
+                        expect(registry[pair[0]], `${label} same ${pair[0]} and ${pair[1]}`).toStrictEqual(registry[pair[1]]);
                     }
                 }
                 for (const path of expectation.absent || []) {
@@ -207,6 +259,10 @@ function runCase(testCase) {
                 const label = `step ${index + 1} (${step.op})`;
                 if (!hasOwn(OPS, step.op)) throw new Error(`${label}: unknown op`);
                 assertKeys(label, step, ['op', 'expect', ...OPS[step.op]]);
+                if (step.op === 'validate' || step.op === 'merge' || step.op === 'import') {
+                    const given = step.op === 'merge' ? ['a', 'b'] : [step.op === 'import' && hasOwn(step, 'from') ? 'from' : 'doc'];
+                    for (const key of given) if (!hasOwn(step, key)) throw new Error(`${label}: ${key} is required`);
+                }
                 if (step.op !== 'setClock' && !step.expect) throw new Error(`${label}: expect is required`);
 
                 if (step.op === 'setClock' && !CLOCK.test(step.at || '')) throw new Error(`${label}: at must be YYYY-MM-DDTHH:MM:SS local time`);
@@ -218,16 +274,17 @@ function runCase(testCase) {
                 try {
                     switch (step.op) {
                         case 'setClock':
-                            vi.setSystemTime(new Date(step.at));
+                            nowMs = new Date(step.at).getTime();
                             break;
                         case 'reload':
+                            if (step.device !== undefined) memory.setItem(DEVICE_KEY, JSON.stringify(step.device));
                             await start();
                             break;
                         case 'addXP':
                             returned = await rewards.addXP(step.amount, step.reason);
                             break;
-                        case 'recordGame':
-                            returned = await rewards.recordGame(step.game, step.result);
+                        case 'record':
+                            returned = await rewards.record(step.activity, step.result);
                             break;
                         case 'unlockAchievement':
                             returned = await rewards.unlockAchievement(step.id);
@@ -238,6 +295,21 @@ function runCase(testCase) {
                         case 'getXPForNextLevel':
                             returned = rewards.getXPForNextLevel();
                             break;
+                        case 'export':
+                            returned = rewards.export();
+                            registry[step.as] = returned;
+                            break;
+                        case 'import':
+                            returned = await rewards.import(hasOwn(step, 'from') ? docOf(step.from, label) : step.doc, { silent: step.silent === true });
+                            break;
+                        case 'merge':
+                            returned = merge(docOf(step.a, label), docOf(step.b, label));
+                            if (step.as) registry[step.as] = returned;
+                            break;
+                        case 'validate':
+                            returned = validate(docOf(step.doc, label));
+                            if (step.as) registry[step.as] = returned;
+                            break;
                     }
                 } catch (error) {
                     thrown = error;
@@ -247,6 +319,7 @@ function runCase(testCase) {
                 if (wantThrow) {
                     if (!thrown) throw new Error(`${label}: expected ${wantThrow}, nothing was thrown`);
                     expect(thrown.name, `${label} error`).toBe(wantThrow);
+                    if (hasOwn(step.expect, 'code')) expect(thrown.code, `${label} error code`).toBe(step.expect.code);
                 } else if (thrown) {
                     throw thrown;
                 }
@@ -255,7 +328,6 @@ function runCase(testCase) {
             }
         } finally {
             errorSpy.mockRestore();
-            vi.useRealTimers();
         }
     };
 }

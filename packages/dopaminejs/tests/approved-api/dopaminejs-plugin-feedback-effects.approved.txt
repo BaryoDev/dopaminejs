@@ -1,4 +1,0 @@
-ConfettiParticle: class(1) proto[render,update]
-FeedbackPlugin: object
-FeedbackSystem: class(1) proto[emitConfetti,trigger]
-FloatingText: class(1) proto[render,update]

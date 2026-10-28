@@ -1,1 +1,1 @@
-export { DebugOverlayPlugin } from './DebugOverlayPlugin.js';
+export { debugOverlay } from './DebugOverlayPlugin.js';

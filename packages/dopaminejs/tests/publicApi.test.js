@@ -132,12 +132,6 @@ describe('public API surface', () => {
         expect(() => compare('dopaminejs-plugin-ecosystem', renderSurface(mod))).not.toThrow();
     });
 
-    it('dopaminejs-plugin-feedback-effects has not changed', async () => {
-        const url = pathToFileURL(resolve(packagesDir, 'plugin-feedback-effects/src/index.js')).href;
-        const mod = await import(url);
-        expect(() => compare('dopaminejs-plugin-feedback-effects', renderSurface(mod))).not.toThrow();
-    });
-
     it('dopaminejs-plugin-howler-audio has not changed', async () => {
         const url = pathToFileURL(resolve(packagesDir, 'plugin-howler-audio/src/index.js')).href;
         const mod = await import(url);
@@ -156,9 +150,14 @@ describe('public API surface', () => {
         expect(() => compare('dopaminejs-plugin-webgl-particles', renderSurface(mod))).not.toThrow();
     });
 
-    it('dopaminejs/engine subpath has not changed', async () => {
-        const mod = await import('../src/engine.js');
-        expect(() => compare('dopaminejs-engine', renderSurface(mod))).not.toThrow();
+    it('dopaminejs/games subpath has not changed', async () => {
+        const mod = await import('../src/games.js');
+        expect(() => compare('dopaminejs-games', renderSurface(mod))).not.toThrow();
+    });
+
+    it('dopaminejs/testing subpath has not changed', async () => {
+        const mod = await import('../src/testing.js');
+        expect(() => compare('dopaminejs-testing', renderSurface(mod))).not.toThrow();
     });
 
     it('dopaminejs/core subpath has not changed', async () => {

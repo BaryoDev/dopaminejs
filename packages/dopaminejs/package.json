@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs",
-    "version": "2.5.0",
+    "version": "3.0.0",
     "description": "Progression mechanics for web apps: XP, levels, achievements and timezone-correct daily streaks, with the particles and sound to make them land. Zero dependencies.",
     "type": "module",
     "main": "./dist/dopamine.cjs",
@@ -11,21 +11,28 @@
             "import": "./dist/dopamine.js",
             "require": "./dist/dopamine.cjs"
         },
-        "./engine": {
-            "types": "./types/index.d.ts",
-            "import": "./dist/engine.js",
-            "require": "./dist/engine.cjs"
-        },
         "./core": {
             "types": "./types/core.d.ts",
             "import": "./dist/core.js",
             "require": "./dist/core.cjs"
         },
-        "./style.css": "./dist/style.css"
+        "./games": {
+            "types": "./types/games.d.ts",
+            "import": "./dist/games.js",
+            "require": "./dist/games.cjs"
+        },
+        "./testing": {
+            "types": "./types/testing.d.ts",
+            "import": "./dist/testing.js",
+            "require": "./dist/testing.cjs"
+        },
+        "./style.css": "./dist/style.css",
+        "./spec/*": "./spec/*"
     },
     "sideEffects": false,
     "files": [
         "dist",
+        "spec",
         "src",
         "types"
     ],
@@ -47,10 +54,10 @@
         "engagement",
         "rewards",
         "user-retention",
-        "game-feel",
         "juice",
         "particles",
-        "confetti"
+        "confetti",
+        "feedback"
     ],
     "author": "BaryoDev",
     "license": "MPL-2.0",
@@ -66,5 +73,13 @@
     "types": "./types/index.d.ts",
     "engines": {
         "node": ">=20.19"
+    },
+    "peerDependencies": {
+        "vitest": ">=2.0.0"
+    },
+    "peerDependenciesMeta": {
+        "vitest": {
+            "optional": true
+        }
     }
 }

@@ -13,15 +13,18 @@
 export interface PlayerStreak {
     current: number;
     longest: number;
-    /** Local calendar day, YYYY-MM-DD. Not UTC. */
-    lastPlayDate: string;
+    /** Local calendar day, YYYY-MM-DD. Not UTC. Absent until the first play. */
+    lastPlayDate?: string;
 }
 
 export interface UnlockedAchievement {
     unlockedAt: number;
     seen: boolean;
+    /** XP the achievement paid when it was unlocked. */
+    reward: number;
 }
 
+/** A frozen copy of the player with the derived values. */
 export interface Player {
     name: string;
     xp: number;
@@ -31,22 +34,86 @@ export interface Player {
     lastPlayedAt: number;
     streak: PlayerStreak;
     achievements: Record<string, UnlockedAchievement>;
-    /** Per-game stats. Games add their own keys. */
-    stats: Record<string, Record<string, number>>;
+    /** Per-activity stats: `plays`, `best`, and any other number a result carried. */
+    stats: Record<string, { plays: number; best: number } & Record<string, number>>;
+}
+
+/**
+ * The saved document. It merges: see `merge`. Treat it as opaque and pass it
+ * to `merge`, `validate` and `import`.
+ */
+export interface PlayerDocument {
+    v: 3;
+    name: string;
+    createdAt: number;
+    lastPlayedAt: number;
+    level: number;
+    longest: number;
+    /** Local days, YYYY-MM-DD, sorted, at most the last 400. */
+    playDates: string[];
+    xpBy: Record<string, number>;
+    xpSpentBy: Record<string, number>;
+    gamesBy: Record<string, number>;
+    playsBy: Record<string, Record<string, number>>;
+    best: Record<string, number>;
+    sumsBy: Record<string, Record<string, Record<string, number>>>;
+    achievements: Record<string, UnlockedAchievement>;
+}
+
+export interface Clock {
+    now(): number;
+    /** Local calendar day, YYYY-MM-DD, never UTC. Defaults to now. */
+    localDate(ms?: number): string;
+}
+
+export type DopamineErrorCode =
+    | 'invalid_document' | 'unsupported_version' | 'too_many_devices'
+    | 'plugin_api' | 'plugin_order' | 'plugin_requires' | 'plugin_invalid'
+    | 'plugin_duplicate' | 'plugin_event' | 'invalid_progress' | 'disposed';
+
+export class DopamineError extends Error {
+    constructor(code: string, message?: string);
+    readonly code: DopamineErrorCode | string;
+}
+
+export interface ValidateOptions {
+    /** Fills missing timestamps. Default 0. */
+    now?: number;
+    /** A local date (YYYY-MM-DD). When set, play dates older than 400 days counting from it are dropped. Default: none are dropped. */
+    today?: string;
+    /** XP a 2.x save already holds for each achievement id. Default: the built-ins. */
+    rewards?: Record<string, number>;
+}
+
+/** Clean any value into a version 3 document, or throw a DopamineError. Pure. */
+export function validate(input: unknown, options?: ValidateOptions): PlayerDocument;
+/**
+ * Join two saves. Pure, and the same in any order or grouping.
+ * @throws DopamineError `too_many_devices`, `unsupported_version`, `invalid_document`.
+ */
+export function merge(a: unknown, b: unknown, options?: ValidateOptions): PlayerDocument;
+
+export interface Middleware {
+    beforeXP?(context: { amount: number; reason: string }): Partial<{ amount: number; reason: string }> | false | void | Promise<Partial<{ amount: number; reason: string }> | false | void>;
+    afterXP?(context: { amount: number; reason: string; total: number; level: number }): void | Promise<void>;
+    beforeRecord?(context: { activity: string; result: GameResult }): Partial<{ activity: string; result: GameResult }> | false | void | Promise<Partial<{ activity: string; result: GameResult }> | false | void>;
+    afterRecord?(context: { activity: string; result: GameResult; xp: number }): void | Promise<void>;
+    beforeUnlock?(context: { id: string; reward: number }): Partial<{ reward: number }> | false | void | Promise<Partial<{ reward: number }> | false | void>;
+    afterUnlock?(context: { id: string; reward: number }): void | Promise<void>;
 }
 
 export interface AchievementDefinition {
     name: string;
     description?: string;
     /**
-     * A string is rendered as HTML (an <img> or inline SVG is allowed), or as
-     * allowlisted SVG or text when GameUI is built with `safeIcons: true`. A
-     * Node is moved into the popup, not copied.
+     * A string is shown as allowlisted SVG or text, or as HTML when RewardUI
+     * is built with `safeIcons: false`. A Node is moved into the popup, not
+     * copied.
      */
     icon?: string | Node;
     /** Omitted means 0. Never undefined at runtime. */
     xp?: number;
-    check(player: Player, gameName?: string, result?: GameResult): boolean;
+    check(player: Player, activity?: string, result?: GameResult): boolean;
 }
 
 export interface GameResult {
@@ -71,17 +138,22 @@ export interface AddXPResult {
 
 export interface RewardSystemConfig {
     achievements?: Record<string, AchievementDefinition>;
-    /** Mirror reward events onto a kernel EventBus. */
-    events?: EventBus;
-    /** Alternative to `events`; the kernel's bus is used. */
-    kernel?: DopamineKernel;
+    /** Time source. Tests pass one; the default reads the system clock. */
+    clock?: Clock;
+    /**
+     * What marks today as a play day. `'any'` (default): `record()` or
+     * `addXP()`. `'record'`: `record()` only. XP from an achievement reward
+     * never marks a day.
+     */
+    streakDays?: 'any' | 'record';
 }
 
 export type RewardEvent =
     | 'xp_gained'
     | 'level_up'
     | 'achievement_unlocked'
-    | 'new_high_score'
+    /** Payload `{ activity, score }`. */
+    | 'personal_best'
     /** Payload `{ current, longest }`. Fires when the day rolls over. */
     | 'streak_updated'
     /** Payload `{ key }`. The storage write failed; state lives in memory only. */
@@ -107,10 +179,7 @@ export class EventEmitter {
 export class RewardSystem extends EventEmitter {
     constructor(dataService: DataService, config?: RewardSystemConfig);
 
-    player: Player | null;
     achievements: Record<string, AchievementDefinition>;
-    /** Kernel bus events are mirrored onto, if one was supplied. */
-    events: EventBus | null;
     /**
      * True when the last `init()` could not read the saved player, so nothing
      * is saved until `init()` is called again and the read works.
@@ -118,6 +187,19 @@ export class RewardSystem extends EventEmitter {
     readonly loadFailed: boolean;
 
     init(): Promise<Player>;
+    /** A frozen copy of the player with the derived values. */
+    snapshot(): Player;
+    /** The versioned document, a detached copy. */
+    export(): PlayerDocument;
+    /**
+     * Merge a document into this player. Unless `silent`, announces the XP,
+     * level and achievements that went up.
+     */
+    import(doc: unknown, options?: { silent?: boolean }): Promise<Player>;
+    /** Hooks run in `use` order. Returns a function that removes it. */
+    use(middleware: Middleware): () => void;
+    /** Adds a rule at runtime. Returns a function that removes it. */
+    defineAchievement(id: string, definition: AchievementDefinition): () => void;
     save(): Promise<void>;
 
     /** @throws TypeError if `amount` is not finite. */
@@ -126,12 +208,13 @@ export class RewardSystem extends EventEmitter {
 
     /**
      * Persists once for the whole call, not once per internal mutation.
-     * @throws TypeError for an empty or reserved game name, or a `score` that
-     *   is not a finite number.
+     * @throws TypeError for an empty or reserved activity name, or a `score`
+     *   that is not a finite number.
+     * @returns false when a `beforeRecord` hook rejected it.
      */
-    recordGame(gameName: string, result?: GameResult): Promise<void>;
+    record(activity: string, result?: GameResult): Promise<boolean>;
 
-    checkAchievements(gameName: string, result: GameResult): Promise<AchievementDefinition[]>;
+    checkAchievements(activity: string, result: GameResult): Promise<AchievementDefinition[]>;
     unlockAchievement(achievementId: string): Promise<boolean>;
     getUnlockedAchievements(): Array<AchievementDefinition & UnlockedAchievement & { id: string }>;
     getUnseenAchievements(): Array<AchievementDefinition & UnlockedAchievement & { id: string }>;
@@ -205,23 +288,13 @@ export function prefersReducedMotion(win?: { matchMedia?: (query: string) => { m
 // UI
 // ---------------------------------------------------------------------------
 
-export interface SummaryData {
-    score: number | string;
-    /** Label to value pairs. Rendered as text. */
-    metrics?: Record<string, number | string>;
-    /** Defaults to reloading the page. */
-    onReplay?: () => void;
-    /** Exit button is omitted when this is not supplied. */
-    onExit?: () => void;
-}
-
-export interface GameUIConfig {
+export interface RewardUIConfig {
     /**
-     * When true, a string icon (achievement or streak) is parsed as SVG and
-     * rebuilt from an allowlist of elements and attributes, and any other
-     * string is shown as text. The string must be well-formed XML, so
-     * `&nbsp;` falls back to text. An `<svg>` with no xmlns is accepted.
-     * Default false: string icons are HTML.
+     * A string icon (achievement or streak) is parsed as SVG and rebuilt from
+     * an allowlist of elements and attributes, and any other string is shown
+     * as text. The string must be well-formed XML, so `&nbsp;` falls back to
+     * text. An `<svg>` with no xmlns is accepted. Default true. False renders
+     * string icons as HTML, for icons you trust.
      */
     safeIcons?: boolean;
     /** Replaces the built-in popup strings. Rendered as text. */
@@ -230,38 +303,103 @@ export interface GameUIConfig {
         levelUp?: string;
         /** Default `Achievement Unlocked!`. */
         achievementUnlocked?: string;
-        /** Default `CLOSE CALL!`. */
-        nearMiss?: string;
     };
     icons?: {
         /**
-         * A string is HTML (unless `safeIcons` is on), a Node is moved into
-         * the badge, not copied. Default is a fire emoji.
+         * A string follows `safeIcons`, a Node is moved into the badge, not
+         * copied. Default is a fire emoji.
          */
         streak?: string | Node;
     };
+    /**
+     * Add the stylesheet from code, once per page, and remove it on destroy.
+     * A string is used as the CSS text. Default false: import
+     * `dopaminejs/style.css` instead.
+     */
+    injectCss?: boolean | string;
 }
 
-export class GameUI {
-    constructor(particleSystem: ParticleSystem, config?: GameUIConfig);
+export interface HudState {
+    xp: number;
+    level: number;
+    /** Position within the current level, 0 to 1. */
+    progress?: number;
+    streak: number;
+    /** XP total that marks the next level. */
+    next?: number;
+}
 
-    container: HTMLElement | null;
+export type PopupKind = 'achievement' | 'level' | 'notice' | 'custom';
 
-    /** `progress` is the position within the current level, 0 to 1. */
-    updateXP(current: number, needed: number, total: number, progress?: number): void;
-    updateLevel(level: number): void;
-    updateStreak(days: number): void;
+export interface Popup {
+    kind: PopupKind;
+    /** Achievement name, notice message, or the level-up heading. */
+    title?: string;
+    /** Achievement description, or the new level for `level`. */
+    body?: string;
+    /** A string follows `safeIcons`. A Node is appended. */
+    icon?: string | Node;
+    /** An extra line under an achievement, such as `+50 XP`. */
+    meta?: string;
+    tier?: 'common' | 'rare' | 'legendary';
+}
 
-    showAchievement(achievement: AchievementDefinition): void;
-    showLevelUp(oldLevel: number, newLevel: number): void;
-    showFloatingText(text: string, x: number, y: number, color?: string, size?: string): void;
-    showCombo(multiplier: number, x: number, y: number): void;
-    showNearMiss(x: number, y: number): void;
-    showLuckyMoment(multiplier: number, x: number, y: number): void;
-    showNotification(message: string, type?: 'normal' | 'rare' | 'legendary'): void;
-    showSummary(data: SummaryData): HTMLElement;
+export interface FloatingText {
+    text: string;
+    x?: number;
+    y?: number;
+    color?: string;
+    /** A CSS font size such as `32px`. */
+    size?: string;
+}
 
-    /** Removes the overlay, any transient popups, and all pending timers. */
+export interface BurstOptions {
+    count?: number;
+    color?: string;
+}
+
+export type BurstKind = 'confetti' | 'sparkle' | 'fire' | 'stars' | 'coins';
+
+export interface RewardUILike {
+    hud(state: HudState): void;
+    popup(popup: Popup): void;
+    text(text: FloatingText): void;
+    readonly root: HTMLElement | null;
+    destroy(): void;
+}
+
+export interface ParticleRenderer {
+    /** An unknown kind does nothing. */
+    burst(kind: BurstKind, at?: { x: number; y: number }, opts?: BurstOptions): void;
+    destroy(): void;
+}
+
+export interface SoundPlayer {
+    /** An unknown key does nothing. */
+    play(key: string): unknown;
+    /** Optional. Adds a key and returns a remover. `SoundManager` has it. */
+    register?(key: string, source: string | SoundSynth): () => void;
+    destroy(): void;
+}
+
+export interface Parts {
+    readonly ui: RewardUILike | null;
+    readonly particles: ParticleRenderer | null;
+    readonly sound: SoundPlayer | null;
+    readonly haptics: Haptics | null;
+}
+
+export class RewardUI implements RewardUILike {
+    /** `parts.particles` is read on every call. */
+    constructor(parts?: Pick<Parts, 'particles'>, config?: RewardUIConfig);
+
+    readonly root: HTMLElement | null;
+
+    hud(state: HudState): void;
+    popup(popup: Popup): void;
+    text(text: FloatingText): void;
+
+    /** Removes the overlay, any transient popups, the injected styles and all pending timers. */
     destroy(): void;
 }
 
@@ -309,8 +447,10 @@ export class ParticleSystem {
 
     registerSprite(key: string, url: string): void;
     registerEffect(name: string, callback: (x: number, y: number, ...args: unknown[]) => void): void;
-    play(name: string, x: number, y: number, ...args: unknown[]): void;
+    /** `play(name, { x, y })` or `play(name, x, y)`. */
+    play(name: string, x: number | { x: number; y: number }, y?: number, ...args: unknown[]): void;
     emit(config: ParticleConfig): void;
+    burst(kind: BurstKind, at?: { x: number; y: number }, opts?: BurstOptions): void;
 
     confetti(x: number, y: number, count?: number): void;
     coinShower(x: number, y: number, count?: number): void;
@@ -336,6 +476,9 @@ export interface SoundManagerConfig {
     customSounds?: Record<string, string>;
 }
 
+/** A synth key. `later` is a timeout that destroy() cancels. */
+export type SoundSynth = (sound: SoundManager, later: (fn: () => void, ms: number) => void) => void;
+
 export class SoundManager {
     constructor(config?: SoundManagerConfig);
 
@@ -352,17 +495,24 @@ export class SoundManager {
     toggleMute(): boolean;
 
     registerSound(key: string, url: string): void;
+    /**
+     * Add a key. A string is a file URL. A function is a synth, called as
+     * `(sound, later)` when the key plays; `later` is a timeout that destroy()
+     * cancels. Returns a remover.
+     */
+    register(key: string, source: string | SoundSynth): () => void;
     /** Registers every key, then loads the files. Before the audio context exists they load when it is created. */
     preloadSounds(soundMap: Record<string, string>): Promise<void>;
     loadSound(key: string, url: string): Promise<void>;
+    /** Presets: `xp`, `level_up`, `achievement`, `personal_best`, `click`, `error`. An unknown key is ignored. */
     play(key: string): Promise<void>;
     playTone(frequency: number, duration: number, type?: OscillatorType, volume?: number): void;
 
-    playJump(force?: boolean): void;
-    playScore(force?: boolean): void;
-    playGameOver(force?: boolean): void;
     playClick(force?: boolean): void;
-    playSuccess(force?: boolean): void;
+    playXP(force?: boolean): void;
+    playLevelUp(force?: boolean): void;
+    playAchievement(force?: boolean): void;
+    playPersonalBest(force?: boolean): void;
     playError(force?: boolean): void;
 
     /** Cancels queued tones, closes the audio context, drops decoded buffers. */
@@ -370,346 +520,103 @@ export class SoundManager {
 }
 
 // ---------------------------------------------------------------------------
-// Kernel
+// Host and plugins
 // ---------------------------------------------------------------------------
 
-export interface EventBusEvents {
-    TICK: 'tick';
-    FIXED_UPDATE: 'fixed_update';
-    RENDER: 'render';
-    COLLISION_ENTER: 'collision_enter';
-    COLLISION_EXIT: 'collision_exit';
-    XP_GAINED: 'xp_gained';
-    LEVEL_UP: 'level_up';
-    ACHIEVEMENT_UNLOCKED: 'achievement_unlocked';
-    NEW_HIGH_SCORE: 'new_high_score';
-    STREAK_UPDATED: 'streak_updated';
-    SYSTEM_REGISTERED: 'system_registered';
-    SYSTEM_UNREGISTERED: 'system_unregistered';
-    PLUGIN_LOADED: 'plugin_loaded';
-    PLUGIN_UNLOADED: 'plugin_unloaded';
+/** The plugin API version this build accepts. */
+export const HOST_API: 3;
+
+export type PartName = 'ui' | 'particles' | 'sound' | 'haptics';
+
+/** A part is a value, a factory, or `false` for none. A factory returning null means the default. */
+export type PartOption<T> = T | false | null | ((env: HostEnv) => T | null | undefined);
+
+export interface HostEnv {
+    hasDom: boolean;
+    reducedMotion: boolean;
 }
 
-export class EventBus {
-    static readonly Events: EventBusEvents;
-
-    /** Higher priority runs first. */
-    on(event: string, callback: (data?: any) => void, priority?: number): this;
-    once(event: string, callback: (data?: any) => void): this;
-    /** Removes every registration of `callback` for `event`. */
-    off(event: string, callback: (data?: any) => void): this;
-    /** A throwing listener is logged and does not abort the remaining ones. */
-    emit(event: string, data?: any): void;
-    clear(event?: string): void;
-    hasListeners(event: string): boolean;
+export interface PluginStorage {
+    getItem(key: string): string | null | Promise<string | null>;
+    setItem(key: string, value: string): void | Promise<void>;
+    removeItem(key: string): void | Promise<void>;
 }
 
-export interface ISystemLike {
-    init?(kernel: DopamineKernel): void;
-    update?(dt: number): void;
-    fixedUpdate?(dt: number): void;
-    destroy?(): void;
+export interface Logger {
+    debug(...args: unknown[]): void;
+    info(...args: unknown[]): void;
+    warn(...args: unknown[]): void;
+    error(...args: unknown[]): void;
 }
 
-export interface SystemRegisterOptions {
-    /** Higher runs earlier. Default 0. */
-    priority?: number;
-    /** Names of systems that must update first. */
-    dependencies?: string[];
+/** The host bus as a plugin sees it. */
+export interface PluginEvents {
+    /** Removed by the host when the plugin is disposed, even if the plugin forgets. */
+    on(event: string, callback: (data: any) => void): () => void;
+    off(event: string, callback: (data: any) => void): void;
+    /** The event name must start with `<plugin name>:`. */
+    emit(event: string, data?: unknown): void;
 }
 
-export class SystemRegistry {
-    constructor(kernel: DopamineKernel);
-    register(name: string, system: ISystemLike, options?: SystemRegisterOptions): this;
-    get<T = ISystemLike>(name: string): T | undefined;
-    has(name: string): boolean;
-    unregister(name: string): boolean;
-    update(dt: number): void;
-    fixedUpdate(dt: number): void;
-    getSystemNames(): string[];
-    clear(): void;
+export interface PluginContext {
+    progress: RewardSystem;
+    /** Live getters. Read them at call time, never keep them. */
+    parts: Readonly<Parts>;
+    events: PluginEvents;
+    /** Keys are prefixed with `dopamine_plugin_<name>:`. */
+    storage: PluginStorage;
+    clock: Clock;
+    log: Logger;
+    env: HostEnv;
+    /** The handle another plugin passed to `expose`, or null. */
+    plugin(name: string): unknown | null;
+    expose(handle: unknown): void;
 }
 
-export interface Plugin {
+export type Disposer = () => void;
+
+export interface DopaminePlugin {
     name: string;
-    version?: string;
-    init(kernel: DopamineKernel): void | Promise<void>;
-    destroy?(): void;
+    version: string;
+    api: 3;
+    /** Plugins that must already be installed. */
+    after?: string[];
+    /** Parts that must be set. */
+    requires?: PartName[];
+    install(context: PluginContext): Disposer | void | Promise<Disposer | void>;
 }
 
-export class PluginRegistry {
-    constructor(kernel: DopamineKernel);
-    use(plugin: Plugin): this;
-    useAsync(plugin: Plugin): Promise<this>;
-    /** Calls the plugin's `destroy()`, then unregisters the systems it registered during `init()`. */
-    remove(name: string): boolean;
-    get(name: string): Plugin | undefined;
-    has(name: string): boolean;
-    getPluginNames(): string[];
-    getLoadOrder(): string[];
-    clear(): void;
+export interface DopamineOptions {
+    progress?: RewardSystem | ((env: HostEnv) => RewardSystem | null) | null;
+    ui?: PartOption<RewardUILike>;
+    particles?: PartOption<ParticleRenderer>;
+    sound?: PartOption<SoundPlayer>;
+    haptics?: PartOption<Haptics>;
+    storage?: StorageLike;
+    clock?: Clock;
+    /** Passed to the default progress object. See `RewardSystemConfig`. */
+    streakDays?: 'any' | 'record';
+    plugins?: DopaminePlugin[];
+    log?: Partial<Logger>;
 }
 
-export interface KernelConfig {
-    width?: number;
-    height?: number;
-    backgroundColor?: string;
-    canvas?: HTMLCanvasElement;
-    renderer?: Record<string, unknown>;
-    /** Seconds per fixed update. Default 1/60. */
-    fixedTimestep?: number;
-}
-
-export class DopamineKernel {
-    constructor(config?: KernelConfig);
-
-    config: KernelConfig;
-    events: EventBus;
-    systems: SystemRegistry;
-    plugins: PluginRegistry;
-    fixedTimestep: number;
-
-    readonly physics: Physics;
-    readonly input: Input;
-    readonly loader: Loader;
-    readonly renderer: Renderer;
-    readonly ticker: Ticker;
-
-    start(): void;
-    stop(): void;
-    destroy(): void;
-}
-
-// ---------------------------------------------------------------------------
-// Engine core
-// ---------------------------------------------------------------------------
-
-export class Vector2 {
-    constructor(x?: number, y?: number);
-    x: number;
-    y: number;
-    add(v: Vector2): Vector2;
-    sub(v: Vector2): Vector2;
-    scale(s: number): Vector2;
-    distance(v: Vector2): number;
-    normalize(): Vector2;
-    clone(): Vector2;
-    static distance(a: Vector2, b: Vector2): number;
-}
-
-export class Component {
-    gameObject: GameObject | null;
-    kernel: DopamineKernel | null;
-    onAttach(): void;
-    onDetach(): void;
-    update(dt: number): void;
-    render(ctx: CanvasRenderingContext2D): void;
-}
-
-export interface BoxBounds {
-    left: number;
-    right: number;
-    top: number;
-    bottom: number;
-}
-
-export interface CircleBounds {
-    x: number;
-    y: number;
-    radius: number;
-}
-
-/** A box collider returns edges, a circle collider returns centre and radius. */
-export type Bounds = BoxBounds | CircleBounds;
-
-export class Collider extends Component {
-    constructor(type?: 'box' | 'circle', width?: number, height?: number, radius?: number);
-    type: 'box' | 'circle';
-    width: number;
-    height: number;
-    radius: number;
-    tag: string | null;
-    getBounds(): Bounds;
-}
-
-export class Sprite extends Component {
-    constructor(image: HTMLImageElement | HTMLCanvasElement);
-    setFrame(x: number, y: number, w: number, h: number): void;
-    setTexture(image: HTMLImageElement | HTMLCanvasElement): void;
-}
-
-export class Animator extends Component {
-    addAnimation(name: string, frames: unknown[], fps?: number, loop?: boolean): void;
-    play(name: string): void;
-}
-
-export class GameObject {
-    constructor(x?: number, y?: number);
-    x: number;
-    y: number;
-    rotation: number;
-    scale: { x: number; y: number };
-    components: Component[];
-    children: GameObject[];
-    parent: GameObject | null;
-    kernel: DopamineKernel | null;
-    tag?: string;
-    addChild(child: GameObject): GameObject;
-    addComponent<T extends Component>(component: T): T;
-    getComponent<T extends Component>(type: new (...args: any[]) => T): T | undefined;
-    update(dt: number): void;
-    render(ctx: CanvasRenderingContext2D): void;
-}
-
-export class Scene {
-    gameObjects: GameObject[];
-    kernel: DopamineKernel | null;
-    onEnter(): void;
-    onExit(): void;
-    add(gameObject: GameObject): GameObject;
-    remove(gameObject: GameObject): void;
-    update(dt: number): void;
-    render(ctx: CanvasRenderingContext2D): void;
-}
-
-export class Renderer {
-    constructor(options?: Record<string, unknown>);
-    canvas: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D;
-    clear(): void;
-    resize(width: number, height: number): void;
-}
-
-export class Ticker {
-    add(callback: (dt: number) => void): void;
-    remove(callback: (dt: number) => void): void;
-    /** Cancels any pending frame first, so restarting cannot double-step. */
-    start(): void;
-    stop(): void;
-    running: boolean;
-    callbacks: Set<(dt: number) => void>;
-}
-
-export class Loader {
-    init(kernel: DopamineKernel): void;
-    destroy(): void;
-    loadImage(key: string, url: string): Promise<HTMLImageElement>;
-    get(key: string): HTMLImageElement | undefined;
-}
-
-export class Input {
-    init(kernel: DopamineKernel): void;
-    destroy(): void;
-    isKeyDown(key: string): boolean;
-    isMouseButtonDown(button?: number): boolean;
-    mouse: { x: number; y: number };
-}
-
-/** Payload of `collision_enter` and `collision_exit` on the kernel event bus. */
-export interface CollisionEvent {
-    a: Collider;
-    b: Collider;
-}
-
-export class Physics {
-    init(kernel: DopamineKernel): void;
-    fixedUpdate(dt: number): void;
-    destroy(): void;
-    add(collider: Collider): void;
-    /** Emits `collision_exit` for each pair the collider was overlapping in. */
-    remove(collider: Collider): void;
-    /**
-     * Emits `collision_enter` once when a pair starts to overlap and
-     * `collision_exit` once when it stops. `onCollisionEnter` on a component
-     * runs on every step while the pair overlaps.
-     */
-    step(): void;
-    /** Every collider that overlaps `source`. With a tag, only colliders carrying it. */
-    checkOverlap(source: Collider, targetTag?: string): Collider[];
-    addBody(body: Collider): void;
-    removeBody(body: Collider): void;
-    checkCollision(a: Collider, b: Collider): boolean;
-    /** Not implemented. Always null. */
-    raycast(origin: Vector2, direction: Vector2, distance: number): null;
-    /** Not implemented. */
-    setGravity(x: number, y: number): void;
-}
-
-export class Director {
-    constructor(game: Game);
-    run(scene: Scene): void;
-}
-
-export class Game {
-    constructor(config?: KernelConfig);
-    kernel: DopamineKernel;
-    scene: Scene | null;
-    start(): void;
-    stop(): void;
-    setScene(newScene: Scene): void;
-    destroy(): void;
-}
-
-export class TextureGenerator {
-    static createGround(width: number, height: number, color?: string): HTMLCanvasElement;
-    static createCharacterSheet(colorBody: string, colorDetail: string): HTMLCanvasElement;
-}
-
-export class ParticleEmitter extends Component {
-    constructor(particleSystem: ParticleSystem);
-    play(effectName: string, options?: Record<string, unknown>): void;
-}
-
-export class ScreenShake extends Component {
-    shake(intensity?: number, duration?: number): void;
-}
-
-/** Deprecated singletons kept for v1 compatibility. Prefer kernel.<system>. */
-export const GlobalLoader: Loader;
-export const GlobalInput: Input;
-export const GlobalPhysics: Physics;
-
-// ---------------------------------------------------------------------------
-// Interfaces
-// ---------------------------------------------------------------------------
-
-export const ISystem: Record<string, unknown>;
-export const System: Record<string, unknown>;
-export const IPhysicsSystem: Record<string, unknown>;
-export const IAudioSystem: Record<string, unknown>;
-export const IParticleSystem: Record<string, unknown>;
-
-// ---------------------------------------------------------------------------
-// Facade
-// ---------------------------------------------------------------------------
-
-export interface DopamineConfig {
-    data?: DataServiceConfig;
-    rewards?: RewardSystemConfig;
-    sound?: SoundManagerConfig;
-    particles?: ParticleSystemConfig;
-}
-
-export interface DopamineSubsystems {
-    rewardSystem: RewardSystem;
-    gameUI: GameUI;
-    particleSystem: ParticleSystem;
-    soundManager: SoundManager;
+export interface Dopamine {
+    progress: RewardSystem;
+    /** Getters only. */
+    parts: Readonly<Parts>;
+    /** The progress emitter. Plugin events are `name:event`. */
+    events: EventEmitter;
+    /** Resolves with the host once plugins are installed and progress is loaded. */
+    ready: Promise<Dopamine>;
+    /** Install a plugin later. Returns its disposer. */
+    use(plugin: DopaminePlugin): Disposer;
+    /** Disposes plugins in reverse, then the parts, then clears the bus. */
+    dispose(): void;
 }
 
 /**
- * Wires DataService, RewardSystem, SoundManager, ParticleSystem and GameUI
- * together and binds the UI to reward events.
+ * Builds the feedback layer from parts and installs plugins on it. A sync
+ * caller gets a usable host at once. Plugins that are refused throw here; an
+ * async install that fails rejects `ready`.
  */
-export default class Dopamine {
-    constructor(config?: DopamineConfig);
-    config: DopamineConfig;
-    dataService: DataService;
-    rewardSystem: RewardSystem;
-    soundManager: SoundManager;
-    particleSystem: ParticleSystem;
-    gameUI: GameUI;
-    init(): Promise<DopamineSubsystems>;
-    /** Removes the overlay and canvas, closes audio, detaches from reward events. */
-    destroy(): void;
-}
+export function createDopamine(options?: DopamineOptions): Dopamine;

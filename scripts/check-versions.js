@@ -11,7 +11,7 @@
  * it failed; nothing in the pipeline noticed.
  */
 
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const PACKAGES_DIR = 'packages';
@@ -52,6 +52,36 @@ function entryPoints(pkg) {
     return found.filter((entry) => entry.path.startsWith('.'));
 }
 
+/**
+ * An exports pattern such as "./spec/*" must match at least one file.
+ */
+function patternMatches(base, rel) {
+    const dir = join(base, rel.slice(0, rel.indexOf('*')));
+    return existsSync(dir) && statSync(dir).isDirectory() && readdirSync(dir).length > 0;
+}
+
+/**
+ * Does a simple range accept a version? Handles exact, ^x.y.z, >=x.y.z and *.
+ * Anything else counts as not accepting, so a new range style fails loudly.
+ *
+ * @param {string} range
+ * @param {string} version
+ * @returns {boolean}
+ */
+function accepts(range, version) {
+    const parse = (text) => text.split('-')[0].split('.').map(Number);
+    const v = parse(version);
+    const cmp = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+    if (range === '*') return true;
+    const match = /^(\^|>=)?(\d+\.\d+\.\d+)$/.exec(range);
+    if (!match) return false;
+    const base = parse(match[2]);
+    if (!match[1]) return cmp(v, base) === 0;
+    if (cmp(v, base) < 0) return false;
+    if (match[1] === '>=') return true;
+    return base[0] > 0 ? v[0] === base[0] : v[0] === 0 && v[1] === base[1];
+}
+
 const manifests = readdirSync(PACKAGES_DIR, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => {
@@ -67,6 +97,7 @@ if (manifests.length === 0) {
 }
 
 const seen = new Map();
+const versions = new Map(manifests.filter(({ pkg }) => pkg.name).map(({ pkg }) => [pkg.name, pkg.version]));
 
 for (const { dir, path, pkg } of manifests) {
     if (!pkg.name) {
@@ -100,7 +131,9 @@ for (const { dir, path, pkg } of manifests) {
 
     if (CHECK_DIST) {
         for (const { field, path: rel } of entryPoints(pkg)) {
-            if (!existsSync(join(PACKAGES_DIR, dir, rel))) {
+            const base = join(PACKAGES_DIR, dir);
+            const found = rel.includes('*') ? patternMatches(base, rel) : existsSync(join(base, rel));
+            if (!found) {
                 problems.push(`${pkg.name}: "${field}" points at ${rel}, which the build does not emit`);
             }
         }
@@ -113,6 +146,14 @@ for (const { dir, path, pkg } of manifests) {
             if (seen.has(dep) && /^(\*|workspace:)/.test(range)) {
                 problems.push(`${pkg.name}: ${field}.${dep} uses unpublishable range "${range}"`);
             }
+        }
+    }
+
+    // A peer range must accept the sibling version in this same tree, or a
+    // release installs a plugin that the core it ships with rejects.
+    for (const [dep, range] of Object.entries(pkg.peerDependencies || {})) {
+        if (versions.has(dep) && !accepts(range, versions.get(dep))) {
+            problems.push(`${pkg.name}: peerDependencies.${dep} "${range}" does not accept ${dep}@${versions.get(dep)} in this tree`);
         }
     }
 }

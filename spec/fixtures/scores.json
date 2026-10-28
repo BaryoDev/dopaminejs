@@ -10,8 +10,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "expect": {
                         "player": {
                             "xp": 10,
@@ -20,8 +20,8 @@
                         "playerExact": {
                             "stats": {
                                 "g": {
-                                    "totalPlays": 1,
-                                    "highScore": 0
+                                    "plays": 1,
+                                    "best": 0
                                 }
                             }
                         },
@@ -47,8 +47,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 100
                     },
@@ -59,15 +59,15 @@
                         "playerExact": {
                             "stats": {
                                 "g": {
-                                    "totalPlays": 1,
-                                    "highScore": 100
+                                    "plays": 1,
+                                    "best": 100
                                 }
                             }
                         },
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "g",
+                                "event": "personal_best",
+                                "activity": "g",
                                 "score": 100
                             },
                             {
@@ -91,8 +91,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 4
                     },
@@ -102,8 +102,8 @@
                         },
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "g",
+                                "event": "personal_best",
+                                "activity": "g",
                                 "score": 4
                             },
                             {
@@ -118,8 +118,8 @@
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 5
                     },
@@ -129,8 +129,8 @@
                         },
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "g",
+                                "event": "personal_best",
+                                "activity": "g",
                                 "score": 5
                             },
                             {
@@ -145,8 +145,8 @@
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 9
                     },
@@ -156,8 +156,8 @@
                         },
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "g",
+                                "event": "personal_best",
+                                "activity": "g",
                                 "score": 9
                             },
                             {
@@ -172,8 +172,8 @@
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 10
                     },
@@ -183,8 +183,8 @@
                         },
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "g",
+                                "event": "personal_best",
+                                "activity": "g",
                                 "score": 10
                             },
                             {
@@ -208,8 +208,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 12.5
                     },
@@ -220,15 +220,15 @@
                         "playerExact": {
                             "stats": {
                                 "g": {
-                                    "totalPlays": 1,
-                                    "highScore": 12.5
+                                    "plays": 1,
+                                    "best": 12.5
                                 }
                             }
                         },
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "g",
+                                "event": "personal_best",
+                                "activity": "g",
                                 "score": 12.5
                             },
                             {
@@ -252,8 +252,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 0
                     },
@@ -274,8 +274,8 @@
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": -50
                     },
@@ -286,8 +286,8 @@
                         "playerExact": {
                             "stats": {
                                 "g": {
-                                    "totalPlays": 2,
-                                    "highScore": 0
+                                    "plays": 2,
+                                    "best": 0
                                 }
                             }
                         },
@@ -313,8 +313,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 100
                     },
@@ -324,8 +324,8 @@
                         },
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "g",
+                                "event": "personal_best",
+                                "activity": "g",
                                 "score": 100
                             },
                             {
@@ -340,8 +340,8 @@
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 50
                     },
@@ -352,8 +352,8 @@
                         "playerExact": {
                             "stats": {
                                 "g": {
-                                    "totalPlays": 2,
-                                    "highScore": 100
+                                    "plays": 2,
+                                    "best": 100
                                 }
                             }
                         },
@@ -377,7 +377,7 @@
             "config": {
                 "builtinAchievements": false
             },
-            "note": "The day change is applied first, so this game already pays x1.25. (10 + 3) * 1.25 = 16.25, floored to 16.",
+            "note": "The day is counted before the XP, so this game already pays x1.25. (10 + 3) * 1.25 = 16.25, floored to 16.",
             "savedJson": {
                 "streak": {
                     "current": 2,
@@ -388,21 +388,16 @@
             "afterInit": {
                 "player": {
                     "streak": {
-                        "current": 3
+                        "current": 2,
+                        "lastPlayDate": "2026-08-06"
                     }
                 },
-                "events": [
-                    {
-                        "event": "streak_updated",
-                        "current": 3,
-                        "longest": 3
-                    }
-                ]
+                "events": []
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 15
                     },
@@ -412,8 +407,13 @@
                         },
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "g",
+                                "event": "streak_updated",
+                                "current": 3,
+                                "longest": 3
+                            },
+                            {
+                                "event": "personal_best",
+                                "activity": "g",
                                 "score": 15
                             },
                             {
@@ -438,8 +438,8 @@
             "note": "A non-numeric value adds 0 but still creates the stat.",
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 10,
                         "kills": 3,
@@ -453,8 +453,8 @@
                         "playerExact": {
                             "stats": {
                                 "g": {
-                                    "totalPlays": 1,
-                                    "highScore": 10,
+                                    "plays": 1,
+                                    "best": 10,
                                     "kills": 3,
                                     "label": 0
                                 }
@@ -462,8 +462,8 @@
                         },
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "g",
+                                "event": "personal_best",
+                                "activity": "g",
                                 "score": 10
                             },
                             {
@@ -478,8 +478,8 @@
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "kills": 2
                     },
@@ -490,8 +490,8 @@
                         "playerExact": {
                             "stats": {
                                 "g": {
-                                    "totalPlays": 2,
-                                    "highScore": 10,
+                                    "plays": 2,
+                                    "best": 10,
                                     "kills": 5,
                                     "label": 0
                                 }
@@ -519,8 +519,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": "50"
                     },
@@ -537,8 +537,8 @@
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 5
                     },
@@ -549,8 +549,8 @@
                         },
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "g",
+                                "event": "personal_best",
+                                "activity": "g",
                                 "score": 5
                             },
                             {
@@ -574,32 +574,32 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "__proto__",
+                    "op": "record",
+                    "activity": "__proto__",
                     "expect": {
                         "throws": "TypeError",
                         "events": []
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "constructor",
+                    "op": "record",
+                    "activity": "constructor",
                     "expect": {
                         "throws": "TypeError",
                         "events": []
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "",
+                    "op": "record",
+                    "activity": "",
                     "expect": {
                         "throws": "TypeError",
                         "events": []
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": null,
                     "expect": {
                         "throws": "TypeError",
@@ -607,8 +607,8 @@
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": [
                         1
                     ],
@@ -634,14 +634,14 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "toString",
+                    "op": "record",
+                    "activity": "toString",
                     "expect": {
                         "playerExact": {
                             "stats": {
                                 "toString": {
-                                    "totalPlays": 1,
-                                    "highScore": 0
+                                    "plays": 1,
+                                    "best": 0
                                 }
                             }
                         },
@@ -667,8 +667,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "score": 20
                     },
@@ -678,8 +678,8 @@
                         },
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "g",
+                                "event": "personal_best",
+                                "activity": "g",
                                 "score": 20
                             },
                             {
@@ -703,8 +703,8 @@
                         "playerExact": {
                             "stats": {
                                 "g": {
-                                    "totalPlays": 1,
-                                    "highScore": 20
+                                    "plays": 1,
+                                    "best": 20
                                 }
                             }
                         },
@@ -721,8 +721,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "result": {
                         "constructor": 4,
                         "kills": 1
@@ -731,8 +731,8 @@
                         "playerExact": {
                             "stats": {
                                 "g": {
-                                    "totalPlays": 1,
-                                    "highScore": 0,
+                                    "plays": 1,
+                                    "best": 0,
                                     "kills": 1
                                 }
                             }

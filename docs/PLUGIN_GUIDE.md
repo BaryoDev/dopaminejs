@@ -1,323 +1,109 @@
-# DopamineJS Plugin Development Guide
+# DopamineJS Plugin Guide
 
-## Overview
+There are three shapes. Pick the smallest one that does the job.
 
-DopamineJS now features a powerful plugin system that allows you to extend or replace core functionality without modifying the source code. This guide will show you how to create your own plugins.
+| Shape | Use it to | Looks like |
+|---|---|---|
+| Subscriber | react to events | `{ name, version, api: 3, install(ctx) }` |
+| Part | replace the ui, particles, sound or haptics | a value or a factory `(env) => part \| null` |
+| Middleware | change or drop XP, a record or an unlock | `progress.use({ beforeXP, ... })` |
 
-## Plugin Architecture
-
-The plugin system is built on three core components:
-
-1. **DopamineKernel** - Central orchestrator that manages all systems
-2. **SystemRegistry** - Manages system lifecycle and dependencies
-3. **PluginRegistry** - Handles plugin loading and initialization
-
-## Creating a Plugin
-
-A plugin is simply an object with a `name` and an `init` function:
+## Subscriber
 
 ```javascript
-export const MyPlugin = {
-    name: 'my-plugin',
-    version: '1.0.0', // optional
-    
-    init(kernel) {
-        // Your plugin initialization code
-        console.log('MyPlugin initialized!');
-    },
-    
-    destroy() {
-        // Optional cleanup code
-    }
-};
-```
+export const myAnalyticsPlugin = {
+    name: 'my-analytics-plugin',
+    version: '1.0.0',
+    api: 3,                    // must equal HOST_API
+    after: ['other-plugin'],   // optional, must be installed earlier
+    requires: ['sound'],       // optional, parts that must not be null
 
-## Plugin Types
-
-### 1. System Replacement Plugins
-
-Replace existing systems (physics, audio, particles) with custom implementations:
-
-```javascript
-import { CustomPhysicsSystem } from './CustomPhysicsSystem.js';
-
-export const MatterPhysicsPlugin = {
-    name: 'matter-physics',
-    
-    init(kernel) {
-        // Unregister default physics
-        kernel.systems.unregister('physics');
-        
-        // Register Matter.js wrapper
-        kernel.systems.register('physics', new CustomPhysicsSystem(), {
-            priority: 60,
+    install(ctx) {
+        const off = ctx.events.on('level_up', ({ newLevel }) => {
+            ctx.parts.sound?.play('level_up');
         });
-    }
-};
-```
-
-### 2. Feature Addition Plugins
-
-Add new functionality without replacing existing systems:
-
-```javascript
-export const DebugOverlayPlugin = {
-    name: 'debug-overlay',
-    
-    init(kernel) {
-        // Listen to events
-        kernel.events.on('tick', ({ dt }) => {
-            // Update debug overlay
-        });
-        
-        // Register new system
-        kernel.systems.register('debug', new DebugSystem());
-    }
-};
-```
-
-### 3. Middleware Plugins
-
-Intercept and modify events:
-
-```javascript
-export const LoggingPlugin = {
-    name: 'event-logger',
-    
-    init(kernel) {
-        // Log all events
-        const originalEmit = kernel.events.emit.bind(kernel.events);
-        kernel.events.emit = (event, data) => {
-            console.log(`[Event] ${event}`, data);
-            originalEmit(event, data);
-        };
-    }
-};
-```
-
-## System Interface Contracts
-
-When creating custom systems, implement the appropriate interface:
-
-### ISystem (Base Interface)
-
-```javascript
-class MySystem {
-    init(kernel) {
-        // Called when registered
-        this.kernel = kernel;
-    }
-    
-    update(dt) {
-        // Called each frame (variable timestep)
-    }
-    
-    fixedUpdate(dt) {
-        // Called at fixed timestep (for physics)
-    }
-    
-    destroy() {
-        // Called when unregistered
-    }
-}
-```
-
-### IPhysicsSystem
-
-```javascript
-class MyPhysicsSystem {
-    // ... ISystem methods ...
-    
-    addBody(body) {}
-    removeBody(body) {}
-    checkCollision(a, b) {}
-    raycast(origin, direction, distance) {}
-    setGravity(x, y) {}
-    step(dt) {}
-}
-```
-
-### IAudioSystem
-
-```javascript
-class MyAudioSystem {
-    // ... ISystem methods ...
-    
-    registerSound(key, url) {}
-    preloadSounds(soundMap) {}
-    play(key, options) {}
-    playTone(frequency, duration, type, volume) {}
-    stop(key) {}
-    toggleMute() {}
-    setVolume(volume) {}
-}
-```
-
-## Using Plugins
-
-### Synchronous Loading
-
-```javascript
-import { Game } from 'dopaminejs';
-import { MyPlugin } from './plugins/MyPlugin.js';
-
-const game = new Game();
-game.kernel.plugins.use(MyPlugin);
-game.start();
-```
-
-### Asynchronous Loading
-
-For plugins that need to load external resources:
-
-```javascript
-const HeavyPlugin = {
-    name: 'heavy-plugin',
-    
-    async init(kernel) {
-        // Load external library
-        const Matter = await import('matter-js');
-        
-        // Initialize with loaded library
-        kernel.systems.register('physics', new MatterPhysicsSystem(Matter));
+        return () => off();    // the disposer
     }
 };
 
-await game.kernel.plugins.useAsync(HeavyPlugin);
+createDopamine({ plugins: [myAnalyticsPlugin] });
 ```
 
-### Chaining Plugins
+`install` may be async. It returns a disposer, or nothing.
+
+| `ctx` field | Use |
+|---|---|
+| `progress` | The progress object (`RewardSystem` by default) |
+| `parts` | Live getters for `ui`, `particles`, `sound`, `haptics`. Read them when you need them, never keep them. |
+| `events` | `on`, `off`, and `emit` for names that start with `<plugin name>:` |
+| `storage` | Key value storage namespaced as `dopamine_plugin_<plugin name>:` |
+| `clock` | The clock the host uses |
+| `log` | `debug`, `info`, `warn`, `error` |
+| `env` | `hasDom`, `reducedMotion` |
+| `plugin(name)` | What another plugin passed to `expose`, or null |
+| `expose(handle)` | Share an object with other plugins |
+
+Core events: `xp_gained`, `level_up`, `achievement_unlocked`, `personal_best`,
+`streak_updated`, `save_failed`, `load_failed`. Plugin events are `<plugin>:<event>`.
+
+## Part
+
+A part is a value, a factory, or `false` for none. A factory that returns `null` means use
+the default, which is how a part says it cannot run here.
 
 ```javascript
-game.kernel.plugins
-    .use(DebugOverlayPlugin)
-    .use(CustomPhysicsPlugin)
-    .use(MyCustomPlugin);
+createDopamine({
+    sound: false,
+    particles: (env) => (env.reducedMotion ? null : new MyParticles())
+});
 ```
 
-## Accessing Systems from Plugins
+The first-party parts are `webglParticles()` and `howlerSound()`. A part owns its own
+loop and timers and removes them in `destroy()`.
+
+## Middleware
 
 ```javascript
-export const MyPlugin = {
-    name: 'my-plugin',
-    
-    init(kernel) {
-        // Access existing systems
-        const physics = kernel.systems.get('physics');
-        const renderer = kernel.systems.get('renderer');
-        
-        // Or use shorthand accessors
-        const input = kernel.input;
-        const loader = kernel.loader;
-    }
-};
+const remove = dopamine.progress.use({
+    beforeXP: ({ amount }) => ({ amount: Math.min(amount, 100) })
+});
 ```
 
-## Event System
+Hooks are `beforeXP`, `afterXP`, `beforeRecord`, `afterRecord`, `beforeUnlock` and
+`afterUnlock`. A before hook can return a patch, or `false` to drop the action. Hooks run
+in the order they were added. `use` returns a remover.
 
-Plugins can listen to and emit events:
+## Order and errors
+
+Plugins install in array order and dispose in reverse. `createDopamine` throws a
+`DopamineError` before calling `install` when:
+
+- `plugin_api`: the plugin was built for another api number. The message names both.
+- `plugin_order`: `after` names a plugin not installed yet.
+- `plugin_requires`: a required part is null.
+- `plugin_duplicate`: the name is already installed.
+- `plugin_invalid`: the plugin has no install function, or its name is not made of `a-z`, `0-9` and `-`.
+
+If an install that returns a promise rejects, the plugins installed before it are disposed, last
+first, and `ready` rejects.
+
+Listeners added through `ctx.events.on` are removed when the plugin is disposed, even if
+the disposer forgets them. A listener that throws does not stop the others.
+
+## Installing later
 
 ```javascript
-export const MyPlugin = {
-    name: 'my-plugin',
-    
-    init(kernel) {
-        // Listen to events
-        kernel.events.on('tick', ({ dt }) => {
-            // Called every frame
-        });
-        
-        kernel.events.on('collision_enter', ({ a, b }) => {
-            // Called once when two colliders start to overlap.
-            // a and b are the colliders; a.gameObject is the object.
-        });
-        
-        // Emit custom events
-        kernel.events.emit('my_custom_event', { foo: 'bar' });
-    }
-};
+const dopamine = createDopamine();
+const remove = dopamine.use(myAnalyticsPlugin);   // returns a disposer
+await dopamine.ready;                             // waits for async installs
 ```
 
-### Standard Events
+`dopamine.dispose()` disposes every plugin in reverse order, then the parts.
 
-- `tick` - Every frame (variable timestep)
-- `fixed_update` - Fixed timestep (for physics)
-- `render` - Render phase
-- `collision_enter` - Two colliders started to overlap. Payload `{ a, b }`, the two colliders
-- `collision_exit` - They stopped overlapping, or one was removed. Same payload
-- `xp_gained` - Dopamine reward system
-- `level_up` - Dopamine reward system
-- `achievement_unlocked` - Dopamine reward system
+## Testing
 
-## Example Plugins
+`dopaminejs/testing` has `createTestHost()` and the `conformance` suites. Run
+`conformance.plugin(make)` on a plugin and `conformance.particles|sound|ui|storage(make)`
+on a part. They check that nothing is left behind after dispose.
 
-### Debug Overlay
-
-```javascript
-import { DebugOverlayPlugin } from 'dopaminejs/plugins';
-
-game.kernel.plugins.use(DebugOverlayPlugin);
-```
-
-Shows FPS, frame time, and system count in the top-right corner.
-
-### Custom Physics
-
-```javascript
-import { CustomPhysicsPlugin } from 'dopaminejs/plugins';
-
-game.kernel.plugins.use(CustomPhysicsPlugin);
-```
-
-Replaces default physics with a custom implementation.
-
-## Best Practices
-
-1. **Name your plugins uniquely** - Use reverse domain notation: `com.yourcompany.plugin-name`
-2. **Version your plugins** - Include a version string for compatibility tracking
-3. **Clean up resources** - Implement `destroy()` to remove event listeners and DOM elements. `plugins.remove(name)` calls it, then unregisters the systems the plugin registered during `init()`
-4. **Document dependencies** - Clearly state which systems your plugin requires
-5. **Handle errors gracefully** - Wrap initialization in try-catch blocks
-6. **Use priority wisely** - Higher priority systems run first (default: 0)
-
-## Publishing Plugins
-
-To publish your plugin for others to use:
-
-1. Create a separate npm package: `dopaminejs-plugin-yourname`
-2. Export your plugin as the default export
-3. Document usage in README.md
-4. Tag with `dopaminejs-plugin` keyword
-
-```json
-{
-  "name": "dopaminejs-plugin-matter",
-  "keywords": ["dopaminejs-plugin", "physics", "matter-js"]
-}
-```
-
-## Migration from Global Singletons
-
-If you're upgrading from DopamineJS < 2.0:
-
-```javascript
-// Old (deprecated)
-import { GlobalPhysics } from 'dopaminejs';
-GlobalPhysics.add(collider);
-
-// New (recommended)
-class MyComponent extends Component {
-    onAttach() {
-        // Access through kernel
-        this.physics.add(this.collider);
-    }
-}
-```
-
-Global singletons (`GlobalPhysics`, `GlobalInput`, `GlobalLoader`) are still available but deprecated. Each warns once on first use. Removing them needs a major version.
-
-## Further Reading
-
-- [System Interfaces Reference](./INTERFACES.md)
-- [Event System Guide](./EVENTS.md)
-- [Example Plugins](../src/plugins/)
+See `examples/plugins/ToastPlugin.js`.

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { RewardSystem } from '../src/dopamine/core/RewardSystem.js';
 import { DataService } from '../src/dopamine/core/DataService.js';
+import { createMemoryStorage } from '../src/dopamine/utils/storage.js';
 
 describe('RewardSystem', () => {
     let rewardSystem;
@@ -24,9 +25,10 @@ describe('RewardSystem', () => {
     });
 
     it('should initialize with default player data', () => {
-        expect(rewardSystem.player).toBeDefined();
-        expect(rewardSystem.player.level).toBe(1);
-        expect(rewardSystem.player.xp).toBe(0);
+        const player = rewardSystem.snapshot();
+        expect(player.level).toBe(1);
+        expect(player.xp).toBe(0);
+        expect(rewardSystem.player).toBeUndefined();
     });
 
     it('should add XP and level up', async () => {
@@ -42,14 +44,14 @@ describe('RewardSystem', () => {
         expect(result.xpGained).toBe(100);
         expect(result.leveledUp).toBe(true);
         expect(result.newLevel).toBe(2);
-        expect(rewardSystem.player.level).toBe(2);
+        expect(rewardSystem.snapshot().level).toBe(2);
     });
 
     it('should not level up before reaching the advertised threshold', async () => {
         // The curve is XP = 50 * L * (L - 1), so level 2 starts at exactly 100 XP.
         await rewardSystem.addXP(99);
 
-        expect(rewardSystem.player.level).toBe(1);
+        expect(rewardSystem.snapshot().level).toBe(1);
     });
 
     it('should place every level boundary on the advertised threshold', async () => {
@@ -57,10 +59,10 @@ describe('RewardSystem', () => {
         const cases = [[0, 1], [99, 1], [100, 2], [299, 2], [300, 3], [599, 3], [600, 4]];
 
         for (const [xp, expected] of cases) {
-            rewardSystem.player.xp = 0;
-            rewardSystem.player.level = 1;
-            await rewardSystem.addXP(xp);
-            expect(rewardSystem.player.level, `${xp} XP should be level ${expected}`).toBe(expected);
+            const system = new RewardSystem(mockDataService);
+            await system.init();
+            await system.addXP(xp);
+            expect(system.snapshot().level, `${xp} XP should be level ${expected}`).toBe(expected);
         }
     });
 
@@ -89,25 +91,28 @@ describe('RewardSystem', () => {
         expect(needed).toBe(250);
     });
 
-    it('should write to storage once per recordGame, not once per mutation', async () => {
-        // recordGame internally calls addXP, unlockAchievement (twice each) and
+    it('should write to storage once per record, not once per mutation', async () => {
+        // record internally calls addXP, unlockAchievement (twice each) and
         // a final save. Every one of those was a separate localStorage write
         // and a full JSON serialization of the player object.
         mockDataService.save.mockClear();
 
-        await rewardSystem.recordGame('test_game', { score: 10 });
+        await rewardSystem.record('test_game', { score: 10 });
 
         expect(mockDataService.save).toHaveBeenCalledTimes(1);
     });
 
     it('should still persist everything the batched writes accumulated', async () => {
-        await rewardSystem.recordGame('test_game', { score: 40 });
+        await rewardSystem.record('test_game', { score: 40 });
 
         const [, persisted] = mockDataService.save.mock.calls.at(-1);
-        expect(persisted.totalGamesPlayed).toBe(1);
-        expect(persisted.stats.test_game.highScore).toBe(40);
+        const sum = (map) => Object.values(map).reduce((a, b) => a + b, 0);
+        expect(persisted.v).toBe(3);
+        expect(sum(persisted.gamesBy)).toBe(1);
+        expect(sum(persisted.playsBy.test_game)).toBe(1);
+        expect(persisted.best.test_game).toBe(40);
         expect(persisted.achievements.first_game).toBeDefined();
-        expect(persisted.xp).toBe(rewardSystem.player.xp);
+        expect(sum(persisted.xpBy) + sum(Object.values(persisted.achievements).map((a) => a.reward))).toBe(rewardSystem.snapshot().xp);
     });
 
     it('should still save when a mutation happens outside a batch', async () => {
@@ -130,46 +135,21 @@ describe('RewardSystem', () => {
         }));
     });
 
-    it('should run in a non-UTC zone so the date tests below mean something', () => {
-        // On UTC the local-vs-UTC distinction is unobservable and the two
-        // tests that follow would pass against the old toISOString() code.
-        // scripts/run-tests.js pins the zone; `npm run test:ci` uses it.
-        expect(
-            new Date().getTimezoneOffset(),
-            'Run via `npm run test:ci`, which pins TZ. A bare vitest run on a UTC machine cannot detect timezone regressions.'
-        ).not.toBe(0);
-    });
-
-    it('should use the local calendar day, not the UTC day', () => {
-        // 20:00 UTC on Aug 6 is already Aug 7 in Asia/Manila (UTC+8).
-        vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-08-06T20:00:00Z'));
-
-        try {
-            expect(rewardSystem._getTodayDateString()).toBe('2026-08-07');
-            expect(rewardSystem._getYesterdayDateString()).toBe('2026-08-06');
-        } finally {
-            vi.useRealTimers();
-        }
-    });
-
     it('should continue a streak across a local-day boundary', async () => {
-        vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-08-06T20:00:00Z')); // Aug 7 local
+        let ms = Date.parse('2026-08-06T12:00:00Z');
+        const clock = {
+            now: () => ms,
+            localDate: (at = ms) => new Date(at).toISOString().slice(0, 10)
+        };
+        const system = new RewardSystem(mockDataService, { clock });
+        await system.init();
 
-        try {
-            rewardSystem.player.streak = {
-                current: 4,
-                longest: 4,
-                lastPlayDate: '2026-08-06' // local yesterday
-            };
-            rewardSystem._updateDailyStreak();
+        await system.record('test_game', { score: 1 });
+        ms += 24 * 60 * 60 * 1000;
+        await system.record('test_game', { score: 1 });
 
-            expect(rewardSystem.player.streak.current).toBe(5);
-            expect(rewardSystem.player.streak.lastPlayDate).toBe('2026-08-07');
-        } finally {
-            vi.useRealTimers();
-        }
+        expect(system.snapshot().streak.current).toBe(2);
+        expect(system.snapshot().streak.lastPlayDate).toBe('2026-08-07');
     });
 
     it('should backfill missing fields when loading an older save', async () => {
@@ -179,12 +159,12 @@ describe('RewardSystem', () => {
         const system = new RewardSystem(mockDataService);
         await system.init();
 
-        expect(system.player.name).toBe('Ana');
-        expect(system.player.xp).toBe(250);
-        expect(system.player.streak).toBeDefined();
-        expect(system.player.streak.current).toBeGreaterThanOrEqual(1);
-        expect(system.player.achievements).toEqual({});
-        expect(system.player.stats).toEqual({});
+        const player = system.snapshot();
+        expect(player.name).toBe('Ana');
+        expect(player.xp).toBe(250);
+        expect(player.streak.current).toBe(0);
+        expect(player.achievements).toEqual({});
+        expect(player.stats).toEqual({});
     });
 
     it('should reject non-finite XP instead of corrupting the save', async () => {
@@ -193,7 +173,7 @@ describe('RewardSystem', () => {
         await expect(rewardSystem.addXP(undefined)).rejects.toThrow(/finite number/i);
         await expect(rewardSystem.addXP(NaN)).rejects.toThrow(/finite number/i);
 
-        expect(rewardSystem.player.xp).toBe(50);
+        expect(rewardSystem.snapshot().xp).toBe(50);
     });
 
     it('should award 0 XP for an achievement that omits xp', async () => {
@@ -206,8 +186,8 @@ describe('RewardSystem', () => {
 
         await system.unlockAchievement('no_xp');
 
-        expect(system.player.xp).toBe(0);
-        expect(system.player.achievements.no_xp).toBeDefined();
+        expect(system.snapshot().xp).toBe(0);
+        expect(system.snapshot().achievements.no_xp).toBeDefined();
     });
 
     it('should keep checking achievements after one throws', async () => {
@@ -224,8 +204,8 @@ describe('RewardSystem', () => {
         expect(errorSpy).toHaveBeenCalled();
         errorSpy.mockRestore();
 
-        expect(system.player.achievements.fine).toBeDefined();
-        expect(system.player.achievements.explodes).toBeUndefined();
+        expect(system.snapshot().achievements.fine).toBeDefined();
+        expect(system.snapshot().achievements.explodes).toBeUndefined();
     });
 
     it('should unlock achievements', async () => {
@@ -233,10 +213,125 @@ describe('RewardSystem', () => {
         rewardSystem.on('achievement_unlocked', achievementSpy);
 
         // 'first_game' achievement requires 1 game played
-        await rewardSystem.recordGame('test_game', { score: 10 });
+        await rewardSystem.record('test_game', { score: 10 });
 
-        expect(rewardSystem.player.totalGamesPlayed).toBe(1);
-        expect(rewardSystem.player.achievements['first_game']).toBeDefined();
+        expect(rewardSystem.snapshot().totalGamesPlayed).toBe(1);
+        expect(rewardSystem.snapshot().achievements['first_game']).toBeDefined();
         expect(achievementSpy).toHaveBeenCalled();
+    });
+
+    it('should emit personal_best with the activity and score', async () => {
+        const spy = vi.fn();
+        rewardSystem.on('personal_best', spy);
+        rewardSystem.on('new_high_score', spy);
+
+        await rewardSystem.record('test_game', { score: 40 });
+        await rewardSystem.record('test_game', { score: 10 });
+
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy).toHaveBeenCalledWith({ activity: 'test_game', score: 40 });
+    });
+
+    it('should keep plays and best in the stats', async () => {
+        await rewardSystem.record('test_game', { score: 40 });
+        await rewardSystem.record('test_game', { score: 10 });
+
+        const stats = rewardSystem.snapshot().stats.test_game;
+        expect(stats.plays).toBe(2);
+        expect(stats.best).toBe(40);
+        expect(stats.totalPlays).toBeUndefined();
+        expect(stats.highScore).toBeUndefined();
+    });
+
+    it('should not have recordGame any more', () => {
+        expect(rewardSystem.recordGame).toBeUndefined();
+    });
+
+    it('should hand out a frozen snapshot that is detached from the player', async () => {
+        await rewardSystem.record('test_game', { score: 40 });
+        const first = rewardSystem.snapshot();
+
+        expect(Object.isFrozen(first)).toBe(true);
+        expect(Object.isFrozen(first.stats.test_game)).toBe(true);
+        expect(() => { 'use strict'; first.xp = 99999; }).toThrow(TypeError);
+
+        await rewardSystem.addXP(5);
+        expect(first.xp).not.toBe(rewardSystem.snapshot().xp);
+        expect(rewardSystem.snapshot()).not.toBe(first);
+    });
+
+    it('should freeze event payloads', async () => {
+        const seen = [];
+        rewardSystem.on('xp_gained', (payload) => seen.push(payload));
+        rewardSystem.on('achievement_unlocked', (payload) => seen.push(payload));
+
+        await rewardSystem.record('test_game', { score: 40 });
+
+        expect(seen.length).toBeGreaterThan(1);
+        for (const payload of seen) expect(Object.isFrozen(payload)).toBe(true);
+    });
+
+    it('should give a check function the frozen snapshot', async () => {
+        let received;
+        const system = new RewardSystem(mockDataService, {
+            achievements: {
+                probe: { name: 'Probe', xp: 0, check: (player) => { received = player; return false; } }
+            }
+        });
+        await system.init();
+
+        await system.record('test_game', { score: 1 });
+
+        expect(Object.isFrozen(received)).toBe(true);
+        expect(received.totalGamesPlayed).toBe(1);
+    });
+});
+
+describe('RewardSystem streakDays', () => {
+    const build = async (config = {}) => {
+        const clock = { now: () => 1_000, localDate: () => '2031-03-04' };
+        const system = new RewardSystem(
+            new DataService({ storage: createMemoryStorage() }),
+            { clock, ...config }
+        );
+        await system.init();
+        return system;
+    };
+
+    it('marks the day on addXP by default', async () => {
+        const system = await build();
+        expect(system.snapshot().streak.current).toBe(0);
+
+        await system.addXP(5);
+
+        expect(system.snapshot().streak.current).toBe(1);
+        expect(system.snapshot().streak.lastPlayDate).toBe('2031-03-04');
+    });
+
+    it('does not mark the day on addXP when streakDays is record', async () => {
+        const system = await build({ streakDays: 'record' });
+
+        await system.addXP(5);
+        expect(system.snapshot().streak.current).toBe(0);
+
+        await system.record('g', { score: 1 });
+        expect(system.snapshot().streak.current).toBe(1);
+    });
+
+    it('never marks the day for achievement reward XP', async () => {
+        const system = await build({
+            achievements: { gift: { name: 'Gift', xp: 40, check: () => false } }
+        });
+
+        await system.unlockAchievement('gift');
+
+        expect(system.snapshot().xp).toBe(40);
+        expect(system.snapshot().streak.current).toBe(0);
+    });
+
+    it('falls back to any for an unknown value', async () => {
+        const system = await build({ streakDays: 'nope' });
+        await system.addXP(1);
+        expect(system.snapshot().streak.current).toBe(1);
     });
 });

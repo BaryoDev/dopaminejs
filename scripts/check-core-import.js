@@ -43,10 +43,10 @@ const check = (condition, message) => {
     if (!condition) failures.push(message);
 };
 
-const EXPECTED = ['DataService', 'EventEmitter', 'RewardSystem', 'createMemoryStorage', 'resolveStorage'];
+const EXPECTED = ['DataService', 'DopamineError', 'EventEmitter', 'RewardSystem', 'createMemoryStorage', 'merge', 'resolveStorage', 'validate'];
 
 async function roundTrip(label, mod, makeStorage) {
-    const { RewardSystem, DataService, EventEmitter, createMemoryStorage } = mod;
+    const { RewardSystem, DataService, EventEmitter, createMemoryStorage, merge, validate } = mod;
 
     for (const name of EXPECTED) {
         check(typeof mod[name] === 'function', `${label}: ${name} missing`);
@@ -65,18 +65,22 @@ async function roundTrip(label, mod, makeStorage) {
     rewards.on('xp_gained', (event) => seen.push(event));
 
     await rewards.init();
-    await rewards.recordGame('check', { score: 100, won: true });
+    await rewards.record('check', { score: 100, won: true });
 
-    check(rewards.player.xp > 0, `${label}: recordGame awarded no XP`);
+    check(rewards.snapshot().xp > 0, `${label}: record awarded no XP`);
     check(seen.length > 0, `${label}: xp_gained never fired`);
+
+    const doc = rewards.export();
+    check(merge(doc, doc).xpBy !== undefined, `${label}: merge returned no document`);
+    check(validate(doc).v === 3, `${label}: validate did not return a v3 document`);
 
     // A fresh instance over the same storage must see the saved player.
     check(typeof await data.storage.getItem('dopamine_player') === 'string', `${label}: nothing was saved to the store`);
     const again = new RewardSystem(data);
     await again.init();
-    check(again.player.xp === rewards.player.xp, `${label}: saved XP did not survive a reload`);
+    check(again.snapshot().xp === rewards.snapshot().xp, `${label}: saved XP did not survive a reload`);
 
-    return rewards.player.xp;
+    return rewards.snapshot().xp;
 }
 
 const asPromises = (createMemoryStorage) => {
@@ -121,4 +125,4 @@ if (failures.length > 0) {
     process.exit(1);
 }
 
-console.log('dopaminejs/core import check passed: ESM and CJS builds ran init and recordGame with no browser globals.');
+console.log('dopaminejs/core import check passed: ESM and CJS builds ran init, record, merge and validate with no browser globals.');

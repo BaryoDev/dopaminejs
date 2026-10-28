@@ -183,4 +183,31 @@ describe('ParticleSystem', () => {
             window.matchMedia = original;
         }
     });
+
+    it('burst with an unknown kind is a no-op', () => {
+        particleSystem = new ParticleSystem({ respectReducedMotion: false });
+        particleSystem.burst('nope', { x: 1, y: 1 });
+        particleSystem.burst(undefined);
+        particleSystem.burst('constructor');
+        expect(particleSystem.particles.length).toBe(0);
+    });
+
+    it('burst covers every kind', () => {
+        particleSystem = new ParticleSystem({ respectReducedMotion: false });
+        for (const kind of ['confetti', 'sparkle', 'fire', 'stars', 'coins']) {
+            particleSystem.clear();
+            particleSystem.burst(kind, { x: 10, y: 10 }, { count: 3 });
+            expect(particleSystem.particles.length, kind).toBeGreaterThan(0);
+        }
+    });
+
+    it('play accepts a position object', () => {
+        particleSystem = new ParticleSystem({ respectReducedMotion: false });
+        const effect = vi.fn();
+        particleSystem.registerEffect('pop', effect);
+        particleSystem.play('pop', { x: 5, y: 6 });
+        particleSystem.play('pop', 7, 8, 'extra');
+        expect(effect).toHaveBeenNthCalledWith(1, 5, 6);
+        expect(effect).toHaveBeenNthCalledWith(2, 7, 8, 'extra');
+    });
 });

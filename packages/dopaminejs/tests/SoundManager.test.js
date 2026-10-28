@@ -97,14 +97,32 @@ describe('SoundManager', () => {
         expect(playBufferSpy).toHaveBeenCalled();
     });
 
-    it('should fallback to synth if custom sound not found', async () => {
+    it('should play a registered synth when no asset exists, and stop after the remover', async () => {
+        soundManager.initAudio();
+        const synth = vi.fn((sound) => sound.playTone(400, 0.1));
+        const remove = soundManager.register('jump', synth);
+
+        await soundManager.play('jump');
+        expect(synth).toHaveBeenCalledTimes(1);
+
+        remove();
+        await soundManager.play('jump');
+        expect(synth).toHaveBeenCalledTimes(1);
+    });
+
+    it('should play each preset key and ignore unknown keys', async () => {
         soundManager.initAudio();
         const playToneSpy = vi.spyOn(soundManager, 'playTone');
 
-        // 'jump' is not in assets, so it should fallback to playJump() -> playTone()
-        await soundManager.play('jump');
+        await soundManager.play('no_such_key');
+        expect(playToneSpy).not.toHaveBeenCalled();
 
-        expect(playToneSpy).toHaveBeenCalled();
+        for (const key of ['xp', 'level_up', 'achievement', 'personal_best', 'click', 'error']) {
+            playToneSpy.mockClear();
+            await soundManager.play(key);
+            expect(playToneSpy, key).toHaveBeenCalled();
+        }
+        expect(soundManager.playSuccess).toBeUndefined();
     });
 
     it('should attempt to load and play if registered but not loaded', async () => {

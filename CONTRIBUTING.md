@@ -110,7 +110,7 @@ test: add tests for system registry
 - Core architecture enhancements
 
 #### Plugins (MIT)
-- New plugins (audio, physics, visual effects)
+- New plugins and parts (audio, visual effects)
 - Plugin improvements
 - Sound pack additions
 
@@ -162,7 +162,7 @@ By contributing to `packages/dopaminejs-themes` or any `packages/plugin-*`, you 
 
 ## 🎨 Creating Plugins
 
-See [Plugin Development Guide](./PLUGIN_GUIDE.md) for detailed instructions.
+See [Plugin Development Guide](./docs/PLUGIN_GUIDE.md) for detailed instructions.
 
 ### Quick Start
 
@@ -170,13 +170,13 @@ See [Plugin Development Guide](./PLUGIN_GUIDE.md) for detailed instructions.
 export const MyPlugin = {
     name: 'my-plugin',
     version: '1.0.0',
-    
-    init(kernel) {
+    api: 3,
+
+    install(ctx) {
         // Your plugin logic
-    },
-    
-    destroy() {
-        // Cleanup
+        return () => {
+            // Cleanup
+        };
     }
 };
 ```

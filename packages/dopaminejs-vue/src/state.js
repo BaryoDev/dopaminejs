@@ -8,11 +8,12 @@
 export function buildState(rewards) {
     // Before init() has loaded a player the reward system has nothing to
     // report, and its getters throw.
-    if (!rewards.player) {
+    let player;
+    try {
+        player = rewards.snapshot();
+    } catch {
         return { player: {}, level: 1, xp: 0, progress: 0, achievements: [] };
     }
-
-    const { player } = rewards;
 
     // getXPForNextLevel() returns { total, needed, progress }, where progress
     // is the position within the current level, 0 to 1, already clamped.

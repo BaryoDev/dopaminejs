@@ -1,3 +1,4 @@
 SoundPacks: object
 getSoundPack: function(1)
 listSoundPacks: function(0)
+soundPack: function(0)

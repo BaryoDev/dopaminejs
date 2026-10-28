@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs-monorepo",
-    "version": "2.5.0",
+    "version": "3.0.0",
     "private": true,
     "type": "module",
     "description": "DopamineJS monorepo - Game Feel Engine for the web",
@@ -16,7 +16,8 @@
         "clean": "rm -rf packages/*/dist packages/*/node_modules",
         "typecheck": "tsc -p packages/dopaminejs/tsconfig.json",
         "size": "size-limit",
-        "check-zero-deps": "node scripts/check-zero-deps.js"
+        "check-zero-deps": "node scripts/check-zero-deps.js",
+        "verify": "npm run typecheck && npm run test:ci && DOPAMINE_TEST_TZ=America/Los_Angeles npm run test:ci -- conformance && node scripts/check-versions.js && npm run check-zero-deps && npm run build && node scripts/check-versions.js --dist && node scripts/check-core-import.js && npm run size"
     },
     "repository": {
         "type": "git",
@@ -50,25 +51,20 @@
         },
         {
             "path": "packages/dopaminejs/dist/dopamine.cjs",
-            "limit": "15.5 KB",
+            "limit": "15 KB",
             "name": "dopaminejs (CJS)"
-        },
-        {
-            "path": "packages/dopaminejs/dist/engine.js",
-            "import": "*",
-            "limit": "6.5 KB",
-            "name": "dopaminejs/engine (ESM)"
-        },
-        {
-            "path": "packages/dopaminejs/dist/engine.cjs",
-            "limit": "6.5 KB",
-            "name": "dopaminejs/engine (CJS)"
         },
         {
             "path": "packages/dopaminejs/dist/core.js",
             "import": "*",
-            "limit": "3.1 KB",
+            "limit": "6 KB",
             "name": "dopaminejs/core (ESM)"
+        },
+        {
+            "path": "packages/dopaminejs/dist/games.js",
+            "import": "*",
+            "limit": "1.5 KB",
+            "name": "dopaminejs/games (ESM)"
         }
     ],
     "engines": {

@@ -58,7 +58,7 @@
         <button onclick="testLevelUp()">Force Level Up</button>
         <button onclick="testConfetti()">Confetti Explosion</button>
         <button onclick="testCoins()">Coin Shower</button>
-        <button onclick="testSound()">Play Success Sound</button>
+        <button onclick="testSound()">Play Achievement Sound</button>
         <button onclick="testNotification()">Show Notification</button>
     </div>
 
@@ -70,55 +70,50 @@
     </div>
 
     <script type="module">
-        import Dopamine from './src/index.js';
+        import { createDopamine, RewardUI } from './src/index.js';
 
-        const app = new Dopamine({
-            rewards: {
-                achievements: {
-                    'demo_clicker': {
-                        name: 'Demo Clicker',
-                        description: 'Clicked the XP button 5 times',
-                        icon: '🖱️',
-                        xp: 50,
-                        check: (player) => player.stats['demo_clicks'] >= 5
-                    }
-                }
-            }
+        const app = createDopamine({ ui: (env) => new RewardUI(env.parts, { injectCss: true }) });
+        await app.ready;
+        const { progress, parts } = app;
+
+        progress.defineAchievement('demo_clicker', {
+            name: 'Demo Clicker',
+            description: 'Clicked the XP button 5 times',
+            icon: 'click',
+            xp: 50,
+            check: (player) => player.stats['demo_clicks'] >= 5
         });
-        
-        const { rewardSystem, particleSystem, soundManager, gameUI } = await app.init();
 
-        // Expose for buttons
+        const middle = () => ({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+
         window.testXP = async () => {
-            // Simulate a game "demo"
-            await rewardSystem.recordGame('demo', { score: 100, demo_clicks: 1 });
-            soundManager.playClick();
+            await progress.record('demo', { score: 100, demo_clicks: 1 });
+            parts.sound?.play('click');
         };
 
         window.testLevelUp = () => {
-            // Manually trigger for demo purposes
-            const { level } = rewardSystem.player;
-            gameUI.showLevelUp(level, level + 1);
-            soundManager.playSuccess();
+            const { level } = progress.snapshot();
+            parts.ui?.popup({ kind: 'level', body: String(level + 1) });
+            parts.sound?.play('level_up');
         };
 
         window.testConfetti = () => {
-            particleSystem.confetti(window.innerWidth / 2, window.innerHeight / 2);
-            soundManager.playScore();
+            parts.particles?.burst('confetti', middle());
+            parts.sound?.play('xp');
         };
 
         window.testCoins = () => {
-            particleSystem.coinShower(window.innerWidth / 2, window.innerHeight / 2);
-            soundManager.playScore();
+            parts.particles?.burst('coins', middle());
+            parts.sound?.play('xp');
         };
 
         window.testSound = () => {
-            soundManager.playSuccess();
+            parts.sound?.play('achievement');
         };
 
         window.testNotification = () => {
-            gameUI.showNotification('Awesome!', 'legendary');
-            soundManager.playJump();
+            parts.ui?.popup({ kind: 'notice', title: 'Awesome!', tier: 'legendary' });
+            parts.sound?.play('click');
         };
     </script>
 </body>

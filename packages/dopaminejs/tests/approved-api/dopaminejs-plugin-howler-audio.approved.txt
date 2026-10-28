@@ -1,1 +1,1 @@
-HowlerAudioPlugin: object
+howlerSound: function(1)

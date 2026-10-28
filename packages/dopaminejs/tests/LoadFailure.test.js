@@ -12,7 +12,7 @@ const flakyStorage = ({ failures = 1, async = false } = {}) => {
     const getItem = storage.getItem.bind(storage);
     let left = failures;
     storage.getItem = (key) => {
-        if (left > 0) {
+        if (key === KEY && left > 0) {
             left--;
             if (async) return Promise.reject(new Error('offline'));
             throw new Error('offline');
@@ -39,14 +39,14 @@ describe('RewardSystem when the saved player cannot be read', () => {
 
             await rewards.init();
             await rewards.addXP(10);
-            await rewards.recordGame('quiz', { score: 5 });
+            await rewards.record('quiz', { score: 5 });
 
             expect(JSON.parse(await storage.getItem(KEY))).toEqual(saved());
             expect(failed).toHaveBeenCalledTimes(1);
             expect(failed.mock.calls[0][0]).toMatchObject({ key: 'player', reason: 'read' });
             expect(failed.mock.calls[0][0].error).toBeInstanceOf(Error);
-            expect(rewards.player.xp).toBeGreaterThan(10);
-            expect(rewards.player.totalGamesPlayed).toBe(1);
+            expect(rewards.snapshot().xp).toBeGreaterThan(10);
+            expect(rewards.snapshot().totalGamesPlayed).toBe(1);
             expect(rewards.loadFailed).toBe(true);
         });
     }
@@ -69,14 +69,14 @@ describe('RewardSystem when the saved player cannot be read', () => {
         const rewards = new RewardSystem(new DataService({ storage }));
 
         await rewards.init();
-        expect(rewards.player.xp).toBe(0);
+        expect(rewards.snapshot().xp).toBe(0);
         expect(rewards.loadFailed).toBe(true);
 
         await rewards.init();
-        expect(rewards.player.xp).toBe(5000);
+        expect(rewards.snapshot().xp).toBe(5000);
         expect(rewards.loadFailed).toBe(false);
         await rewards.addXP(10);
-        expect(JSON.parse(storage.getItem(KEY)).xp).toBe(5010);
+        expect(Object.values(JSON.parse(storage.getItem(KEY)).xpBy).reduce((a, b) => a + b, 0)).toBe(5010);
     });
 
     it('should still create and save a new player when nothing is saved', async () => {
@@ -88,7 +88,7 @@ describe('RewardSystem when the saved player cannot be read', () => {
         await rewards.init();
 
         expect(failed).not.toHaveBeenCalled();
-        expect(JSON.parse(storage.getItem(KEY)).xp).toBe(0);
+        expect(JSON.parse(storage.getItem(KEY)).v).toBe(3);
     });
 
     it('should keep corrupt data under player_corrupt and start a new player', async () => {
@@ -103,7 +103,7 @@ describe('RewardSystem when the saved player cannot be read', () => {
         expect(failed).toHaveBeenCalledWith({ key: 'player', reason: 'corrupt', backedUp: true });
         expect(JSON.parse(storage.getItem('dopamine_player_corrupt'))).toBe('{not json');
         expect(rewards.loadFailed).toBe(false);
-        expect(JSON.parse(storage.getItem(KEY)).xp).toBe(0);
+        expect(JSON.parse(storage.getItem(KEY)).v).toBe(3);
     });
 
     it('should still work with a data service whose load() ignores the option', async () => {
@@ -116,7 +116,7 @@ describe('RewardSystem when the saved player cannot be read', () => {
 
         await rewards.init();
 
-        expect(rewards.player.xp).toBe(5000);
+        expect(rewards.snapshot().xp).toBe(5000);
     });
     it('should not write while a retry is still reading', async () => {
         const storage = flakyStorage();
@@ -134,7 +134,7 @@ describe('RewardSystem when the saved player cannot be read', () => {
 
         release();
         await retry;
-        expect(rewards.player.xp).toBe(5000);
+        expect(rewards.snapshot().xp).toBe(5000);
     });
 
     it('should keep the session progress when a retry fails too', async () => {
@@ -145,7 +145,7 @@ describe('RewardSystem when the saved player cannot be read', () => {
         await rewards.addXP(100);
         await rewards.init();
 
-        expect(rewards.player.xp).toBe(100);
+        expect(rewards.snapshot().xp).toBe(100);
         expect(JSON.parse(await storage.getItem(KEY))).toEqual(saved());
     });
 

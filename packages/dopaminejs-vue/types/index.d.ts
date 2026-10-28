@@ -3,6 +3,7 @@ import type {
     AchievementDefinition,
     AddXPResult,
     DataServiceConfig,
+    DopamineOptions,
     Player,
     RewardSystemConfig,
     UnlockedAchievement,
@@ -13,10 +14,12 @@ export interface ProvideRewardsOptions {
     config?: RewardSystemConfig;
     /** Custom storage, sync or async. Defaults to localStorage. */
     storage?: DataServiceConfig['storage'];
+    /** True, or the createDopamine options, to add popups, particles and sound. */
+    dopamine?: boolean | Omit<DopamineOptions, 'progress' | 'storage'>;
 }
 
 export interface RewardsState {
-    /** The live player object, mutated in place. Empty until init resolves. */
+    /** A frozen snapshot, replaced on every change. Empty until init resolves. */
     player: Ref<Player | Record<string, never>>;
     level: Ref<number>;
     xp: Ref<number>;
@@ -30,7 +33,7 @@ export interface RewardsState {
     /** True when init() could not read the saved player, so nothing is saved this session. */
     loadFailed: Ref<boolean>;
     addXP(amount: number, reason?: string): Promise<AddXPResult>;
-    recordGame(gameId: string, stats: object): Promise<void>;
+    record(activity: string, result: object): Promise<boolean>;
     /** Resolves false when the id is unknown or already unlocked. */
     unlockAchievement(key: string): Promise<boolean>;
 }

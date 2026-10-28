@@ -30,6 +30,9 @@ export class SoundManager {
         // Queued follow-up tones, so destroy() can cancel them.
         this._timers = new Set();
 
+        // Synth keys added by plugins, by own key.
+        this._synths = new Map();
+
         // unlockOn removers, so destroy() takes listeners that never fired off too.
         this._unlocks = new Set();
     }
@@ -150,6 +153,29 @@ export class SoundManager {
     }
 
     /**
+     * Add a sound key. A string is a file URL. A function is a synth,
+     * called as `(sound, later)` when the key plays; `later(fn, ms)` is a
+     * timeout that destroy() cancels. Returns a remover.
+     * @param {string} key
+     * @param {string|Function} source
+     */
+    register(key, source) {
+        if (typeof key !== 'string' || key === '') return () => {};
+        if (typeof source === 'string') {
+            this.registerSound(key, source);
+            return () => {
+                if (this.customSounds[key] === source) delete this.customSounds[key];
+                this.assets.delete(key);
+            };
+        }
+        if (typeof source !== 'function') return () => {};
+        this._synths.set(key, source);
+        return () => {
+            if (this._synths.get(key) === source) this._synths.delete(key);
+        };
+    }
+
+    /**
      * Register and load multiple sounds. Before the audio context exists the
      * files cannot be decoded, so they load when initAudio() creates it.
      * @param {Object} soundMap - { key: url }
@@ -207,7 +233,8 @@ export class SoundManager {
 
     /**
      * Play a sound by key (custom) or fallback to synth
-     * @param {string} key - 'jump', 'score', 'success', etc.
+     * @param {string} key - A preset ('xp', 'level_up', 'achievement', 'personal_best',
+     *   'click', 'error'), a registered key, or a synth name. An unknown key is ignored.
      */
     async play(key) {
         if (this.muted) return;
@@ -236,15 +263,17 @@ export class SoundManager {
 
         // 3. Fallback to synth based on key name
         const synthMap = {
-            'jump': () => this.playJump(true),
-            'score': () => this.playScore(true),
-            'success': () => this.playSuccess(true),
+            'xp': () => this.playXP(true),
+            'level_up': () => this.playLevelUp(true),
+            'achievement': () => this.playAchievement(true),
+            'personal_best': () => this.playPersonalBest(true),
             'click': () => this.playClick(true),
-            'error': () => this.playError(true),
-            'gameover': () => this.playGameOver(true)
+            'error': () => this.playError(true)
         };
 
-        if (hasOwn(synthMap, key)) {
+        if (this._synths.has(key)) {
+            this._synths.get(key)(this, (fn, delay) => this._later(fn, delay));
+        } else if (hasOwn(synthMap, key)) {
             synthMap[key]();
         }
     }
@@ -283,31 +312,31 @@ export class SoundManager {
 
     // --- Presets (Synth) ---
 
-    playJump(force = false) {
-        if (!force && this.assets.has('jump')) return this.play('jump');
-        this.playTone(400, 0.1, 'square', 0.2);
-    }
-
-    playScore(force = false) {
-        if (!force && this.assets.has('score')) return this.play('score');
-        this.playTone(800, 0.15, 'sine', 0.25);
-        this._later(() => this.playTone(1000, 0.15, 'sine', 0.25), 50);
-    }
-
-    playGameOver(force = false) {
-        if (!force && this.assets.has('gameover')) return this.play('gameover');
-        this.playTone(300, 0.2, 'sawtooth', 0.3);
-        this._later(() => this.playTone(200, 0.2, 'sawtooth', 0.3), 100);
-        this._later(() => this.playTone(150, 0.3, 'sawtooth', 0.3), 200);
-    }
-
     playClick(force = false) {
         if (!force && this.assets.has('click')) return this.play('click');
         this.playTone(600, 0.05, 'sine', 0.1);
     }
 
-    playSuccess(force = false) {
-        if (!force && this.assets.has('success')) return this.play('success');
+    playXP(force = false) {
+        if (!force && this.assets.has('xp')) return this.play('xp');
+        this.playTone(700, 0.06, 'sine', 0.12);
+    }
+
+    playLevelUp(force = false) {
+        if (!force && this.assets.has('level_up')) return this.play('level_up');
+        this.playTone(500, 0.12, 'sine', 0.2);
+        this._later(() => this.playTone(700, 0.12, 'sine', 0.2), 110);
+        this._later(() => this.playTone(900, 0.25, 'sine', 0.2), 220);
+    }
+
+    playAchievement(force = false) {
+        if (!force && this.assets.has('achievement')) return this.play('achievement');
+        this.playTone(660, 0.1, 'triangle', 0.2);
+        this._later(() => this.playTone(990, 0.25, 'triangle', 0.2), 100);
+    }
+
+    playPersonalBest(force = false) {
+        if (!force && this.assets.has('personal_best')) return this.play('personal_best');
         this.playTone(600, 0.1, 'sine', 0.2);
         this._later(() => this.playTone(800, 0.2, 'sine', 0.2), 100);
     }
@@ -338,5 +367,6 @@ export class SoundManager {
         this.masterGain = null;
         this.assets.clear();
         this._loading.clear();
+        this._synths.clear();
     }
 }

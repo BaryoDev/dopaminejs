@@ -5,7 +5,7 @@
         {
             "name": "first_game and streak_3 unlock in definition order",
             "clock": "2026-08-07T09:00:00",
-            "note": "The streak reaches 3 on load, so the game pays x1.25 (12 XP). first_game (+50) unlocks, then streak_3 (+100) pushes the player to level 2.",
+            "note": "The first game today makes the streak 3, so it pays x1.25 (12 XP). first_game (+50) unlocks, then streak_3 (+100) pushes the player to level 2.",
             "savedJson": {
                 "xp": 0,
                 "level": 1,
@@ -19,21 +19,17 @@
             "afterInit": {
                 "player": {
                     "streak": {
-                        "current": 3
+                        "current": 2,
+                        "longest": 2,
+                        "lastPlayDate": "2026-08-06"
                     }
                 },
-                "events": [
-                    {
-                        "event": "streak_updated",
-                        "current": 3,
-                        "longest": 3
-                    }
-                ]
+                "events": []
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "expect": {
                         "player": {
                             "xp": 162,
@@ -45,6 +41,11 @@
                             "streak_3"
                         ],
                         "events": [
+                            {
+                                "event": "streak_updated",
+                                "current": 3,
+                                "longest": 3
+                            },
                             {
                                 "event": "xp_gained",
                                 "amount": 12,
@@ -109,8 +110,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "expect": {
                         "player": {
                             "xp": 110,
@@ -152,8 +153,8 @@
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "expect": {
                         "player": {
                             "xp": 120,
@@ -200,8 +201,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "expect": {
                         "player": {
                             "xp": 15
@@ -262,15 +263,15 @@
                         "name": "Arcade",
                         "xp": 7,
                         "when": {
-                            "game": "arcade"
+                            "activity": "arcade"
                         }
                     }
                 }
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "puzzle",
+                    "op": "record",
+                    "activity": "puzzle",
                     "result": {
                         "score": 100
                     },
@@ -283,8 +284,8 @@
                         ],
                         "events": [
                             {
-                                "event": "new_high_score",
-                                "gameName": "puzzle",
+                                "event": "personal_best",
+                                "activity": "puzzle",
                                 "score": 100
                             },
                             {
@@ -313,8 +314,8 @@
                     }
                 },
                 {
-                    "op": "recordGame",
-                    "game": "arcade",
+                    "op": "record",
+                    "activity": "arcade",
                     "expect": {
                         "player": {
                             "xp": 67
@@ -494,8 +495,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "expect": {
                         "player": {
                             "xp": 1100,
@@ -560,8 +561,8 @@
             },
             "steps": [
                 {
-                    "op": "recordGame",
-                    "game": "g",
+                    "op": "record",
+                    "activity": "g",
                     "expect": {
                         "player": {
                             "xp": 4750,

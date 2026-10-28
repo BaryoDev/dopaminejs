@@ -1,45 +1,63 @@
 /**
  * Reward System Module
  * Manages achievements, XP, levels, streaks, and rewards
+ *
+ * The saved player is a document that merges (see merge.js). Nothing hands
+ * the document out: callers get frozen snapshots.
  */
 
 import { EventEmitter } from './EventEmitter.js';
+import { DopamineError } from './DopamineError.js';
+import { systemClock } from './clock.js';
+import { levelFor, thresholdFor } from './levels.js';
+import { builtinAchievements, rewardsOf } from './achievements.js';
+import { Middleware } from './middleware.js';
+import { merge } from './merge.js';
+import { currentStreak, longestRun, trimDays } from './streaks.js';
+import {
+    LEGACY, MAX_DEVICES, cap, deviceIds, emptyDoc, validate, view, xpOf, levelOf, clone, freeze, isSafeKey, hasOwn, isRecord
+} from './store.js';
 
-// Keys that resolve to something on Object.prototype. Game names and
-// achievement ids index plain objects, so these must never be used as one.
-const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const DEVICE_KEY = 'device';
 
-const isSafeKey = (key) => typeof key === 'string' && key.length > 0 && !UNSAFE_KEYS.has(key);
-const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
-const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
-
-const toCount = (value, fallback, min = 0) => {
-    const number = Number(value);
-    return Number.isInteger(number) && number >= min ? number : fallback;
+const randomId = () => {
+    const bytes = new Uint8Array(8);
+    const random = globalThis.crypto;
+    if (typeof random?.getRandomValues === 'function') {
+        random.getRandomValues(bytes);
+    } else {
+        for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 };
+
+const isDeviceId = (id) => isSafeKey(id) && id !== LEGACY;
 
 export class RewardSystem extends EventEmitter {
     /**
      * @param {Object} dataService - Persistence, see DataService
      * @param {Object} [config]
      * @param {Object} [config.achievements] - Extra achievement definitions
-     * @param {Object} [config.events] - Kernel EventBus to mirror events onto
-     * @param {Object} [config.kernel] - Kernel; its `events` bus is used if present
+     * @param {{ now(): number, localDate(ms?: number): string }} [config.clock] - Time source
+     * @param {'any'|'record'} [config.streakDays] - What marks today as a play day.
+     *   'any' (default): record() or addXP(). 'record': record() only. XP from an
+     *   achievement reward never marks a day.
      */
     constructor(dataService, config = {}) {
         super();
         this.dataService = dataService;
-        this.player = null;
-        this.achievements = { ...this._initAchievements(), ...(config.achievements || {}) };
+        this.clock = config.clock && typeof config.clock.now === 'function' && typeof config.clock.localDate === 'function'
+            ? config.clock
+            : systemClock;
+        this.achievements = { ...builtinAchievements(), ...(config.achievements || {}) };
+        this.streakDays = config.streakDays === 'record' ? 'record' : 'any';
 
-        // Optional bridge to the kernel bus. EventBus.Events already declared
-        // XP_GAINED, LEVEL_UP and ACHIEVEMENT_UNLOCKED with nothing emitting
-        // them; this connects the two event systems without changing the
-        // existing rewardSystem.on(...) surface that games already use.
-        this.events = config.events || config.kernel?.events || null;
+        this._doc = null;
+        this._deviceId = null;
+        this._deviceSaved = false;
+        this._middleware = new Middleware();
 
-        // Write batching. Every mutation used to hit storage directly, so one
-        // recordGame produced four full serializations of the player object.
+        // Write batching: one record is one write.
         this._batchDepth = 0;
         this._pendingSave = false;
 
@@ -59,25 +77,14 @@ export class RewardSystem extends EventEmitter {
     }
 
     /**
-     * Emit locally, and mirror onto the kernel bus when one is attached.
+     * Emit a frozen copy of the payload.
      * @private
      */
     _publish(event, data) {
-        this.emit(event, data);
-        if (this.events) {
-            this.events.emit(event, data);
-        }
+        const payload = Object.freeze({ ...data });
+        this.emit(event, payload);
     }
 
-    /**
-     * Run `fn` with saves collapsed into a single write at the end.
-     *
-     * Nested batches are counted, so an inner operation that batches on its
-     * own still results in exactly one write for the outermost call.
-     *
-     * @param {Function} fn
-     * @private
-     */
     async _batch(fn) {
         this._batchDepth++;
         try {
@@ -91,26 +98,21 @@ export class RewardSystem extends EventEmitter {
         }
     }
 
+    _options() {
+        return { now: this.clock.now(), today: this.clock.localDate(), rewards: rewardsOf(this.achievements) };
+    }
+
     /**
      * Initialize the reward system for current player
-     * @returns {Promise<Object>} Player data
+     * @returns {Promise<Object>} Frozen snapshot of the player
      */
     async init() {
         const saved = await this._readSaved();
         // A failed retry keeps the progress made since the first init.
-        if (!(this._loadFailed && this.player)) this.player = this._migrate(saved);
-
-        // Check daily streak
-        const streakChanged = this._updateDailyStreak();
-
-        // Save updated player data
+        if (!(this._loadFailed && this._doc)) this._doc = this._load(saved);
+        await this._readDevice();
         await this.save();
-
-        if (streakChanged) {
-            this._publishStreak();
-        }
-
-        return this.player;
+        return this.snapshot();
     }
 
     /**
@@ -124,8 +126,6 @@ export class RewardSystem extends EventEmitter {
         // retry is in flight cannot land.
         this._loadFailed = true;
         try {
-            // A custom data service that ignores the option still works,
-            // without this protection.
             const saved = await this.dataService.load('player', null, { strict: true });
             this._loadFailed = false;
             this._readFailed = false;
@@ -146,149 +146,153 @@ export class RewardSystem extends EventEmitter {
     }
 
     /**
+     * Saved state is untrusted: it goes through validate. A document from a
+     * newer version or with too many devices is left alone in storage.
      * @private
      */
+    _load(saved) {
+        if (!isRecord(saved)) return emptyDoc(this.clock.now());
+        try {
+            return validate(saved, this._options());
+        } catch (error) {
+            if (!(error instanceof DopamineError)) throw error;
+            this._loadFailed = true;
+            this._readFailed = true;
+            this._publish('load_failed', { key: 'player', reason: error.code, error });
+            return emptyDoc(this.clock.now());
+        }
+    }
+
+    /**
+     * The device id is made once, kept under its own key and never part of
+     * the merged document.
+     * @private
+     */
+    async _readDevice() {
+        if (this._deviceId) return;
+        let stored = null;
+        try {
+            stored = await this.dataService.load(DEVICE_KEY, null, { strict: true });
+        } catch {
+            // Unreadable: use a fresh id, saved with the first write that works.
+            this._deviceId = randomId();
+            return;
+        }
+        if (isDeviceId(stored)) {
+            this._deviceId = stored;
+            this._deviceSaved = true;
+        } else {
+            this._deviceId = randomId();
+        }
+    }
+
+    /**
+     * A write that would add a device past the cap is refused, so the stored
+     * save never becomes one that validate rejects.
+     * @private
+     */
+    _hasSlot() {
+        const ids = deviceIds(this._doc);
+        if (ids.has(this._deviceId) || ids.size < MAX_DEVICES) return true;
+        this._publish('load_failed', { key: 'player', reason: 'too_many_devices' });
+        return false;
+    }
+
     _requirePlayer() {
-        if (!this.player) {
+        if (!this._doc) {
             throw new Error('[DopamineJS] RewardSystem.init() must be awaited before use');
         }
     }
 
     /**
-     * @private
+     * A frozen copy of the player with the derived values: xp, level,
+     * totalGamesPlayed, streak and per-activity stats.
      */
-    _publishStreak() {
-        const { current, longest } = this.player.streak;
-        this._publish('streak_updated', { current, longest });
+    snapshot() {
+        this._requirePlayer();
+        return freeze(view(this._doc, this.clock.localDate()));
     }
 
     /**
-     * Get default player data structure
+     * The versioned document, a detached copy.
      */
-    _getDefaultPlayer() {
-        return {
-            name: 'Player',
-            xp: 0,
-            level: 1,
-            totalGamesPlayed: 0,
-            createdAt: Date.now(),
-            lastPlayedAt: Date.now(),
-            streak: {
-                current: 1,
-                longest: 1,
-                lastPlayDate: this._getTodayDateString()
-            },
-            achievements: {}, // achievement_id: { unlockedAt: timestamp, seen: boolean }
-            stats: {
-                // Dynamic stats object, games will add their own keys
-            }
-        };
+    export() {
+        this._requirePlayer();
+        return clone(this._doc);
     }
 
     /**
-     * Merge a persisted player record onto the current default shape.
+     * Merge a document from elsewhere into this player. It is validated the
+     * same way a load is. Unless `silent`, the XP, level and achievements
+     * that went up are announced.
      *
-     * Saves written by older versions are missing whatever fields were added
-     * since. Without this the first property access on a new field throws
-     * before the game has drawn a frame.
-     *
-     * @param {Object|null} saved - Previously persisted player, if any
-     * @returns {Object} Player object guaranteed to have every field
-     * @private
+     * @param {Object} doc
+     * @param {{ silent?: boolean }} [options]
      */
-    _migrate(saved) {
-        const defaults = this._getDefaultPlayer();
+    async import(doc, { silent = false } = {}) {
+        this._requirePlayer();
+        const before = this.snapshot();
+        const incoming = validate(doc, this._options());
+        const merged = merge(this._doc, incoming, this._options());
+        merged.level = levelOf(merged);
+        this._doc = merged;
 
-        if (!isRecord(saved)) {
-            return defaults;
+        const after = this.snapshot();
+        await this.save();
+        if (silent) return after;
+
+        const gained = after.xp - before.xp;
+        const leveledUp = after.level > before.level;
+        if (gained > 0) {
+            this._publish('xp_gained', {
+                amount: gained, reason: 'import', leveledUp, newLevel: after.level, total: after.xp
+            });
         }
-
-        // Storage is writable by the player and by anything else on the
-        // origin, so every field is checked. A string xp would concatenate on
-        // the next addXP, and a non-object stats would throw on first use.
-        const xpValue = Number(saved.xp);
-        const xp = Number.isFinite(xpValue) && xpValue >= 0 ? xpValue : 0;
-        const earned = this._calculateLevel(xp);
-
-        const savedStreak = isRecord(saved.streak) ? saved.streak : {};
-        const current = toCount(savedStreak.current, 1, 1);
-        const lastPlayDate = typeof savedStreak.lastPlayDate === 'string'
-            && /^\d{4}-\d{2}-\d{2}$/.test(savedStreak.lastPlayDate)
-            ? savedStreak.lastPlayDate
-            : defaults.streak.lastPlayDate;
-
-        return {
-            ...defaults,
-            ...saved,
-            name: typeof saved.name === 'string' ? saved.name : defaults.name,
-            xp,
-            // A level above the curve is kept: older versions banked levels
-            // at half the XP and those players keep what they earned.
-            level: Math.max(earned, toCount(saved.level, earned, 1)),
-            totalGamesPlayed: toCount(saved.totalGamesPlayed, 0),
-            createdAt: Number.isFinite(saved.createdAt) ? saved.createdAt : defaults.createdAt,
-            lastPlayedAt: Number.isFinite(saved.lastPlayedAt) ? saved.lastPlayedAt : defaults.lastPlayedAt,
-            streak: {
-                current,
-                longest: Math.max(current, toCount(savedStreak.longest, current, 1)),
-                lastPlayDate
-            },
-            achievements: this._migrateAchievements(saved.achievements),
-            stats: this._migrateStats(saved.stats)
-        };
-    }
-
-    /**
-     * @private
-     */
-    _migrateAchievements(saved) {
-        const achievements = {};
-        if (!isRecord(saved)) return achievements;
-
-        for (const id of Object.keys(saved)) {
-            const entry = saved[id];
-            if (!isSafeKey(id) || !isRecord(entry)) continue;
-
-            achievements[id] = {
-                unlockedAt: Number.isFinite(entry.unlockedAt) ? entry.unlockedAt : Date.now(),
-                seen: entry.seen === true
-            };
+        if (leveledUp) {
+            this._publish('level_up', { oldLevel: before.level, newLevel: after.level, totalXP: after.xp });
         }
-
-        return achievements;
-    }
-
-    /**
-     * @private
-     */
-    _migrateStats(saved) {
-        const stats = {};
-        if (!isRecord(saved)) return stats;
-
-        for (const gameName of Object.keys(saved)) {
-            const entry = saved[gameName];
-            if (!isSafeKey(gameName) || !isRecord(entry)) continue;
-
-            const game = {};
-            for (const key of Object.keys(entry)) {
-                if (isSafeKey(key) && Number.isFinite(entry[key])) {
-                    game[key] = entry[key];
-                }
+        for (const id of Object.keys(after.achievements)) {
+            if (!hasOwn(before.achievements, id)) {
+                this._publish('achievement_unlocked', { ...this.achievements[id], id });
             }
-            game.totalPlays = toCount(entry.totalPlays, 0);
-            game.highScore = Number.isFinite(entry.highScore) ? entry.highScore : 0;
-
-            stats[gameName] = game;
         }
+        return after;
+    }
 
-        return stats;
+    /**
+     * Add a middleware object with any of beforeXP, afterXP, beforeRecord,
+     * afterRecord, beforeUnlock and afterUnlock. Hooks run in `use` order.
+     * @returns {Function} Removes it again
+     */
+    use(middleware) {
+        return this._middleware.use(middleware);
+    }
+
+    /**
+     * Add an achievement rule at runtime.
+     * @returns {Function} Removes it again
+     */
+    defineAchievement(id, definition) {
+        if (!isSafeKey(id)) {
+            throw new TypeError(`[DopamineJS] defineAchievement expects an id, received ${String(id)}`);
+        }
+        if (!isRecord(definition) || typeof definition.check !== 'function') {
+            throw new TypeError('[DopamineJS] defineAchievement expects a definition with a check function');
+        }
+        const previous = hasOwn(this.achievements, id) ? this.achievements[id] : undefined;
+        this.achievements[id] = definition;
+        return () => {
+            if (this.achievements[id] !== definition) return;
+            if (previous) this.achievements[id] = previous;
+            else delete this.achievements[id];
+        };
     }
 
     /**
      * Save player data
      */
     async save() {
-        if (!this.player) return;
+        if (!this._doc) return;
 
         // Inside a batch, mark dirty and let the outermost call do the write.
         if (this._batchDepth > 0) {
@@ -305,8 +309,11 @@ export class RewardSystem extends EventEmitter {
      */
     async _write() {
         if (this._loadFailed) return;
-        this.player.lastPlayedAt = Date.now();
-        const saved = await this.dataService.save('player', this.player);
+        this._doc.lastPlayedAt = this.clock.now();
+        if (!this._deviceSaved) {
+            this._deviceSaved = (await this.dataService.save(DEVICE_KEY, this._deviceId)) !== false;
+        }
+        const saved = await this.dataService.save('player', this._doc);
 
         // DataService logs and returns false rather than throwing, so a full
         // or blocked storage would otherwise lose progress without a sign.
@@ -316,42 +323,69 @@ export class RewardSystem extends EventEmitter {
     }
 
     /**
-     * Add XP and handle level ups
+     * Add XP and handle level ups. A negative amount is kept as XP spent on
+     * this device and stops at zero.
      * @param {number} amount - XP to add
      * @param {string} reason - Why XP was awarded (for notifications)
      * @returns {Object} { leveledUp: boolean, newLevel: number, xpGained: number }
      */
     async addXP(amount, reason = '') {
         if (!Number.isFinite(amount)) {
-            // Adding undefined/NaN here would poison player.xp permanently:
+            // Adding undefined/NaN here would poison the total permanently:
             // NaN survives every subsequent arithmetic op and gets persisted.
             throw new TypeError(`[DopamineJS] addXP expects a finite number, received ${amount}`);
         }
 
         this._requirePlayer();
+        if (!this._hasSlot()) return { leveledUp: false, newLevel: levelOf(this._doc), xpGained: 0 };
 
-        const oldLevel = this.player.level;
-
-        // XP stops at zero, so a large negative amount removes less than
-        // asked. Report what changed.
-        amount = Math.max(amount, -this.player.xp);
-        this.player.xp += amount;
-
-        // Check for level up. Levels are never taken back, so a negative
-        // amount or a level banked under an older curve reports the stored one.
-        const newLevel = Math.max(oldLevel, this._calculateLevel(this.player.xp));
-        const leveledUp = newLevel > oldLevel;
-
-        if (leveledUp) {
-            this.player.level = newLevel;
+        const context = await this._middleware.before('beforeXP', { amount, reason }, (next) => Number.isFinite(next.amount));
+        if (context === false) {
+            return { leveledUp: false, newLevel: levelOf(this._doc), xpGained: 0 };
         }
+
+        if (this.streakDays === 'any' && context.amount > 0) this._markDay();
+
+        const result = await this._applyXP(context.amount, context.reason, (doc, applied) => {
+            if (applied >= 0) {
+                doc.xpBy[this._deviceId] = cap((hasOwn(doc.xpBy, this._deviceId) ? doc.xpBy[this._deviceId] : 0) + applied);
+            } else {
+                doc.xpSpentBy[this._deviceId] = cap((hasOwn(doc.xpSpentBy, this._deviceId) ? doc.xpSpentBy[this._deviceId] : 0) - applied);
+            }
+        });
+
+        await this._middleware.after('afterXP', {
+            amount: result.xpGained, reason: context.reason, total: xpOf(this._doc), level: result.newLevel
+        });
+        return result;
+    }
+
+    /**
+     * Change the total, then announce it. Levels are never taken back, so a
+     * negative amount or a level banked under an older curve reports the
+     * stored one.
+     * @private
+     */
+    async _applyXP(amount, reason, change) {
+        const doc = this._doc;
+        const oldLevel = levelOf(doc);
+
+        // XP stops at zero, so a large negative amount removes less than asked.
+        amount = Math.max(amount, -xpOf(doc));
+        change(doc, amount);
+        return this._announceXP(oldLevel, amount, reason);
+    }
+
+    async _announceXP(oldLevel, amount, reason) {
+        const doc = this._doc;
+        const total = xpOf(doc);
+        const newLevel = Math.max(oldLevel, levelFor(total));
+        const leveledUp = newLevel > oldLevel;
+        if (newLevel > doc.level) doc.level = newLevel;
 
         await this.save();
 
-        // Notify listeners
-        const total = this.player.xp;
         this._publish('xp_gained', { amount, reason, leveledUp, newLevel, total });
-
         if (leveledUp) {
             this._publish('level_up', { oldLevel, newLevel, totalXP: total });
         }
@@ -360,139 +394,157 @@ export class RewardSystem extends EventEmitter {
     }
 
     /**
-     * Calculate level from XP (exponential curve)
-     */
-    _calculateLevel(xp) {
-        // Curve: XP = 50 * level * (level - 1)
-        // 50L² - 50L - xp = 0  =>  L = (1 + sqrt(1 + 4*xp/50)) / 2
-        if (!(xp > 0)) return 1;
-
-        const level = Math.floor((1 + Math.sqrt(1 + 4 * xp / 50)) / 2);
-        return Math.max(1, level);
-    }
-
-    /**
      * Get XP needed for next level
      */
     getXPForNextLevel() {
         this._requirePlayer();
 
-        const nextLevel = this.player.level + 1;
-        const xpNeeded = 50 * nextLevel * (nextLevel - 1);
-        const currentLevelXP = 50 * this.player.level * (this.player.level - 1);
+        const level = levelOf(this._doc);
+        const xp = xpOf(this._doc);
+        const xpNeeded = thresholdFor(level + 1);
+        const currentLevelXP = thresholdFor(level);
         const band = xpNeeded - currentLevelXP;
 
-        // Clamped: a save written before the curve fix banked levels at half
-        // the XP, so player.xp can sit below its own level's floor. Those
-        // players keep the level they earned and start the band at 0.
+        // Clamped: a level banked under an older curve can sit above its own
+        // XP floor. Those players keep the level and start the band at 0.
         const progress = band > 0
-            ? Math.max(0, Math.min(1, (this.player.xp - currentLevelXP) / band))
+            ? Math.max(0, Math.min(1, (xp - currentLevelXP) / band))
             : 0;
 
         return {
             total: xpNeeded,
-            needed: Math.max(0, xpNeeded - this.player.xp),
+            needed: Math.max(0, xpNeeded - xp),
             progress
         };
     }
 
-    /**
-     * Record game result and award XP
-     * @param {string} gameName - Unique ID for the game
-     * @param {Object} result - Game-specific result data
-     */
-    async recordGame(gameName, result = {}) {
-        this._requirePlayer();
-
-        if (!isSafeKey(gameName)) {
-            throw new TypeError(`[DopamineJS] recordGame expects a game name, received ${String(gameName)}`);
+    _checkRecord(activity, result) {
+        if (!isSafeKey(activity)) {
+            throw new TypeError(`[DopamineJS] record expects an activity name, received ${String(activity)}`);
         }
 
         if (!isRecord(result)) {
-            throw new TypeError('[DopamineJS] recordGame expects a result object');
+            throw new TypeError('[DopamineJS] record expects a result object');
         }
 
         // Checked before anything is touched, so a bad score cannot leave the
         // play counted and the XP missing.
         if (result.score !== undefined && !Number.isFinite(result.score)) {
-            throw new TypeError(`[DopamineJS] recordGame expects a finite score, received ${String(result.score)}`);
+            throw new TypeError(`[DopamineJS] record expects a finite score, received ${String(result.score)}`);
         }
+    }
 
-        // Batched: addXP and each unlockAchievement below also save, which
-        // meant four full serializations of the player object per game.
-        return this._batch(() => this._recordGame(gameName, result));
+    /**
+     * Record a play and award XP
+     * @param {string} activity - Unique ID for the game or activity
+     * @param {Object} result - Result data. `score` sets the best; other numbers add up.
+     * @returns {Promise<boolean>} False when a beforeRecord hook rejected it
+     */
+    async record(activity, result = {}) {
+        this._requirePlayer();
+        this._checkRecord(activity, result);
+        if (!this._hasSlot()) return false;
+
+        const context = await this._middleware.before('beforeRecord', { activity, result }, (next) => {
+            try {
+                this._checkRecord(next.activity, next.result);
+                return true;
+            } catch {
+                return false;
+            }
+        });
+        if (context === false) return false;
+
+        // Batched: addXP and each unlockAchievement below also save.
+        const xp = await this._batch(() => this._record(context.activity, context.result));
+        await this._middleware.after('afterRecord', { activity: context.activity, result: context.result, xp });
+        return true;
+    }
+
+    /**
+     * Count today as a play day. A new player starts at 1 without an event.
+     * @private
+     */
+    _markDay() {
+        const doc = this._doc;
+        const today = this.clock.localDate();
+        if (doc.playDates.includes(today)) return;
+        const firstEver = doc.playDates.length === 0;
+        doc.playDates = trimDays([...doc.playDates, today], today);
+        doc.longest = Math.max(doc.longest, longestRun(doc.playDates));
+        if (!firstEver) {
+            this._publish('streak_updated', {
+                current: currentStreak(doc.playDates, today),
+                longest: Math.max(doc.longest, longestRun(doc.playDates))
+            });
+        }
     }
 
     /**
      * @private
      */
-    async _recordGame(gameName, result) {
-        // A game played on a new day counts for the streak, not only a
-        // page load. A tab left open past midnight used to miss the day.
-        if (this._updateDailyStreak()) {
-            this._publishStreak();
+    async _record(activity, result) {
+        const doc = this._doc;
+        const device = this._deviceId;
+        const bump = (map, by) => {
+            map[device] = cap((hasOwn(map, device) ? map[device] : 0) + by);
+        };
+
+        this._markDay();
+
+        if (!hasOwn(doc.playsBy, activity)) {
+            doc.playsBy[activity] = {};
+            doc.best[activity] = 0;
+            doc.sumsBy[activity] = {};
         }
 
-        // Initialize stats for this game if not exists
-        if (!hasOwn(this.player.stats, gameName)) {
-            this.player.stats[gameName] = { totalPlays: 0, highScore: 0 };
+        bump(doc.playsBy[activity], 1);
+        bump(doc.gamesBy, 1);
+
+        if (result.score !== undefined && result.score > doc.best[activity]) {
+            doc.best[activity] = result.score;
+            this._publish('personal_best', { activity, score: result.score });
         }
 
-        const stats = this.player.stats[gameName];
-
-        // Update stats
-        stats.totalPlays++;
-        this.player.totalGamesPlayed++;
-
-        // Update high score if applicable
-        if (result.score !== undefined && result.score > stats.highScore) {
-            stats.highScore = result.score;
-            this._publish('new_high_score', { gameName, score: result.score });
+        // Other numbers add up per device. A negative or non-numeric value
+        // adds nothing, so a device's total only grows.
+        for (const key of Object.keys(result)) {
+            if (key === 'score' || key === 'plays' || key === 'best' || !isSafeKey(key)) continue;
+            if (!hasOwn(doc.sumsBy[activity], key)) doc.sumsBy[activity][key] = {};
+            bump(doc.sumsBy[activity][key], Number.isFinite(result[key]) && result[key] > 0 ? result[key] : 0);
         }
-
-        // Merge other result data into stats
-        Object.keys(result).forEach(key => {
-            if (key !== 'score' && isSafeKey(key)) {
-                const current = hasOwn(stats, key) && Number.isFinite(stats[key]) ? stats[key] : 0;
-                stats[key] = current + (Number.isFinite(result[key]) ? result[key] : 0);
-            }
-        });
 
         // Base XP for playing
         let xp = 10;
 
-        // Score-based bonus. A negative score earns nothing extra; it does
-        // not take XP away.
+        // Score-based bonus. A negative score earns nothing extra.
         if (result.score) {
             xp += Math.max(0, Math.floor(result.score / 5));
         }
 
-        // Streak multiplier
         xp = Math.floor(xp * this.getStreakMultiplier());
 
-        await this.addXP(xp, `Played ${gameName}`);
-
-        // Check for achievements
-        await this.checkAchievements(gameName, result);
-
+        await this.addXP(xp, `Played ${activity}`);
+        await this.checkAchievements(activity, result);
         await this.save();
+        return xp;
     }
 
     /**
      * Check and unlock achievements
      */
-    async checkAchievements(gameName, result) {
+    async checkAchievements(activity, result) {
         const unlockedAchievements = [];
 
         for (const [id, achievement] of Object.entries(this.achievements)) {
             // Skip if already unlocked
-            if (hasOwn(this.player.achievements, id)) continue;
+            if (hasOwn(this._doc.achievements, id)) continue;
 
             // Check conditions are user-supplied; one throwing must not stop
             // the others from ever unlocking.
             let met = false;
             try {
-                met = achievement.check(this.player, gameName, result);
+                met = achievement.check(this.snapshot(), activity, result);
             } catch (error) {
                 console.error(`[DopamineJS] Achievement "${id}" check threw:`, error);
                 continue;
@@ -515,23 +567,29 @@ export class RewardSystem extends EventEmitter {
         if (!isSafeKey(achievementId) || !hasOwn(this.achievements, achievementId)) return false;
 
         // Already unlocked: paying the XP again would let one call farm levels.
-        if (hasOwn(this.player.achievements, achievementId)) return false;
+        if (hasOwn(this._doc.achievements, achievementId)) return false;
 
         const achievement = this.achievements[achievementId];
         if (!achievement) return false;
 
-        // Mark as unlocked
-        this.player.achievements[achievementId] = {
-            unlockedAt: Date.now(),
-            seen: false
-        };
+        const { [achievementId]: reward } = rewardsOf(this.achievements);
+        const context = await this._middleware.before(
+            'beforeUnlock',
+            { id: achievementId, reward },
+            (next) => Number.isFinite(next.reward) && next.reward >= 0
+        );
+        if (context === false) return false;
 
-        // Award XP. `xp` is optional in a user-defined achievement.
-        await this.addXP(Number.isFinite(achievement.xp) ? achievement.xp : 0,
-            `Achievement: ${achievement.name}`);
+        const doc = this._doc;
+        const oldLevel = levelOf(doc);
+        doc.achievements[achievementId] = { unlockedAt: this.clock.now(), seen: false, reward: context.reward };
+
+        // The reward is part of the achievement, not of any device's XP.
+        await this._announceXP(oldLevel, context.reward, `Achievement: ${achievement.name}`);
 
         this._publish('achievement_unlocked', { ...achievement, id: achievementId });
         await this.save();
+        await this._middleware.after('afterUnlock', { id: achievementId, reward: context.reward });
 
         return true;
     }
@@ -540,7 +598,8 @@ export class RewardSystem extends EventEmitter {
      * Get all unlocked achievements
      */
     getUnlockedAchievements() {
-        return Object.entries(this.player.achievements)
+        this._requirePlayer();
+        return Object.entries(this._doc.achievements)
             .map(([id, data]) => ({
                 ...this.achievements[id],
                 id,
@@ -560,130 +619,21 @@ export class RewardSystem extends EventEmitter {
      */
     async markAchievementsSeen(achievementIds) {
         for (const id of achievementIds) {
-            if (hasOwn(this.player.achievements, id)) {
-                this.player.achievements[id].seen = true;
+            if (hasOwn(this._doc.achievements, id)) {
+                this._doc.achievements[id].seen = true;
             }
         }
         await this.save();
     }
 
     /**
-     * Update daily streak
-     * @returns {boolean} True when the calendar day changed
-     */
-    _updateDailyStreak() {
-        const today = this._getTodayDateString();
-        const lastPlayed = this.player.streak.lastPlayDate;
-
-        if (lastPlayed === today) {
-            // Already played today
-            return false;
-        }
-
-        const yesterday = this._getYesterdayDateString();
-
-        if (lastPlayed === yesterday) {
-            // Streak continues!
-            this.player.streak.current++;
-            if (this.player.streak.current > this.player.streak.longest) {
-                this.player.streak.longest = this.player.streak.current;
-            }
-        } else {
-            // Streak broken
-            this.player.streak.current = 1;
-        }
-
-        this.player.streak.lastPlayDate = today;
-        return true;
-    }
-
-    /**
      * Get streak multiplier for XP
      */
     getStreakMultiplier() {
-        const streak = this.player.streak.current;
+        const streak = this.snapshot().streak.current;
         if (streak >= 7) return 2.0;  // 2× at 7 days
         if (streak >= 5) return 1.5;  // 1.5× at 5 days
         if (streak >= 3) return 1.25; // 1.25× at 3 days
         return 1.0;
-    }
-
-    /**
-     * Format a Date as a YYYY-MM-DD string in the player's local timezone.
-     *
-     * Deliberately not toISOString(), which formats in UTC. For anyone east or
-     * west of Greenwich that shifts the calendar day for part of every day and
-     * makes streaks reset or double-count.
-     *
-     * @param {Date} date
-     * @returns {string}
-     * @private
-     */
-    _toLocalDateString(date) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-
-    /**
-     * Get today's local date as YYYY-MM-DD string
-     */
-    _getTodayDateString() {
-        return this._toLocalDateString(new Date());
-    }
-
-    /**
-     * Get yesterday's local date as YYYY-MM-DD string
-     */
-    _getYesterdayDateString() {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        return this._toLocalDateString(yesterday);
-    }
-
-    /**
-     * Initialize achievement definitions
-     * Can be extended by games
-     */
-    _initAchievements() {
-        return {
-            // Universal achievements
-            'first_game': {
-                name: 'First Steps',
-                description: 'Play your first game',
-                icon: '🎮',
-                xp: 50,
-                check: (player) => player.totalGamesPlayed >= 1
-            },
-            'level_5': {
-                name: 'Rising Star',
-                description: 'Reach level 5',
-                icon: '⭐',
-                xp: 100,
-                check: (player) => player.level >= 5
-            },
-            'level_10': {
-                name: 'Expert Player',
-                description: 'Reach level 10',
-                icon: '🏆',
-                xp: 250,
-                check: (player) => player.level >= 10
-            },
-            'streak_3': {
-                name: 'Dedicated',
-                description: 'Play 3 days in a row',
-                icon: '🔥',
-                xp: 100,
-                check: (player) => player.streak.current >= 3
-            },
-            'streak_7': {
-                name: 'Unstoppable',
-                description: 'Play 7 days in a row',
-                icon: '💥',
-                xp: 300,
-                check: (player) => player.streak.current >= 7
-            }
-        };
     }
 }

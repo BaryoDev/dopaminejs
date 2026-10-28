@@ -1,6 +1,6 @@
 # DopamineJS Themes
 
-Official theme collection for DopamineJS - beautiful UI themes for your game.
+Official theme collection for DopamineJS - UI themes for DopamineJS.
 
 ## 📦 Installation
 
@@ -59,6 +59,16 @@ themeEngine.setTheme('retro');
 Pastel colors with rounded corners
 ```javascript
 themeEngine.setTheme('cute');
+```
+
+As a plugin, `theme()` applies the variables to the UI root of a host and puts the old
+values back on dispose:
+
+```javascript
+import { createDopamine } from 'dopaminejs';
+import { theme } from 'dopaminejs-themes';
+
+createDopamine({ plugins: [theme('retro')] });
 ```
 
 ---

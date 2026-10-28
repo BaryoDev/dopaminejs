@@ -1,4 +1,2 @@
-BattlePassPlugin: object
-LeaderboardPlugin: object
-RewardMiddleware: class(0) proto[executeAfter,executeBefore,use]
-WebhookIntegration: class(0) proto[send]
+WebhookIntegration: class(0) proto[close,flush,send]
+webhooks: function(0)

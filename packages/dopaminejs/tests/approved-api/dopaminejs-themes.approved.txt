@@ -1,3 +1,4 @@
 ThemeEngine: class(0) proto[getAvailableThemes,getCurrentTheme,registerTheme,setTheme]
 Themes: object
+theme: function(0)
 themeEngine: object

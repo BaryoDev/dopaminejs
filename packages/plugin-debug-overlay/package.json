@@ -1,7 +1,7 @@
 {
     "name": "dopaminejs-plugin-debug-overlay",
-    "version": "1.0.1",
-    "description": "Debug overlay plugin for DopamineJS - shows FPS, entity count, and performance stats",
+    "version": "2.0.0",
+    "description": "Debug overlay plugin for DopamineJS - shows the player snapshot and the last events",
     "type": "module",
     "main": "./dist/index.umd.cjs",
     "module": "./dist/index.mjs",
@@ -18,7 +18,7 @@
         "build": "vite build"
     },
     "peerDependencies": {
-        "dopaminejs": "^2.0.0"
+        "dopaminejs": "^3.0.0"
     },
     "author": "BaryoDev",
     "license": "MIT",
