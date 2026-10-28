@@ -59,6 +59,12 @@
             "import": "*",
             "limit": "6 KB",
             "name": "dopaminejs/core (ESM)"
+        },
+        {
+            "path": "packages/dopaminejs/dist/games.js",
+            "import": "*",
+            "limit": "1.5 KB",
+            "name": "dopaminejs/games (ESM)"
         }
     ],
     "engines": {

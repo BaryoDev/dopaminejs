@@ -11,7 +11,7 @@
  * it failed; nothing in the pipeline noticed.
  */
 
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const PACKAGES_DIR = 'packages';
@@ -50,6 +50,14 @@ function entryPoints(pkg) {
     walk(pkg.exports, '');
 
     return found.filter((entry) => entry.path.startsWith('.'));
+}
+
+/**
+ * An exports pattern such as "./spec/*" must match at least one file.
+ */
+function patternMatches(base, rel) {
+    const dir = join(base, rel.slice(0, rel.indexOf('*')));
+    return existsSync(dir) && statSync(dir).isDirectory() && readdirSync(dir).length > 0;
 }
 
 const manifests = readdirSync(PACKAGES_DIR, { withFileTypes: true })
@@ -100,7 +108,9 @@ for (const { dir, path, pkg } of manifests) {
 
     if (CHECK_DIST) {
         for (const { field, path: rel } of entryPoints(pkg)) {
-            if (!existsSync(join(PACKAGES_DIR, dir, rel))) {
+            const base = join(PACKAGES_DIR, dir);
+            const found = rel.includes('*') ? patternMatches(base, rel) : existsSync(join(base, rel));
+            if (!found) {
                 problems.push(`${pkg.name}: "${field}" points at ${rel}, which the build does not emit`);
             }
         }

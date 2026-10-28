@@ -97,14 +97,17 @@ describe('SoundManager', () => {
         expect(playBufferSpy).toHaveBeenCalled();
     });
 
-    it('should fallback to synth if custom sound not found', async () => {
+    it('should play a registered synth when no asset exists, and stop after the remover', async () => {
         soundManager.initAudio();
-        const playToneSpy = vi.spyOn(soundManager, 'playTone');
+        const synth = vi.fn((sound) => sound.playTone(400, 0.1));
+        const remove = soundManager.register('jump', synth);
 
-        // 'jump' is not in assets, so it should fallback to playJump() -> playTone()
         await soundManager.play('jump');
+        expect(synth).toHaveBeenCalledTimes(1);
 
-        expect(playToneSpy).toHaveBeenCalled();
+        remove();
+        await soundManager.play('jump');
+        expect(synth).toHaveBeenCalledTimes(1);
     });
 
     it('should play each preset key and ignore unknown keys', async () => {

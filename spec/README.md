@@ -8,8 +8,10 @@ match.
 `spec/VERSION` holds the contract number (`contract: 3`). It is the same
 number as `v` in a saved document. `spec/schema.json` describes that document.
 
-The JS runner is `packages/dopaminejs/tests/conformance.test.js`. Fixtures are
-not part of any npm package.
+The JS runner is `packages/dopaminejs/tests/conformance.test.js`. The `dopaminejs`
+package ships this folder as `spec/`, pinned to the package version, with a
+`dopaminejs/spec/*` export. The build copies it from here, so the repo root is
+the one place to edit.
 
 A rule change means changing a fixture in the same commit. A port that has not
 caught up goes red.

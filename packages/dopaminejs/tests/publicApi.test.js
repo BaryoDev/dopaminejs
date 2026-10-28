@@ -157,6 +157,16 @@ describe('public API surface', () => {
         expect(() => compare('dopaminejs-plugin-webgl-particles', renderSurface(mod))).not.toThrow();
     });
 
+    it('dopaminejs/games subpath has not changed', async () => {
+        const mod = await import('../src/games.js');
+        expect(() => compare('dopaminejs-games', renderSurface(mod))).not.toThrow();
+    });
+
+    it('dopaminejs/testing subpath has not changed', async () => {
+        const mod = await import('../src/testing.js');
+        expect(() => compare('dopaminejs-testing', renderSurface(mod))).not.toThrow();
+    });
+
     it('dopaminejs/core subpath has not changed', async () => {
         const mod = await import('../src/progression.js');
         expect(() => compare('dopaminejs-core', renderSurface(mod))).not.toThrow();

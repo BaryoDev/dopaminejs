@@ -1,7 +1,7 @@
 # Migration Guide: 2.x to 3.0
 
 3.0 is about progress feedback for any web app. The game engine layer is gone from the
-package. Games keep working through `dopaminejs/games`, which arrives in the next step of 3.0.
+package. Game feedback lives in `dopaminejs/games`.
 
 ## Removed
 
@@ -11,6 +11,8 @@ package. Games keep working through `dopaminejs/games`, which arrives in the nex
 - `showAchievement`, `showLevelUp`, `showCombo`, `showNearMiss`, `showLuckyMoment`,
   `showSummary`, `showNotification` and the `update*` methods. Use `popup`, `hud` and `text`.
 - `SoundManager.playSuccess` and the `success` sound key.
+- `SoundManager.playJump`, `playScore` and `playGameOver`. The `jump`, `score` and `gameover`
+  keys come with `gameFeedback()`.
 - The event bus options of `RewardSystem` config.
 
 ## Changed
@@ -23,6 +25,25 @@ package. Games keep working through `dopaminejs/games`, which arrives in the nex
   and `coins`. An unknown kind does nothing.
 - `SoundManager.play(key)` plays `xp`, `level_up`, `achievement`, `personal_best`, `click`
   and `error`, and ignores keys it does not know.
+
+## Game helpers
+
+`showCombo`, `showNearMiss`, `showLuckyMoment` and `showSummary` are methods of the plugin:
+
+```javascript
+import { createDopamine } from 'dopaminejs';
+import { gameFeedback } from 'dopaminejs/games';
+
+const games = gameFeedback({ text: { gameOver: 'Run over' } });
+createDopamine({ plugins: [games] });
+games.combo(3, x, y);
+games.summary({ score: 120, metrics: { Coins: 4 } });
+```
+
+## Testing
+
+`dopaminejs/testing` has `createTestHost()` and the `conformance` suites for your own parts
+and plugins. It needs `vitest`.
 
 ## New
 

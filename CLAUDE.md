@@ -52,6 +52,8 @@ so plugin sources can be imported directly.
 packages/dopaminejs/src/
   index.js            public exports, no default export, no side effects
   progression.js      the `dopaminejs/core` subpath, no browser globals allowed
+  games.js            the `dopaminejs/games` subpath: gameFeedback() plugin
+  testing.js          the `dopaminejs/testing` subpath: createTestHost, conformance, loadFixtures
   dopamine/
     host.js           createDopamine, HOST_API, the plugin contract
     core/             RewardSystem, DataService, EventEmitter, merge, validate
@@ -92,6 +94,19 @@ throwing one does not stop the others.
 - Plugins install in array order and dispose in reverse. `ctx.events.on`
   listeners are removed on dispose. `ctx.storage` is namespaced `dopamine_<plugin>_`.
 
+## Games and testing entries
+
+- `dopaminejs/games`: `gameFeedback({ text? })` is a plugin (`requires: ['ui']`).
+  Call `combo`, `nearMiss`, `luckyMoment` and `summary` on the object it returns.
+  They do nothing before install and after dispose. Nothing in the main entry
+  imports it (a test walks the import graph).
+- `dopaminejs/testing` imports `vitest`, an optional peer dependency, so no
+  other entry may import it. `conformance.particles|sound|ui|storage|plugin(make)`
+  are `describe` blocks; `conformanceFailures(name, make)` returns the failed titles
+  so a test can prove a bad part is caught.
+- `spec/` ships in the package. `vite build` copies the root `spec/` to
+  `packages/dopaminejs/spec/` (git-ignored). Edit the root one only.
+
 ## API that is easy to get wrong
 
 - `new ParticleSystem(config)` takes a config object, not a canvas.
@@ -101,7 +116,8 @@ throwing one does not stop the others.
   read at call time. `config` takes `text`, `icons.streak`, `safeIcons` and
   `injectCss`. Use `hud()`, `popup()` and `text()`.
 - `SoundManager.play(key)` knows xp, level_up, achievement, personal_best, click
-  and error, and ignores other keys.
+  and error, plus keys added with `register(key, urlOrSynth)`, and ignores
+  other keys. `jump`, `score` and `gameover` exist only while `gameFeedback()` is installed.
 - `rewards.getXPForNextLevel()` returns `{ total, needed, progress }`.
 - `rewards.init()` must resolve before `addXP` or `record`. `createDopamine`
   does that in `host.ready`.

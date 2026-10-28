@@ -160,3 +160,26 @@ void wiredUp;
 void plugins;
 void effectsAndSound;
 void coreEntry;
+
+// The games and testing entries.
+import { gameFeedback } from '../types/games.js';
+import { createTestHost, conformance, loadFixtures } from '../types/testing.js';
+
+async function gamesAndTesting(): Promise<void> {
+    const games = gameFeedback({ text: { gameOver: 'Run over', exit: '' } });
+    const test = createTestHost({ clock: '2026-03-01T10:00:00', plugins: [games] });
+    await test.ready;
+    games.combo(3, 10, 20);
+    games.summary({ score: 120, metrics: { Coins: 4 }, onExit: () => {} });
+    test.advanceDays(1);
+    const kinds: string[] = test.bursts.map((b) => b.kind);
+    const logged: string[] = test.events.log.map((e) => e.event);
+    const contract: number = loadFixtures().contract;
+    void kinds;
+    void logged;
+    void contract;
+    conformance.plugin(() => gameFeedback());
+    conformance.storage(() => createMemoryStorage());
+}
+
+void gamesAndTesting;

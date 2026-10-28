@@ -349,6 +349,8 @@ export interface FloatingText {
     x?: number;
     y?: number;
     color?: string;
+    /** A CSS font size such as `32px`. */
+    size?: string;
 }
 
 export interface BurstOptions {
@@ -375,6 +377,8 @@ export interface ParticleRenderer {
 export interface SoundPlayer {
     /** An unknown key does nothing. */
     play(key: string): unknown;
+    /** Optional. Adds a key and returns a remover. `SoundManager` has it. */
+    register?(key: string, source: string | SoundSynth): () => void;
     destroy(): void;
 }
 
@@ -472,6 +476,9 @@ export interface SoundManagerConfig {
     customSounds?: Record<string, string>;
 }
 
+/** A synth key. `later` is a timeout that destroy() cancels. */
+export type SoundSynth = (sound: SoundManager, later: (fn: () => void, ms: number) => void) => void;
+
 export class SoundManager {
     constructor(config?: SoundManagerConfig);
 
@@ -488,6 +495,12 @@ export class SoundManager {
     toggleMute(): boolean;
 
     registerSound(key: string, url: string): void;
+    /**
+     * Add a key. A string is a file URL. A function is a synth, called as
+     * `(sound, later)` when the key plays; `later` is a timeout that destroy()
+     * cancels. Returns a remover.
+     */
+    register(key: string, source: string | SoundSynth): () => void;
     /** Registers every key, then loads the files. Before the audio context exists they load when it is created. */
     preloadSounds(soundMap: Record<string, string>): Promise<void>;
     loadSound(key: string, url: string): Promise<void>;
@@ -495,9 +508,6 @@ export class SoundManager {
     play(key: string): Promise<void>;
     playTone(frequency: number, duration: number, type?: OscillatorType, volume?: number): void;
 
-    playJump(force?: boolean): void;
-    playScore(force?: boolean): void;
-    playGameOver(force?: boolean): void;
     playClick(force?: boolean): void;
     playXP(force?: boolean): void;
     playLevelUp(force?: boolean): void;

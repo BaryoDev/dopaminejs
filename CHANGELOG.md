@@ -11,6 +11,15 @@ All notable changes to this project will be documented in this file.
 - Added `createDopamine` and the plugin contract (`HOST_API` is 3). See `docs/PLUGIN_GUIDE.md`.
 - Importing `dopaminejs` no longer adds CSS. Import `dopaminejs/style.css` or pass `injectCss: true`.
 - `achievement.icon` is safe text by default (`safeIcons: true`).
+- Added `dopaminejs/games` with `gameFeedback({ text? })`: `combo`, `nearMiss`,
+  `luckyMoment`, `summary` and the `jump`, `score` and `gameover` sounds. The
+  `text` option replaces the strings, and an empty string hides one.
+- Added `dopaminejs/testing` with `createTestHost`, `conformance` (particles, sound,
+  ui, storage, plugin), `conformanceFailures` and `loadFixtures`. `vitest` is an
+  optional peer dependency.
+- The package now ships `spec/` (the conformance fixtures) with a `dopaminejs/spec/*` export.
+- Added `SoundManager.register(key, urlOrSynth)`. Removed `playJump`, `playScore` and
+  `playGameOver`.
 - Added `ParticleSystem.burst(kind, at?, opts?)`. `SoundManager.play(key)` ignores unknown keys.
   Removed `playSuccess`.
 
