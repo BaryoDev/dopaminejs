@@ -1,2 +1,2 @@
-WebhookIntegration: class(0) proto[flush,send]
+WebhookIntegration: class(0) proto[close,flush,send]
 webhooks: function(0)
