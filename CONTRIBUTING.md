@@ -170,13 +170,13 @@ See [Plugin Development Guide](./PLUGIN_GUIDE.md) for detailed instructions.
 export const MyPlugin = {
     name: 'my-plugin',
     version: '1.0.0',
-    
-    init(kernel) {
+    api: 3,
+
+    install(ctx) {
         // Your plugin logic
-    },
-    
-    destroy() {
-        // Cleanup
+        return () => {
+            // Cleanup
+        };
     }
 };
 ```

@@ -107,6 +107,21 @@ describe('SoundManager', () => {
         expect(playToneSpy).toHaveBeenCalled();
     });
 
+    it('should play each preset key and ignore unknown keys', async () => {
+        soundManager.initAudio();
+        const playToneSpy = vi.spyOn(soundManager, 'playTone');
+
+        await soundManager.play('no_such_key');
+        expect(playToneSpy).not.toHaveBeenCalled();
+
+        for (const key of ['xp', 'level_up', 'achievement', 'personal_best', 'click', 'error']) {
+            playToneSpy.mockClear();
+            await soundManager.play(key);
+            expect(playToneSpy, key).toHaveBeenCalled();
+        }
+        expect(soundManager.playSuccess).toBeUndefined();
+    });
+
     it('should attempt to load and play if registered but not loaded', async () => {
         soundManager.initAudio();
         soundManager.registerSound('win', 'win.mp3');

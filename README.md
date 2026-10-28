@@ -1,15 +1,15 @@
 # DopamineJS
 
-> **Progression mechanics for web apps.** XP, levels, achievements and daily streaks you can
-> drop into a product, plus the particles, sound and screen shake that make them land.
+> **Progress feedback for any web app.** XP, levels, achievements and daily streaks you can
+> drop into a product, plus the particles and sound that make them land.
 
 Every learning platform, habit tracker and onboarding flow eventually rebuilds the same
 thing: points that accumulate, a level that goes up, a streak that must not be broken, and
 some visual acknowledgement when it happens. There is no library for that, so teams write
 it again each time, usually without the timezone handling that makes streaks correct.
 
-DopamineJS is that library. The game engine underneath it is what makes the feedback feel
-good, not the reason to install it.
+DopamineJS is that library. Progress is the core, and the visual and audio feedback are
+parts you can keep, swap or leave out.
 
 ## What it is for
 
@@ -17,7 +17,7 @@ good, not the reason to install it.
 - **Habit and fitness apps**: streak preservation, milestone celebrations, progress toward a level
 - **Onboarding and adoption**: progress that feels like something rather than a checklist
 - **Internal tools**: the ones nobody opens voluntarily
-- **HTML5 games**: the original use case, still supported
+- **Games**: they keep working through `dopaminejs/games` (next step of 3.0)
 
 ## Quick start
 
@@ -45,26 +45,35 @@ That is the whole integration. Persistence is `localStorage` by default and swap
 streaks are computed in the user's local calendar rather than UTC, and nothing renders
 until you ask it to.
 
-Want the visuals too:
+Want the visuals and sound too. `createDopamine` builds the parts, wires them to the
+progress events and installs plugins:
 
 ```javascript
-import { GameUI, ParticleSystem } from 'dopaminejs';
+import { createDopamine } from 'dopaminejs';
 import 'dopaminejs/style.css';
 
-const ui = new GameUI(new ParticleSystem());
+const dopamine = createDopamine({ plugins: [] });
+await dopamine.ready;
 
-rewards.on('level_up', ({ oldLevel, newLevel }) => ui.showLevelUp(oldLevel, newLevel));
+await dopamine.progress.addXP(250);   // the bar moves, the sound plays
 ```
 
-`GameUI` takes a second argument to change its copy and icons:
+Each part (`ui`, `particles`, `sound`, `haptics`) is a value, a factory, or `false` for none.
+`RewardUI` takes a second argument to change its copy and icons:
 
 ```javascript
-new GameUI(particles, {
-    text: { levelUp: 'Level up', achievementUnlocked: 'Unlocked', nearMiss: 'Close' },
+import { RewardUI } from 'dopaminejs';
+
+new RewardUI(parts, {
+    text: { levelUp: 'Level up', achievementUnlocked: 'Unlocked' },
     icons: { streak: '*' },   // a string or a DOM Node (a Node is moved, not copied)
-    safeIcons: true           // string icons become allowlisted SVG or text
+    safeIcons: true,          // the default: string icons become allowlisted SVG or text
+    injectCss: false          // true adds the stylesheet from code
 });
 ```
+
+Importing `dopaminejs` has no side effects. Import `dopaminejs/style.css` yourself, or pass
+`injectCss: true`.
 
 ## Why streaks are the hard part
 
@@ -84,12 +93,11 @@ quietly on a UTC runner.
 npm install dopaminejs
 ```
 
-The core engine with:
+The core with:
 - TypeScript declarations included, no `@types` package needed
-- Plugin architecture (Kernel, EventBus, SystemRegistry)
-- Default implementations (Canvas particles, Web Audio, basic physics)
-- Reward system (XP, levels, achievements)
-- Component-based game objects
+- `createDopamine` with swappable parts and a plugin contract
+- Default parts (DOM overlay, Canvas particles, Web Audio)
+- Reward system (XP, levels, achievements, streaks)
 
 **License**: MPL-2.0 (copyleft for core improvements)
 
@@ -153,7 +161,7 @@ Not on npm yet. `provideRewards()` and the `useRewards()` composable for Vue 3.3
 
 ## React Native, Expo and other non-browser runtimes
 
-`dopaminejs/core` exports only the progression API: `RewardSystem`, `DataService`, `EventEmitter`, `DopamineError`, `merge`, `validate`, `createMemoryStorage` and `resolveStorage`. It has no UI, particles, sound or engine, and nothing in it touches `window`, `document` or `localStorage` at import time. Only the default-storage fallback (`resolveStorage`) probes `localStorage`, so pass `storage` outside a browser. CI imports the built output in plain Node with those globals unset and runs `init` and `record` (`scripts/check-core-import.js`).
+`dopaminejs/core` exports only the progression API: `RewardSystem`, `DataService`, `EventEmitter`, `DopamineError`, `merge`, `validate`, `createMemoryStorage` and `resolveStorage`. It has no UI, particles or sound, and nothing in it touches `window`, `document` or `localStorage` at import time. Only the default-storage fallback (`resolveStorage`) probes `localStorage`, so pass `storage` outside a browser. CI imports the built output in plain Node with those globals unset and runs `init` and `record` (`scripts/check-core-import.js`).
 
 The entry resolves only through the `exports` field of `package.json`. Metro honours it by default from React Native 0.79 and Expo SDK 53. Older versions need `config.resolver.unstable_enablePackageExports = true` in `metro.config.js`.
 
@@ -176,30 +184,14 @@ If the saved player cannot be read (`getItem` throws or rejects), `init()` still
 
 `merge(a, b)` joins two saves of the same player into one, in any order, so a server can merge saves without a browser. `rewards.export()` gives the saved document and `rewards.import(doc)` merges one in.
 
-Without a `storage` option, `DataService` falls back to `localStorage` if present, then to memory, so state is lost when the app closes. `GameUI`, `ParticleSystem` and `SoundManager` are web only and stay on the root `dopaminejs` entry.
+Without a `storage` option, `DataService` falls back to `localStorage` if present, then to memory, so state is lost when the app closes. `RewardUI`, `ParticleSystem` and `SoundManager` are web only and stay on the root `dopaminejs` entry.
 
 ---
 
-## Using the game engine directly
+## Plugins
 
-The engine that powers the effects is exported too, if you are building an actual game
-rather than adding progression to an app.
-
-```javascript
-import { Game } from 'dopaminejs';
-import { WebGLParticlePlugin } from 'dopaminejs-plugin-webgl-particles';
-import { themeEngine } from 'dopaminejs-themes';
-
-const game = new Game();
-
-// Add plugins
-game.kernel.plugins.use(WebGLParticlePlugin);
-
-// Set theme
-themeEngine.setTheme('dark-cyberpunk');
-
-game.start();
-```
+A plugin is `{ name, version, api: 3, install(ctx) }` and `install` returns a disposer.
+See [docs/PLUGIN_GUIDE.md](./docs/PLUGIN_GUIDE.md).
 
 ---
 
@@ -268,7 +260,7 @@ actual response, which `npm publish` hides:
 
 ### Why Different Licenses?
 
-- **Core (MPL-2.0)**: Ensures improvements to the core engine are shared back
+- **Core (MPL-2.0)**: Ensures improvements to the core are shared back
 - **Plugins/Themes (MIT)**: Maximum freedom for extensions and customization
 
 ### Can I use this commercially?

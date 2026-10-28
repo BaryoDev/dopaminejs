@@ -55,17 +55,6 @@
             "name": "dopaminejs (CJS)"
         },
         {
-            "path": "packages/dopaminejs/dist/engine.js",
-            "import": "*",
-            "limit": "6.5 KB",
-            "name": "dopaminejs/engine (ESM)"
-        },
-        {
-            "path": "packages/dopaminejs/dist/engine.cjs",
-            "limit": "6.5 KB",
-            "name": "dopaminejs/engine (CJS)"
-        },
-        {
             "path": "packages/dopaminejs/dist/core.js",
             "import": "*",
             "limit": "4 KB",

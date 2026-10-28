@@ -5,6 +5,16 @@
 
 import { prefersReducedMotion } from '../feel/motion.js';
 
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+const BURSTS = {
+    confetti: (ps, x, y, count) => ps.confetti(x, y, count),
+    sparkle: (ps, x, y, count, color) => ps.sparkle(x, y, count, color),
+    fire: (ps, x, y, count) => ps.fire(x, y, count),
+    stars: (ps, x, y, count) => ps.starBurst(x, y, count),
+    coins: (ps, x, y, count) => ps.coinShower(x, y, count)
+};
+
 export class ParticleSystem {
     constructor(config = {}) {
         this.container = config.container ?
@@ -124,6 +134,11 @@ export class ParticleSystem {
      * Play a registered effect
      */
     play(name, x, y, ...args) {
+        // play(name, { x, y }) is the part contract; play(name, x, y) still works.
+        if (x !== null && typeof x === 'object') {
+            args = y === undefined ? [] : [y, ...args];
+            ({ x, y } = x);
+        }
         const effect = this.customEffects.get(name);
         if (effect) {
             effect(x, y, ...args);
@@ -203,6 +218,21 @@ export class ParticleSystem {
 
     _recycleParticle(p) {
         this.pool.push(p);
+    }
+
+    /**
+     * The part contract: one call for every built-in effect. An unknown kind
+     * does nothing.
+     * @param {'confetti'|'sparkle'|'fire'|'stars'|'coins'} kind
+     * @param {{x: number, y: number}} [at] - Defaults to the middle of the canvas.
+     * @param {{count?: number, color?: string}} [opts]
+     */
+    burst(kind, at, opts) {
+        if (typeof kind !== 'string' || !hasOwn(BURSTS, kind)) return;
+        const x = Number.isFinite(at?.x) ? at.x : this.width / 2;
+        const y = Number.isFinite(at?.y) ? at.y : this.height / 2;
+        const count = Number.isFinite(opts?.count) ? opts.count : undefined;
+        BURSTS[kind](this, x, y, count, opts?.color);
     }
 
     // --- Built-in Effects ---

@@ -207,7 +207,8 @@ export class SoundManager {
 
     /**
      * Play a sound by key (custom) or fallback to synth
-     * @param {string} key - 'jump', 'score', 'success', etc.
+     * @param {string} key - A preset ('xp', 'level_up', 'achievement', 'personal_best',
+     *   'click', 'error'), a registered key, or a synth name. An unknown key is ignored.
      */
     async play(key) {
         if (this.muted) return;
@@ -238,7 +239,10 @@ export class SoundManager {
         const synthMap = {
             'jump': () => this.playJump(true),
             'score': () => this.playScore(true),
-            'success': () => this.playSuccess(true),
+            'xp': () => this.playXP(true),
+            'level_up': () => this.playLevelUp(true),
+            'achievement': () => this.playAchievement(true),
+            'personal_best': () => this.playPersonalBest(true),
             'click': () => this.playClick(true),
             'error': () => this.playError(true),
             'gameover': () => this.playGameOver(true)
@@ -306,8 +310,26 @@ export class SoundManager {
         this.playTone(600, 0.05, 'sine', 0.1);
     }
 
-    playSuccess(force = false) {
-        if (!force && this.assets.has('success')) return this.play('success');
+    playXP(force = false) {
+        if (!force && this.assets.has('xp')) return this.play('xp');
+        this.playTone(700, 0.06, 'sine', 0.12);
+    }
+
+    playLevelUp(force = false) {
+        if (!force && this.assets.has('level_up')) return this.play('level_up');
+        this.playTone(500, 0.12, 'sine', 0.2);
+        this._later(() => this.playTone(700, 0.12, 'sine', 0.2), 110);
+        this._later(() => this.playTone(900, 0.25, 'sine', 0.2), 220);
+    }
+
+    playAchievement(force = false) {
+        if (!force && this.assets.has('achievement')) return this.play('achievement');
+        this.playTone(660, 0.1, 'triangle', 0.2);
+        this._later(() => this.playTone(990, 0.25, 'triangle', 0.2), 100);
+    }
+
+    playPersonalBest(force = false) {
+        if (!force && this.assets.has('personal_best')) return this.play('personal_best');
         this.playTone(600, 0.1, 'sine', 0.2);
         this._later(() => this.playTone(800, 0.2, 'sine', 0.2), 100);
     }

@@ -1,111 +1,70 @@
-# Zero to Hero: Building with DopamineJS
+# Zero to Hero: Progress Feedback with DopamineJS
 
-Welcome to DopamineJS, the **Juice-First Game Engine**.
-Unlike other engines where you add feedback later, DopamineJS makes particles, screenshake, and rewards a core part of your game loop.
+DopamineJS gives any web app XP, levels, achievements and streaks, and shows them with a bar, popups, particles and sound.
 
 ## 1. Setup
-
-Install via npm:
 
 ```bash
 npm install dopaminejs
 ```
 
-Create an `index.html`:
+```javascript
+import { createDopamine } from 'dopaminejs';
+import 'dopaminejs/style.css';
 
-```html
-<div id="game-container"></div>
-<script type="module">
-  import Dopamine, { Game, Scene, GameObject, Component } from 'dopaminejs';
-  
-  // 1. Initialize the Juice System
-  const app = new Dopamine();
-  await app.init();
-  
-  // 2. Create the Game
-  const game = new Game({ parent: '#game-container' });
-  game.start();
-</script>
+const dopamine = createDopamine();
+await dopamine.ready;
 ```
 
-## 2. Your First Scene
+`createDopamine` builds the parts (`ui`, `particles`, `sound`, `haptics`), wires them to the
+progress events and loads the saved player. Importing the package has no side effects, so
+the stylesheet is yours to import (or pass `injectCss: true` to `RewardUI`).
 
-A `Scene` is a state (Menu, Gameplay).
+## 2. Give XP
 
 ```javascript
-class MainScene extends Scene {
-    onEnter() {
-        console.log("Game Started!");
-    }
-}
-game.setScene(new MainScene());
+await dopamine.progress.addXP(50, 'finished lesson');
 ```
 
-## 3. Game Objects & Components
+The bar moves and the XP sound plays. When the level changes, the level popup shows.
 
-Everything is a `GameObject`. Logic lives in `Components`.
+## 3. Achievements
 
 ```javascript
-class Player extends Component {
-    update(dt) {
-        this.gameObject.x += 100 * dt; // Move right
-    }
-    render(ctx) {
-        ctx.fillStyle = 'blue';
-        ctx.fillRect(-10, -10, 20, 20);
-    }
-}
-
-// In Scene.onEnter:
-const player = new GameObject(100, 100);
-player.addComponent(new Player());
-this.add(player);
+dopamine.progress.defineAchievement('first_lesson', {
+    name: 'First lesson',
+    description: 'Finish one lesson',
+    icon: 'trophy',
+    xp: 25
+});
+await dopamine.progress.unlockAchievement('first_lesson');
 ```
 
-## 4. Physics
+Icons are shown as text or sanitised SVG. See SECURITY.md before turning `safeIcons` off.
 
-DopamineJS has a simple built-in physics engine.
+## 4. Swap or drop a part
 
-1.  **Add a Collider**:
-    ```javascript
-    import { Collider } from 'dopaminejs';
-    player.addComponent(new Collider('box', {w: 50, h: 50}, 'player'));
-    enemy.addComponent(new Collider('box', {w: 50, h: 50}, 'enemy'));
-    ```
-
-2.  **React to Collisions**:
-    Add `onCollisionEnter(other)` to any Component on the object.
-    ```javascript
-    class Bullet extends Component {
-        onCollisionEnter(other) {
-            // Check tag via Collider component
-            const col = other.getComponent(Collider);
-            if (col && col.tag === 'enemy') {
-                this.destroy();
-            }
-        }
-    }
-    ```
-
-## 5. adding Juice (The Dopamine Way)
-
-Easily trigger effects from your components.
+Each part is a value, a factory, or `false` for none.
 
 ```javascript
-import { ParticleEmitter, ScreenShake } from 'dopaminejs';
-
-// In your Player class:
-shoot() {
-    // 1. Shake Camera
-    // Assuming you have a ScreenShake component on your camera/root
-    this.scene.cameraShaker.shake(5, 0.2);
-    
-    // 2. Muzzle Flash
-    const emitter = this.gameObject.getComponent(ParticleEmitter);
-    emitter.play('sparkle', { count: 10, color: '#ff0000' });
-}
+createDopamine({
+    sound: false,
+    particles: (env) => (env.reducedMotion ? null : new MyParticles())
+});
 ```
 
-## 6. Publishing
+A factory that returns `null` means use the default.
 
-Run `npm run build` (vite build) and deploy your `dist` folder.
+## 5. React to events
+
+```javascript
+dopamine.events.on('level_up', ({ newLevel }) => track('level', newLevel));
+```
+
+## 6. Plugins
+
+See [PLUGIN_GUIDE.md](./PLUGIN_GUIDE.md).
+
+## 7. Publishing
+
+Run `npm run build` and deploy your `dist` folder.

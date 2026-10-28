@@ -3,7 +3,7 @@
  * no localStorage. Importing and constructing the storage-backed pieces must
  * not throw, so the package can be imported during SSR or in a worker.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { DataService } from '../src/dopamine/core/DataService.js';
 import { SoundManager } from '../src/dopamine/audio/SoundManager.js';
 
@@ -33,5 +33,23 @@ describe('non-browser environment', () => {
 
         expect(() => manager.play('jump')).not.toThrow();
         expect(() => manager.playTone(440, 0.1)).not.toThrow();
+    });
+
+    it('importing dopaminejs touches no document or window', async () => {
+        const touched = [];
+        const names = ['document', 'window', 'localStorage', 'matchMedia', 'AudioContext'];
+        for (const name of names) {
+            Object.defineProperty(globalThis, name, {
+                configurable: true,
+                get() { touched.push(name); return undefined; }
+            });
+        }
+        try {
+            vi.resetModules();
+            await import('../src/index.js');
+        } finally {
+            for (const name of names) delete globalThis[name];
+        }
+        expect(touched).toEqual([]);
     });
 });

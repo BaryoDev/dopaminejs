@@ -6,14 +6,14 @@ against the code. If one is wrong, fix this file in the same change.
 ## What this is
 
 DopamineJS adds progression to web apps: XP, levels, achievements and daily
-streaks, plus the particles, sound and screen shake that go with them. A small
-game engine sits underneath and is exported too.
+streaks, plus the particles and sound that go with them. `createDopamine()`
+wires swappable parts and plugins together.
 
 npm workspaces monorepo, ten packages under `packages/`:
 
 | Package | Licence | Holds |
 |---|---|---|
-| `dopaminejs` | MPL-2.0 | Core: rewards, UI, effects, engine |
+| `dopaminejs` | MPL-2.0 | Core: rewards, UI, effects, host and plugins |
 | `dopaminejs-react` | MIT | `RewardsProvider`, `useRewards()` |
 | `dopaminejs-vue` | MIT | `provideRewards()`, `useRewards()` (private until first publish) |
 | `dopaminejs-themes` | MIT | CSS variable themes |
@@ -50,59 +50,59 @@ so plugin sources can be imported directly.
 
 ```
 packages/dopaminejs/src/
-  index.js            public exports
-  engine.js           the `dopaminejs/engine` subpath
+  index.js            public exports, no default export, no side effects
   progression.js      the `dopaminejs/core` subpath, no browser globals allowed
-  dopamine/           the product: RewardSystem, DataService, GameUI,
-                      ParticleSystem, SoundManager, the Dopamine facade
-  core/               engine: DopamineKernel, EventBus, SystemRegistry,
-                      PluginRegistry, Game, Scene, GameObject, Component, Collider
-  systems/            Ticker, Physics, Input, Loader, Director
-  interfaces/         system contracts
-  renderer/           Canvas 2D renderer
+  dopamine/
+    host.js           createDopamine, HOST_API, the plugin contract
+    core/             RewardSystem, DataService, EventEmitter, merge, validate
+    ui/               RewardUI and dopamine.css
+    effects/          ParticleSystem
+    audio/            SoundManager
+    feel/             haptics, reduced motion
 ```
 
-## Two event systems
+`dopaminejs/style.css` is emitted by the build from `ui/dopamine.css`. Nothing
+imports it. `RewardUI` takes `injectCss: true` to add it from code.
 
-They are different classes with different rules. Mixing them up is the most
-common mistake in this repo, and the old README did it.
+## Events
 
-`RewardSystem` extends `EventEmitter`. `on` returns an unsubscribe function.
+`RewardSystem` extends `EventEmitter`, and it is the one event bus. `on`
+returns an unsubscribe function.
 
 ```javascript
 const stop = rewards.on('level_up', ({ oldLevel, newLevel, totalXP }) => {});
 stop();
 ```
 
-The kernel `EventBus` takes a numeric priority as the third argument and has
-no unsubscribe return. Keep the callback and call `off`.
+Core events: `xp_gained`, `level_up`, `achievement_unlocked`, `personal_best`,
+`streak_updated`, `save_failed`, `load_failed`. Plugin events are named
+`<plugin>:<event>`. Listeners are synchronous and each is wrapped, so a
+throwing one does not stop the others.
 
-```javascript
-kernel.events.on('tick', this._onTick, 10);
-kernel.events.off('tick', this._onTick);
-```
+## Host and plugins
 
-Event names are lowercase strings: `tick`, `fixed_update`, `render`,
-`collision_enter`, `collision_exit`, `xp_gained`, `level_up`, `achievement_unlocked`,
-`personal_best`, `streak_updated`, `save_failed`, `load_failed`. `EventBus.Events.LEVEL_UP`
-is a constant whose value is `'level_up'`. Listening for `'LEVEL_UP'` never
-fires.
+- `createDopamine({ progress, ui, particles, sound, haptics, storage, clock, plugins })`.
+  A part is a value, a factory `(env) => part | null` (null means the default),
+  or `false` for none.
+- `host.parts` has getters only. Read a part when you need it, never keep it.
+- A plugin is `{ name, version, api: 3, after?, requires?, install(ctx) }`.
+  `install` returns a disposer. A wrong `api` throws `plugin_api`.
+- Plugins install in array order and dispose in reverse. `ctx.events.on`
+  listeners are removed on dispose. `ctx.storage` is namespaced `dopamine_<plugin>_`.
 
-Pass `events` or `kernel` in the `RewardSystem` config to mirror reward events
-onto the bus.
+## API that is easy to get wrong
 
-## Engine API that is easy to get wrong
-
-- `scene.add(obj)` and `scene.remove(obj)`. There is no `addGameObject`.
-- `game.setScene(scene)` or `director.run(scene)`. There is no `changeScene`.
-- `GameObject` has `x`, `y`, `rotation` and `scale: { x, y }`. No `position`.
-- `kernel.systems.register(name, system, { priority, dependencies })`.
 - `new ParticleSystem(config)` takes a config object, not a canvas.
-- `new GameUI(particleSystem, config?)` builds its DOM in the constructor. Do
-  not call `init()` again. `config` takes `text`, `icons.streak` and `safeIcons`.
-- `ui.showLevelUp(oldLevel, newLevel)`.
+  `burst(kind, at?, opts?)` takes confetti, sparkle, fire, stars or coins; an
+  unknown kind does nothing.
+- `new RewardUI(parts, config?)` builds its DOM in the constructor. `parts` is
+  read at call time. `config` takes `text`, `icons.streak`, `safeIcons` and
+  `injectCss`. Use `hud()`, `popup()` and `text()`.
+- `SoundManager.play(key)` knows xp, level_up, achievement, personal_best, click
+  and error, and ignores other keys.
 - `rewards.getXPForNextLevel()` returns `{ total, needed, progress }`.
-- `rewards.init()` must resolve before `addXP` or `record`.
+- `rewards.init()` must resolve before `addXP` or `record`. `createDopamine`
+  does that in `host.ready`.
 
 ## Rules
 
@@ -124,16 +124,13 @@ onto the bus.
 - **The save is a document that merges.** `merge` is pure, reads no clock and
   is the same in any order. Nothing hands out the document: callers get frozen
   `snapshot()` copies. Time comes from the `clock` in the config.
-- **`achievement.icon` is rendered as HTML on purpose**, unless `GameUI` is
-  built with `safeIcons: true` (allowlisted SVG or text; the default from
-  3.0). A string `icons.streak` is the same sink. A Node icon is always moved
-  in, never parsed. Every other field is text. See `SECURITY.md`.
+- **`achievement.icon` is safe text by default.** `RewardUI` shows a string
+  icon as text or allowlisted SVG. `safeIcons: false` renders it as HTML. A
+  string `icons.streak` follows the same rule. A Node icon is always moved in,
+  never parsed. Every other field is text. See `SECURITY.md`.
 - **Anything that adds a listener, timer or DOM node removes it in
   `destroy()`**, and a test proves it.
-- **The v1 globals stay.** `GlobalPhysics`, `GlobalInput` and `GlobalLoader`
-  warn once on first use. Removing them needs a major version.
-- The core entry has a default export (`Dopamine`) for v1 compatibility. New
-  code uses named exports.
+- The core entry has no default export and no import side effects. A test proves it.
 
 Style: 4-space indent, semicolons, single quotes, underscore prefix for
 private members, one class per file. Comments say why, not what.

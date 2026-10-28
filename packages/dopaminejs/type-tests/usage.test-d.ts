@@ -6,25 +6,19 @@
  * way a consumer would actually use the library, not to maximise coverage.
  */
 
-import Dopamine, {
+import {
+    createDopamine,
+    HOST_API,
     RewardSystem,
     DataService,
-    GameUI,
+    RewardUI,
     ParticleSystem,
     SoundManager,
-    DopamineKernel,
-    EventBus,
-    Game,
-    Scene,
-    GameObject,
-    Component,
-    Vector2,
-    Collider,
-    type CollisionEvent,
     createMemoryStorage,
     type Player,
     type AchievementDefinition,
-    type Plugin
+    type DopaminePlugin,
+    type PluginContext
 } from '../types/index.js';
 import {
     RewardSystem as CoreRewardSystem,
@@ -36,27 +30,24 @@ import {
 } from '../types/core.js';
 // The web-only layer is not part of the core entry, so this must not compile.
 // @ts-expect-error
-import { GameUI as CoreGameUI } from '../types/core.js';
+import { RewardUI as CoreRewardUI } from '../types/core.js';
 
-void CoreGameUI;
+void CoreRewardUI;
 
 // The zero-config path.
 async function quickstart(): Promise<void> {
-    const dopamine = new Dopamine();
-    const { rewardSystem, gameUI } = await dopamine.init();
+    const dopamine = await createDopamine().ready;
 
-    const result = await rewardSystem.addXP(50, 'level cleared');
+    const result = await dopamine.progress.addXP(50, 'level cleared');
     if (result.leveledUp) {
-        gameUI.showLevelUp(result.newLevel - 1, result.newLevel);
+        dopamine.parts.ui?.popup({ kind: 'level', body: String(result.newLevel) });
     }
 
-    const { progress, needed, total } = rewardSystem.getXPForNextLevel();
-    gameUI.updateXP(total - needed, needed, total);
-    const clamped: number = progress;
-    void clamped;
+    const { progress, needed, total } = dopamine.progress.getXPForNextLevel();
+    dopamine.parts.ui?.hud({ xp: total - needed, level: 1, progress, streak: 1, next: total });
 
-    await rewardSystem.record('breakout', { score: 4200, deaths: 2 });
-    gameUI.destroy();
+    await dopamine.progress.record('breakout', { score: 4200, deaths: 2 });
+    dopamine.dispose();
 }
 
 // Custom achievements, including one that omits xp.
@@ -74,111 +65,85 @@ const achievements: Record<string, AchievementDefinition> = {
     }
 };
 
-// Injected storage, and the reward system bridged onto a kernel bus.
+// Parts, a factory that falls back, and injected storage.
 async function wiredUp(): Promise<void> {
     const data = new DataService({ storage: createMemoryStorage(), prefix: 'game_' });
-    const bus = new EventBus();
+    const rewards = new RewardSystem(data, { achievements });
+    const host = createDopamine({
+        progress: rewards,
+        particles: () => null,
+        sound: false,
+        ui: (env) => (env.hasDom ? new RewardUI({ particles: null }, { injectCss: true }) : null)
+    });
+    await host.ready;
 
-    const rewards = new RewardSystem(data, { achievements, events: bus });
-    await rewards.init();
-
-    bus.on(EventBus.Events.LEVEL_UP, (payload: { oldLevel: number; newLevel: number }) => {
-        void payload.newLevel;
-    }, 10);
-
-    const unsubscribe = rewards.on('xp_gained', () => { });
+    const unsubscribe = host.events.on('xp_gained', () => { });
     unsubscribe();
 
-    const hasListeners: boolean = bus.hasListeners(EventBus.Events.XP_GAINED);
-    void hasListeners;
+    // @ts-expect-error parts has getters only
+    host.parts.ui = null;
 }
 
-// Particles and audio.
+// A plugin.
+const logger: DopaminePlugin = {
+    name: 'logger',
+    version: '1.0.0',
+    api: HOST_API,
+    requires: ['ui'],
+    install(ctx: PluginContext) {
+        const off = ctx.events.on('level_up', () => ctx.log.info('level up'));
+        ctx.events.emit('logger:ready', {});
+        void ctx.storage.getItem('seen');
+        ctx.expose({ off });
+        return off;
+    }
+};
+
+// @ts-expect-error api must be 3
+const wrongApi: DopaminePlugin = { name: 'x', version: '1', api: 2, install() { } };
+void wrongApi;
+
+function plugins(): void {
+    const host = createDopamine({ plugins: [logger] });
+    const remove: () => void = host.use({
+        name: 'later',
+        version: '1.0.0',
+        api: 3,
+        after: ['logger'],
+        async install(ctx) {
+            void ctx.plugin('logger');
+        }
+    });
+    remove();
+}
+
+// Particles, audio and the UI.
 function effectsAndSound(): void {
     const particles = new ParticleSystem({ container: '#game', zIndex: '10' });
     particles.confetti(100, 100, 40);
+    particles.burst('stars', { x: 5, y: 5 }, { count: 8 });
     particles.emit({ x: 10, y: 10, count: 5, color: '#f00' });
     particles.registerEffect('blood', (x, y) => void [x, y]);
+    particles.play('blood', { x: 1, y: 2 });
     particles.destroy();
 
     const sound = new SoundManager({ volume: 0.5 });
     if (sound.initAudio()) {
         sound.setVolume(0.8);
-        void sound.play('jump');
+        void sound.play('personal_best');
     }
 
-    const ui = new GameUI(particles);
-    const custom = new GameUI(particles, {
-        text: { levelUp: 'Level!', nearMiss: 'Whoa' },
+    const ui = new RewardUI({ particles });
+    const custom = new RewardUI({ particles }, {
+        text: { levelUp: 'Level!' },
         icons: { streak: document.createElement('span') },
-        safeIcons: true
+        safeIcons: false
     });
     custom.destroy();
-    ui.showSummary({
-        score: 4200,
-        metrics: { Coins: 12, Time: '2:04' },
-        onReplay: () => { },
-        onExit: () => { }
-    });
-}
-
-// Engine layer plus a plugin.
-class Player1 extends Component {
-    override update(dt: number): void {
-        this.gameObject!.x += dt;
-        this.gameObject!.scale.x = 2;
-    }
-}
-
-const debugPlugin: Plugin = {
-    name: 'debug',
-    version: '1.0.0',
-    init(kernel: DopamineKernel) {
-        kernel.events.on(EventBus.Events.TICK, () => { });
-    },
-    destroy() { }
-};
-
-function engine(): void {
-    const game = new Game({ width: 800, height: 600 });
-    game.kernel.plugins.use(debugPlugin);
-
-    const scene = new Scene();
-    const hero = new GameObject(10, 20);
-    hero.addComponent(new Player1());
-    hero.addComponent(new Collider('box', 32, 32));
-
-    const found = hero.getComponent(Collider);
-    const bounds = found?.getBounds();
-    if (bounds && 'left' in bounds) {
-        void (bounds.right - bounds.left);
-    } else if (bounds) {
-        void bounds.radius;
-    }
-
-    // The runtime has no `position`, and a declaration that says otherwise
-    // compiles code that reads undefined.
-    // @ts-expect-error
-    void hero.position;
-
-    if (found) {
-        found.tag = 'player';
-        const hits: Collider[] = game.kernel.physics.checkOverlap(found);
-        void game.kernel.physics.checkOverlap(found, 'enemy').length;
-
-        game.kernel.events.on(EventBus.Events.COLLISION_ENTER, ({ a, b }: CollisionEvent) => {
-            void [a.tag, b.gameObject];
-        });
-        void hits;
-    }
-
-    new ParticleSystem().emit({ x: 0, y: 0, color: ['#fff', '#000'], angle: Math.PI });
-    void new Vector2(1, 2).add(new Vector2(0, 1));
-
-    scene.add(hero);
-    game.setScene(scene);
-    game.start();
-    game.destroy();
+    ui.popup({ kind: 'achievement', title: 'First win', body: 'Win once', icon: 'trophy', tier: 'rare' });
+    ui.text({ text: '+50 XP', x: 10, y: 20, color: '#fff' });
+    const root: HTMLElement | null = ui.root;
+    void root;
 }
 
 function coreEntry(): void {
@@ -192,6 +157,6 @@ function coreEntry(): void {
 
 void quickstart;
 void wiredUp;
+void plugins;
 void effectsAndSound;
-void engine;
 void coreEntry;

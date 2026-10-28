@@ -45,14 +45,13 @@ describe('type declarations', () => {
     it('should declare every value the module exports', () => {
         const declared = new Set(declaredRuntimeExports());
         const undeclared = Object.keys(api)
-            .filter((name) => name !== 'default')
             .filter((name) => !declared.has(name));
 
         expect(undeclared, `exported but missing from index.d.ts: ${undeclared.join(', ')}`)
             .toEqual([]);
     });
 
-    it('should have a default export, as declared', () => {
-        expect(typeof api.default).toBe('function');
+    it('should have no default export', () => {
+        expect(api.default).toBeUndefined();
     });
 });

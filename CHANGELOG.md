@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 3.0 engine removal
+
+- Removed `dopaminejs/engine`, the default export and everything only the engine used.
+- `GameUI` is now `RewardUI`, with `hud`, `popup` and `text`. There is no alias.
+- Added `createDopamine` and the plugin contract (`HOST_API` is 3). See `docs/PLUGIN_GUIDE.md`.
+- Importing `dopaminejs` no longer adds CSS. Import `dopaminejs/style.css` or pass `injectCss: true`.
+- `achievement.icon` is safe text by default (`safeIcons: true`).
+- Added `ParticleSystem.burst(kind, at?, opts?)`. `SoundManager.play(key)` ignores unknown keys.
+  Removed `playSuccess`.
+
 ### Breaking
 
 Contract 3. Saved players from 2.x migrate on load.

@@ -1,6 +1,6 @@
 /**
  * Theme Engine
- * CSS variable-based theming system for GameUI
+ * CSS variable-based theming system for RewardUI
  */
 
 export const Themes = {

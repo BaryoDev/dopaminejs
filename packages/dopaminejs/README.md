@@ -11,59 +11,42 @@ npm install dopaminejs
 ## Quick start
 
 ```javascript
-// Named imports — the recommended way
-import { RewardSystem, DataService } from 'dopaminejs';
+import { createDopamine } from 'dopaminejs';
 import 'dopaminejs/style.css';
 
-const rewards = new RewardSystem(new DataService());
-await rewards.init();
-await rewards.addXP(100);
+const dopamine = createDopamine();
+await dopamine.ready;
+await dopamine.progress.addXP(100);
 ```
 
-> **v1.x compatibility:** The package also has a default export (`import Dopamine from 'dopaminejs'`)
-> that wraps the progression layer as it existed before v2. It is preserved for backward
-> compatibility but new code should use named imports.
+Importing `dopaminejs` touches no document or window, and there is no default export.
+Without the DOM, `ui` and `particles` are simply absent.
 
 ## What's in the box
 
 | Piece | Does |
 |---|---|
+| `createDopamine` | Builds the parts, wires default feedback, installs plugins |
 | `RewardSystem` | XP, levels, achievements, daily streaks |
-| `GameUI` | DOM overlay: XP bar, level badge, popups, floating text |
-| `ParticleSystem` | Canvas particles: confetti, sparkle, fire, star burst |
+| `RewardUI` | DOM overlay: XP bar, level badge, popups, floating text |
+| `ParticleSystem` | Canvas particles: confetti, sparkle, fire, stars, coins |
 | `SoundManager` | Synthesized effects via Web Audio, or your own audio files |
 | `DataService` | `localStorage` persistence with an in-memory fallback |
-
-And a v2 engine layer if you want the whole thing:
-
-| Piece | Does |
-|---|---|
-| `DopamineKernel` | Central orchestrator with dependency injection |
-| `EventBus` | Priority-ordered pub/sub |
-| `SystemRegistry` | System lifecycle, topologically sorted by dependency |
-| `PluginRegistry` | Sync and async plugin loading |
-| `Game`, `Scene`, `GameObject`, `Component` | Entity/component scaffolding |
 
 ## Custom achievements
 
 ```javascript
-const dopamine = new Dopamine({
-    rewards: {
-        achievements: {
-            die_100_times: {
-                name: 'You Tried',
-                description: 'Lose 100 times',
-                icon: '<img src="skull.png" width="20">', // HTML allowed here
-                xp: 50,
-                check: (player) => player.stats.breakout?.deaths >= 100
-            }
-        }
-    }
+dopamine.progress.defineAchievement('die_100_times', {
+    name: 'You Tried',
+    description: 'Lose 100 times',
+    icon: 'skull',
+    xp: 50,
+    check: (player) => player.stats.breakout?.deaths >= 100
 });
 ```
 
-`icon` accepts HTML. Every other field is rendered as text, so game state and
-server responses cannot inject markup.
+`icon` is shown as text or sanitised SVG by default. Pass `safeIcons: false` to
+`RewardUI` to render it as HTML. Every other field is always text.
 
 ## Plugins
 
@@ -78,23 +61,18 @@ Install only what you need:
 - [`dopaminejs-themes`](https://www.npmjs.com/package/dopaminejs-themes) - five UI themes
 
 ```javascript
-import { Game } from 'dopaminejs';
-import { WebGLParticlePlugin } from 'dopaminejs-plugin-webgl-particles';
+import { createDopamine } from 'dopaminejs';
+import { myPlugin } from './my-plugin.js';
 
-const game = new Game();
-game.kernel.plugins.use(WebGLParticlePlugin);
-game.start();
+const dopamine = createDopamine({ plugins: [myPlugin] });
 ```
 
 ## Cleanup
 
-Everything that touches the DOM can be torn down, which matters in a
-single-page app that mounts and unmounts a game view:
+Everything that touches the DOM can be torn down:
 
 ```javascript
-dopamine.gameUI.destroy();
-dopamine.particleSystem.destroy();
-game.kernel.destroy();
+dopamine.dispose();
 ```
 
 ## Non-browser environments

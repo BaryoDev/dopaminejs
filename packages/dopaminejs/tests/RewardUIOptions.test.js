@@ -2,18 +2,13 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GameUI } from '../src/dopamine/ui/GameUI.js';
+import { RewardUI } from '../src/dopamine/ui/RewardUI.js';
 
-const stubParticles = () => ({
-    confetti: vi.fn(),
-    fire: vi.fn(),
-    sparkle: vi.fn(),
-    starBurst: vi.fn()
-});
+const stubParts = () => ({ particles: { burst: vi.fn() } });
 
 const popupIcon = () => document.querySelector('.achievement-icon');
 
-describe('GameUI text and icon options', () => {
+describe('RewardUI text and icon options', () => {
     let ui;
 
     beforeEach(() => {
@@ -21,7 +16,7 @@ describe('GameUI text and icon options', () => {
     });
 
     afterEach(() => {
-        for (const key of ['text', 'icons', 'safeIcons', 'levelUp', 'achievementUnlocked', 'nearMiss', 'streak']) {
+        for (const key of ['text', 'icons', 'safeIcons', 'levelUp', 'achievementUnlocked', 'streak']) {
             delete Object.prototype[key];
         }
         vi.unstubAllGlobals();
@@ -31,100 +26,94 @@ describe('GameUI text and icon options', () => {
     });
 
     it('should keep the built-in strings and fire emoji by default', () => {
-        ui = new GameUI(stubParticles());
-        ui.showAchievement({ name: 'A', xp: 1 });
-        ui.showLevelUp(1, 2);
+        ui = new RewardUI(stubParts());
+        ui.popup({ kind: 'achievement', title: 'A' });
+        ui.popup({ kind: 'level', body: '2' });
 
         expect(document.querySelector('.achievement-title').textContent).toBe('Achievement Unlocked!');
         expect(document.querySelector('.level-up-title').textContent).toBe('LEVEL UP!');
         expect(document.querySelector('.streak-icon').textContent).toBe('🔥');
-
-        ui.showNearMiss(1, 2);
-        expect(document.querySelector('.floating-text').textContent).toBe('CLOSE CALL!');
     });
 
     it('should use each text override', () => {
-        ui = new GameUI(stubParticles(), {
-            text: { levelUp: 'Level!', achievementUnlocked: 'Done', nearMiss: 'Phew' }
+        ui = new RewardUI(stubParts(), {
+            text: { levelUp: 'Level!', achievementUnlocked: 'Done' }
         });
-        ui.showAchievement({ name: 'A', xp: 1 });
-        ui.showLevelUp(1, 2);
-        ui.showNearMiss(1, 2);
+        ui.popup({ kind: 'achievement', title: 'A' });
+        ui.popup({ kind: 'level', body: '2' });
 
         expect(document.querySelector('.achievement-title').textContent).toBe('Done');
         expect(document.querySelector('.level-up-title').textContent).toBe('Level!');
-        expect(document.querySelector('.floating-text').textContent).toBe('Phew');
     });
 
     it('should render override text as text and ignore non-strings', () => {
-        ui = new GameUI(stubParticles(), {
-            text: { levelUp: '<b>x</b>', nearMiss: 5 }
+        ui = new RewardUI(stubParts(), {
+            text: { levelUp: '<b>x</b>', achievementUnlocked: 5 }
         });
-        ui.showLevelUp(1, 2);
-        ui.showNearMiss(1, 2);
+        ui.popup({ kind: 'level', body: '2' });
 
         expect(document.querySelector('.level-up-title b')).toBeNull();
         expect(document.querySelector('.level-up-title').textContent).toBe('<b>x</b>');
-        expect(document.querySelector('.floating-text').textContent).toBe('CLOSE CALL!');
+        expect(ui.strings.achievementUnlocked).toBe('Achievement Unlocked!');
     });
 
     it('should take a string streak icon', () => {
-        ui = new GameUI(stubParticles(), { icons: { streak: '*' } });
+        ui = new RewardUI(stubParts(), { icons: { streak: '*' } });
         expect(document.querySelector('.streak-icon').textContent).toBe('*');
     });
 
     it('should append a Node streak icon', () => {
         const node = document.createElement('i');
         node.className = 'mine';
-        ui = new GameUI(stubParticles(), { icons: { streak: node } });
+        ui = new RewardUI(stubParts(), { icons: { streak: node } });
 
         expect(document.querySelector('.streak-icon > i.mine')).toBe(node);
     });
 
     it('should append a Node achievement icon', () => {
-        ui = new GameUI(stubParticles());
+        ui = new RewardUI(stubParts());
         const node = document.createElement('span');
         node.className = 'mine';
-        ui.showAchievement({ icon: node, name: 'A', xp: 1 });
+        ui.popup({ kind: 'achievement', icon: node, title: 'A' });
 
         expect(popupIcon().firstChild).toBe(node);
     });
 
     it('should ignore options inherited from a polluted prototype', () => {
-        Object.prototype.nearMiss = 'POLLUTED';
+        Object.prototype.achievementUnlocked = 'POLLUTED';
         Object.prototype.levelUp = 'POLLUTED';
         Object.prototype.streak = 'POLLUTED';
-        Object.prototype.safeIcons = true;
-        ui = new GameUI(stubParticles());
+        Object.prototype.safeIcons = false;
+        ui = new RewardUI(stubParts());
 
-        expect(ui.text.nearMiss).toBe('CLOSE CALL!');
-        expect(ui.text.levelUp).toBe('LEVEL UP!');
-        expect(ui.safeIcons).toBe(false);
+        expect(ui.strings.achievementUnlocked).toBe('Achievement Unlocked!');
+        expect(ui.strings.levelUp).toBe('LEVEL UP!');
+        expect(ui.safeIcons).toBe(true);
         expect(document.querySelector('.streak-icon').textContent).toBe('🔥');
     });
 
     it('should ignore an inherited text or icons object', () => {
-        Object.prototype.text = { nearMiss: 'POLLUTED' };
+        Object.prototype.text = { levelUp: 'POLLUTED' };
         Object.prototype.icons = { streak: 'POLLUTED' };
-        ui = new GameUI(stubParticles());
+        ui = new RewardUI(stubParts());
 
-        expect(ui.text.nearMiss).toBe('CLOSE CALL!');
+        expect(ui.strings.levelUp).toBe('LEVEL UP!');
         expect(document.querySelector('.streak-icon').textContent).toBe('🔥');
     });
 
     it('should render nothing for an icon that is not a string or Node', () => {
-        ui = new GameUI(stubParticles());
-        ui.showAchievement({ icon: 42, name: 'A', xp: 1 });
+        ui = new RewardUI(stubParts());
+        ui.popup({ kind: 'achievement', icon: 42, title: 'A' });
         expect(popupIcon().childNodes.length).toBe(0);
 
         ui.destroy();
-        ui = new GameUI(stubParticles(), { safeIcons: true });
-        ui.showAchievement({ icon: { nodeType: 1 }, name: 'B', xp: 1 });
+        ui = new RewardUI(stubParts(), { safeIcons: true });
+        ui.popup({ kind: 'achievement', icon: { nodeType: 1 }, title: 'B' });
         expect(popupIcon().childNodes.length).toBe(0);
     });
 
     it('should release the streak icon on destroy', () => {
-        ui = new GameUI(stubParticles(), { icons: { streak: document.createElement('i') } });
+        ui = new RewardUI(stubParts(), { icons: { streak: document.createElement('i') } });
         const held = ui;
         ui.destroy();
         ui = null;
@@ -134,9 +123,9 @@ describe('GameUI text and icon options', () => {
 
     it('should remove everything on destroy', () => {
         const node = document.createElement('i');
-        ui = new GameUI(stubParticles(), { icons: { streak: node } });
-        ui.showAchievement({ icon: document.createElement('b'), name: 'A', xp: 1 });
-        ui.showLevelUp(1, 2);
+        ui = new RewardUI(stubParts(), { icons: { streak: node } });
+        ui.popup({ kind: 'achievement', icon: document.createElement('b'), title: 'A' });
+        ui.popup({ kind: 'level', body: '2' });
 
         ui.destroy();
         ui = null;
@@ -147,43 +136,40 @@ describe('GameUI text and icon options', () => {
     describe('safeIcons', () => {
         const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10"><circle r="4"/></svg>';
 
-        it('should leave string icons as HTML by default', () => {
-            ui = new GameUI(stubParticles());
-            ui.showAchievement({ icon: '<img src="a.png">', name: 'A', xp: 1 });
+        it('should leave string icons as HTML when safeIcons is false', () => {
+            ui = new RewardUI(stubParts(), { safeIcons: false });
+            ui.popup({ kind: 'achievement', icon: '<img src="a.png">', title: 'A' });
             expect(popupIcon().querySelector('img')).not.toBeNull();
         });
 
         it('should render an SVG string as an svg element', () => {
-            ui = new GameUI(stubParticles(), { safeIcons: true });
-            ui.showAchievement({ icon: svg, name: 'A', xp: 1 });
+            ui = new RewardUI(stubParts(), { safeIcons: true });
+            ui.popup({ kind: 'achievement', icon: svg, title: 'A' });
             expect(popupIcon().querySelector('svg circle')).not.toBeNull();
         });
 
         it('should turn an HTML string into text', () => {
-            ui = new GameUI(stubParticles(), { safeIcons: true });
+            ui = new RewardUI(stubParts(), { safeIcons: true });
             const html = '<img src=x onerror="window.__pwned = true">';
-            ui.showAchievement({ icon: html, name: 'A', xp: 1 });
+            ui.popup({ kind: 'achievement', icon: html, title: 'A' });
 
             expect(popupIcon().querySelector('img')).toBeNull();
             expect(popupIcon().textContent).toBe(html);
         });
 
         it('should show an emoji as text', () => {
-            ui = new GameUI(stubParticles(), { safeIcons: true });
-            ui.showAchievement({ icon: '🏆', name: 'A', xp: 1 });
+            ui = new RewardUI(stubParts(), { safeIcons: true });
+            ui.popup({ kind: 'achievement', icon: '\u{1F3C6}', title: 'A' });
             expect(popupIcon().textContent).toBe('🏆');
         });
 
         it('should strip scripts, on* attributes and javascript: links', () => {
-            ui = new GameUI(stubParticles(), { safeIcons: true });
-            ui.showAchievement({
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" onload="window.__pwned = true">'
+            ui = new RewardUI(stubParts(), { safeIcons: true });
+            ui.popup({ kind: 'achievement', icon: '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" onload="window.__pwned = true">'
                     + '<script>window.__pwned = true</script>'
                     + '<a href="javascript:alert(1)"><rect/></a>'
                     + '<circle r="1" onclick="x()"/></svg>',
-                name: 'A',
-                xp: 1
-            });
+                title: 'A' });
 
             const root = popupIcon().querySelector('svg');
             expect(root).not.toBeNull();
@@ -198,8 +184,8 @@ describe('GameUI text and icon options', () => {
                 + 'xmlns:xlink="http://www.w3.org/1999/xlink" ' + attrs + '>' + inner + '</svg>';
 
             const render = (markup) => {
-                ui = new GameUI(stubParticles(), { safeIcons: true });
-                ui.showAchievement({ icon: markup, name: 'A', xp: 1 });
+                ui = new RewardUI(stubParts(), { safeIcons: true });
+                ui.popup({ kind: 'achievement', icon: markup, title: 'A' });
                 return popupIcon().querySelector('svg');
             };
 
@@ -266,8 +252,8 @@ describe('GameUI text and icon options', () => {
 
             it('should give two renders different id prefixes', () => {
                 const first = render(wrap('<circle id="x" r="1"/>'));
-                const second = new GameUI(stubParticles(), { safeIcons: true });
-                second.showAchievement({ icon: wrap('<circle id="x" r="1"/>'), name: 'B', xp: 1 });
+                const second = new RewardUI(stubParts(), { safeIcons: true });
+                second.popup({ kind: 'achievement', icon: wrap('<circle id="x" r="1"/>'), title: 'B' });
                 const ids = [...document.querySelectorAll('.achievement-icon circle')].map((c) => c.id);
                 expect(new Set(ids).size).toBe(2);
                 expect(first).not.toBeNull();
@@ -280,8 +266,8 @@ describe('GameUI text and icon options', () => {
                 expect(root.namespaceURI).toBe('http://www.w3.org/2000/svg');
                 expect(root.querySelector('path')).not.toBeNull();
 
-                const padded = new GameUI(stubParticles(), { safeIcons: true });
-                padded.showAchievement({ icon: '  <svg><circle r="1"/></svg>', name: 'B', xp: 1 });
+                const padded = new RewardUI(stubParts(), { safeIcons: true });
+                padded.popup({ kind: 'achievement', icon: '  <svg><circle r="1"/></svg>', title: 'B' });
                 const icons = document.querySelectorAll('.achievement-icon');
                 expect(icons[icons.length - 1].querySelector('svg circle')).not.toBeNull();
                 padded.destroy();
@@ -289,16 +275,16 @@ describe('GameUI text and icon options', () => {
 
             it('should fall back to text when the markup is not well-formed XML', () => {
                 const markup = '<svg viewBox="0 0 1 1"><text>a&nbsp;b</text></svg>';
-                ui = new GameUI(stubParticles(), { safeIcons: true });
-                ui.showAchievement({ icon: markup, name: 'A', xp: 1 });
+                ui = new RewardUI(stubParts(), { safeIcons: true });
+                ui.popup({ kind: 'achievement', icon: markup, title: 'A' });
                 expect(popupIcon().querySelector('svg')).toBeNull();
                 expect(popupIcon().textContent).toBe(markup);
             });
 
             it('should fall back to text when the root is not svg', () => {
                 const markup = '<g xmlns="http://www.w3.org/2000/svg"><circle r="1"/></g>';
-                ui = new GameUI(stubParticles(), { safeIcons: true });
-                ui.showAchievement({ icon: markup, name: 'A', xp: 1 });
+                ui = new RewardUI(stubParts(), { safeIcons: true });
+                ui.popup({ kind: 'achievement', icon: markup, title: 'A' });
                 expect(popupIcon().querySelector('g, circle')).toBeNull();
                 expect(popupIcon().textContent).toBe(markup);
             });
@@ -315,8 +301,8 @@ describe('GameUI text and icon options', () => {
                         };
                     }
                 });
-                ui = new GameUI(stubParticles(), { safeIcons: true });
-                ui.showAchievement({ icon: svg, name: 'A', xp: 1 });
+                ui = new RewardUI(stubParts(), { safeIcons: true });
+                ui.popup({ kind: 'achievement', icon: svg, title: 'A' });
                 expect(popupIcon().querySelector('svg')).toBeNull();
                 expect(popupIcon().textContent).toBe(svg);
             });
@@ -381,9 +367,9 @@ describe('GameUI text and icon options', () => {
         });
 
         it('should still append Node icons', () => {
-            ui = new GameUI(stubParticles(), { safeIcons: true });
+            ui = new RewardUI(stubParts(), { safeIcons: true });
             const node = document.createElement('span');
-            ui.showAchievement({ icon: node, name: 'A', xp: 1 });
+            ui.popup({ kind: 'achievement', icon: node, title: 'A' });
             expect(popupIcon().firstChild).toBe(node);
         });
     });

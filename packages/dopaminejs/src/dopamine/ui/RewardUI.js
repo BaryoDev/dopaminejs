@@ -1,20 +1,25 @@
 /**
- * UI Components for Dopamine-Driven Games
- * Reusable UI elements for XP bars, achievement popups, level-up screens, etc.
+ * The default reward UI: a progress bar, achievement and level-up popups and
+ * floating text. Nothing here runs at import time.
  */
+
+import DEFAULT_CSS from './dopamine.css?inline';
 
 const OVERLAY_ID = 'game-ui-overlay';
 
 const DEFAULT_TEXT = {
     levelUp: 'LEVEL UP!',
-    achievementUnlocked: 'Achievement Unlocked!',
-    nearMiss: 'CLOSE CALL!'
+    achievementUnlocked: 'Achievement Unlocked!'
 };
+
+const STYLE_ID = 'dopamine-reward-ui-css';
 
 const DEFAULT_STREAK_ICON = '🔥';
 
 // Config comes from callers, so an inherited property (a polluted prototype)
 // must not count.
+const textOf = (value) => (value === undefined || value === null ? '' : String(value));
+
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const ownValue = (object, key) =>
     (object !== null && typeof object === 'object' && hasOwn(object, key) ? object[key] : undefined);
@@ -141,47 +146,62 @@ function parseSafeSvg(markup) {
     return cleanNode(root, { ids, prefix: `dj-icon-${++iconCounter}-` });
 }
 
-export class GameUI {
+export class RewardUI {
     /**
-     * @param {Object} particleSystem
+     * @param {{ particles?: Object|null }} [parts] - Read at call time, so a
+     *   different particle renderer is picked up without rebuilding the UI.
      * @param {Object} [config]
-     * @param {{levelUp?: string, achievementUnlocked?: string, nearMiss?: string}} [config.text]
+     * @param {{levelUp?: string, achievementUnlocked?: string}} [config.text]
      *   Replaces the built-in popup strings.
      * @param {{streak?: string|Node}} [config.icons]
      * @param {boolean} [config.safeIcons] - Render string icons as sanitised
-     *   SVG or plain text instead of HTML. Default false.
+     *   SVG or plain text. Default true. False renders them as HTML.
+     * @param {boolean|string} [config.injectCss] - Add the stylesheet from
+     *   code. A string is the CSS text. Default false: import
+     *   `dopaminejs/style.css` instead.
      */
-    constructor(particleSystem, config = {}) {
-        this.particleSystem = particleSystem;
+    constructor(parts = {}, config = {}) {
+        this.parts = parts || {};
 
         // Only strings override a default, so a non-string cannot break a
         // popup. An empty string is allowed and hides that text.
         const textConfig = ownValue(config, 'text');
-        this.text = { ...DEFAULT_TEXT };
+        this.strings = { ...DEFAULT_TEXT };
         for (const key of Object.keys(DEFAULT_TEXT)) {
             const value = ownValue(textConfig, key);
-            if (typeof value === 'string') this.text[key] = value;
+            if (typeof value === 'string') this.strings[key] = value;
         }
-        this.safeIcons = ownValue(config, 'safeIcons') === true;
+        this.safeIcons = ownValue(config, 'safeIcons') !== false;
         this._streakIcon = ownValue(ownValue(config, 'icons'), 'streak') ?? DEFAULT_STREAK_ICON;
+        this._injectCss = ownValue(config, 'injectCss');
         this.container = null;
         this.xpBar = null;
         this.levelDisplay = null;
         this.streakDisplay = null;
+        this._style = null;
+        this._xp = null;
+        this._level = null;
 
         // Everything this instance put in the DOM or scheduled, so destroy()
         // can take it all back out again.
         this._timers = new Set();
         this._detached = [];
 
-        this.init();
+        this._build();
     }
 
     /**
-     * Initialize UI overlay
+     * The overlay element, for themes. Null after destroy().
+     * @returns {HTMLElement|null}
      */
-    init() {
-        // Create main container
+    get root() {
+        return this.container;
+    }
+
+    /** @private */
+    _build() {
+        if (this._injectCss) this._addStyles();
+
         this.container = document.createElement('div');
         this.container.className = 'game-ui-overlay';
 
@@ -231,7 +251,7 @@ export class GameUI {
         document.body.appendChild(this.container);
 
         // Scoped to this instance. Document-wide getElementById would make a
-        // second GameUI silently rebind every element to the first one's DOM.
+        // second RewardUI silently rebind every element to the first one's DOM.
         this.levelBadge = this.container.querySelector('.level-badge');
         this.streakBadge = this.container.querySelector('.streak-badge');
         this.xpBar = this.container.querySelector('.xp-bar-fill');
@@ -242,9 +262,23 @@ export class GameUI {
     }
 
     /**
+     * Add the stylesheet once per page. The first instance owns the element
+     * and removes it on destroy; later ones share it.
+     * @private
+     */
+    _addStyles() {
+        if (document.getElementById(STYLE_ID)) return;
+        const css = typeof this._injectCss === 'string' ? this._injectCss : DEFAULT_CSS;
+        this._style = document.createElement('style');
+        this._style.id = STYLE_ID;
+        this._style.textContent = css;
+        document.head.appendChild(this._style);
+    }
+
+    /**
      * Single place where icons reach the DOM. A Node is appended. A string is
-     * HTML unless safeIcons is on (see SECURITY.md); then it is a sanitised
-     * SVG or plain text.
+     * a sanitised SVG or plain text unless safeIcons is off; then it is HTML
+     * (see SECURITY.md).
      * @private
      */
     _setIcon(el, icon) {
@@ -299,6 +333,15 @@ export class GameUI {
     }
 
     /**
+     * Ask the particle part for a burst, if there is one. The part is looked
+     * up on every call.
+     * @private
+     */
+    _burst(kind, at, opts) {
+        this.parts.particles?.burst?.(kind, at, opts);
+    }
+
+    /**
      * Replay a CSS animation by clearing it for one tick.
      * @private
      */
@@ -309,42 +352,32 @@ export class GameUI {
     }
 
     /**
-     * Update XP bar
-     * @param {number} current - XP held right now
-     * @param {number} needed - XP still required for the next level
-     * @param {number} total - XP total that marks the next level
-     * @param {number} [progress] - Position within the current level, 0 to 1.
-     *   Without it the bar falls back to current / total, which is lifetime
-     *   XP and starts every level after the first partly full.
+     * Draw the bar, the level and the streak.
+     * @param {{ xp: number, level: number, progress?: number, streak: number, next?: number }} state
+     *   `progress` is the position within the current level, 0 to 1. `next` is
+     *   the XP total that marks the next level. Without `progress` the bar
+     *   falls back to xp / next.
      */
-    updateXP(current, needed, total, progress) {
+    hud(state) {
+        if (!this.container || !state) return;
+        const { xp, level, progress, streak, next } = state;
+
         const fraction = Number.isFinite(progress)
             ? progress
-            : (total > 0 ? current / total : 0);
+            : (next > 0 ? xp / next : 0);
         this.xpBar.style.width = `${Math.max(0, Math.min(100, fraction * 100))}%`;
-        this.xpText.textContent = `${current} / ${total} XP`;
+        this.xpText.textContent = Number.isFinite(next) ? `${xp} / ${next} XP` : `${xp} XP`;
+        if (xp !== this._xp) this._replayAnimation(this.xpBar, 'xp-pulse 0.3s ease-out');
+        this._xp = xp;
 
-        this._replayAnimation(this.xpBar, 'xp-pulse 0.3s ease-out');
-    }
-
-    /**
-     * Update level display
-     */
-    updateLevel(level) {
         this.levelDisplay.textContent = level;
-        this._replayAnimation(this.levelBadge, 'level-pulse 0.5s ease-out');
-    }
+        if (level !== this._level) this._replayAnimation(this.levelBadge, 'level-pulse 0.5s ease-out');
+        this._level = level;
 
-    /**
-     * Update streak display
-     */
-    updateStreak(days) {
-        this.streakDisplay.textContent = days;
-
-        // Change color based on streak
-        if (days >= 7) {
+        this.streakDisplay.textContent = streak;
+        if (streak >= 7) {
             this.streakBadge.style.background = 'linear-gradient(135deg, #ff6b00 0%, #ff4400 100%)';
-        } else if (days >= 3) {
+        } else if (streak >= 3) {
             this.streakBadge.style.background = 'linear-gradient(135deg, #ff8800 0%, #ff6b00 100%)';
         } else {
             this.streakBadge.style.background = '';
@@ -352,18 +385,37 @@ export class GameUI {
     }
 
     /**
-     * Show achievement unlocked popup
+     * Show a popup. Every field is set as text. Only `icon` can carry markup,
+     * and only when safeIcons is off; a Node is appended as is.
      *
-     * A string `icon` is rendered as HTML by design (documented in
-     * ARCHITECTURE.md, so games can pass an <img> or inline SVG). A Node is
-     * appended as is. Every other field is game state
-     * and could carry a player-supplied or server-supplied string, so it goes
-     * in as text.
+     * - `achievement`: `title` is the name, `body` the description, `meta`
+     *   an extra line such as "+50 XP".
+     * - `level`: `body` is the new level. `title` replaces the heading and
+     *   falls back to the configured level-up text.
+     * - `notice`: `title` is a message floated over the page. `tier` picks
+     *   the colour and the burst.
+     * - `custom` (and any other kind): the achievement layout without the heading.
+     *
+     * @param {{ kind: string, title?: string, body?: string, icon?: string|Node,
+     *   meta?: string, tier?: 'common'|'rare'|'legendary' }} popup
      */
-    showAchievement(achievement) {
-        const popup = document.createElement('div');
-        popup.className = 'achievement-popup';
-        popup.innerHTML = `
+    popup(popup) {
+        if (!this.container || !popup || typeof popup !== 'object') return;
+        const kind = ownValue(popup, 'kind');
+        if (kind === 'level') {
+            this._levelPopup(popup);
+        } else if (kind === 'notice') {
+            this._notice(popup);
+        } else {
+            this._card(popup, kind === 'achievement');
+        }
+    }
+
+    /** @private */
+    _card(popup, withHeading) {
+        const card = document.createElement('div');
+        card.className = 'achievement-popup';
+        card.innerHTML = `
             <div class="achievement-shine"></div>
             <div class="achievement-content">
                 <div class="achievement-icon"></div>
@@ -376,32 +428,32 @@ export class GameUI {
             </div>
         `;
 
-        popup.querySelector('.achievement-title').textContent = this.text.achievementUnlocked;
-        this._setIcon(popup.querySelector('.achievement-icon'), achievement.icon);
-        popup.querySelector('.achievement-name').textContent = achievement.name ?? '';
-        popup.querySelector('.achievement-desc').textContent = achievement.description ?? '';
-        popup.querySelector('.achievement-xp').textContent = `+${achievement.xp ?? 0} XP`;
+        const title = textOf(popup.title);
+        card.querySelector('.achievement-title').textContent = withHeading ? this.strings.achievementUnlocked : '';
+        this._setIcon(card.querySelector('.achievement-icon'), popup.icon);
+        card.querySelector('.achievement-name').textContent = title;
+        card.querySelector('.achievement-desc').textContent = textOf(popup.body);
+        card.querySelector('.achievement-xp').textContent = textOf(popup.meta);
 
-        this._mount(popup);
-        this._announce(`Achievement unlocked: ${achievement.name ?? ''}`);
+        this._mount(card);
+        this._announce(withHeading ? `${this.strings.achievementUnlocked}: ${title}` : title);
 
-        // Trigger confetti at popup location
         this._defer(() => {
-            const rect = popup.getBoundingClientRect();
-            this.particleSystem.confetti(rect.left + rect.width / 2, rect.top + rect.height / 2, 40);
+            const rect = card.getBoundingClientRect();
+            this._burst('confetti', { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }, { count: 40 });
         }, 300);
 
-        // Remove after animation
         this._defer(() => {
-            popup.style.animation = 'slideOut 0.3s ease-in forwards';
-            this._defer(() => this._remove(popup), 300);
+            card.style.animation = 'slideOut 0.3s ease-in forwards';
+            this._defer(() => this._remove(card), 300);
         }, 4000);
     }
 
-    /**
-     * Show level up screen
-     */
-    showLevelUp(oldLevel, newLevel) {
+    /** @private */
+    _levelPopup(popup) {
+        const heading = typeof popup.title === 'string' && popup.title !== '' ? popup.title : this.strings.levelUp;
+        const level = textOf(popup.body);
+
         const overlay = document.createElement('div');
         overlay.className = 'level-up-overlay';
         overlay.innerHTML = `
@@ -411,161 +463,71 @@ export class GameUI {
                 <div class="level-up-subtitle">Amazing progress!</div>
             </div>
         `;
-        overlay.querySelector('.level-up-title').textContent = this.text.levelUp;
-        overlay.querySelector('.level-up-number').textContent = newLevel;
+        overlay.querySelector('.level-up-title').textContent = heading;
+        overlay.querySelector('.level-up-number').textContent = level;
 
         this._mount(overlay);
-        this._announce(`Level up: ${newLevel}`);
+        this._announce(`Level up: ${level}`);
 
-        // Fireworks effect
         this._defer(() => {
             for (let i = 0; i < 5; i++) {
                 this._defer(() => {
-                    const x = Math.random() * window.innerWidth;
-                    const y = Math.random() * window.innerHeight * 0.6;
-                    this.particleSystem.confetti(x, y, 30);
+                    this._burst('confetti', {
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight * 0.6
+                    }, { count: 30 });
                 }, i * 200);
             }
         }, 300);
 
-        // Remove after 3 seconds
         this._defer(() => {
             overlay.style.opacity = '0';
             this._defer(() => this._remove(overlay), 500);
         }, 2500);
     }
 
-    /**
-     * Show floating text (e.g., "+50 XP", "COMBO!")
-     */
-    showFloatingText(text, x, y, color = '#ffd700', size = '24px') {
-        const floater = document.createElement('div');
-        floater.className = 'floating-text';
-        floater.textContent = text;
-        floater.style.left = x + 'px';
-        floater.style.top = y + 'px';
-        floater.style.color = color;
-        floater.style.fontSize = size;
-
-        this._mount(floater);
-
-        this._defer(() => this._remove(floater), 2000);
-    }
-
-    /**
-     * Show combo multiplier
-     */
-    showCombo(multiplier, x, y) {
-        this.showFloatingText(`${multiplier}× COMBO!`, x, y, '#ff6b6b', '32px');
-        this.particleSystem.fire(x, y, 20);
-    }
-
-    /**
-     * Show "near miss" indicator
-     */
-    showNearMiss(x, y) {
-        this.showFloatingText(this.text.nearMiss, x, y, '#45b7d1', '20px');
-        this.particleSystem.sparkle(x, y, 15, '#45b7d1');
-    }
-
-    /**
-     * Show lucky moment (random multiplier)
-     */
-    showLuckyMoment(multiplier, x, y) {
-        this.showFloatingText(`LUCKY ${multiplier}×!`, x, y, '#ffd700', '36px');
-        this.particleSystem.starBurst(x, y, 12);
-        this.particleSystem.confetti(x, y, 25);
-    }
-
-    /**
-     * Show generic notification
-     */
-    showNotification(message, type = 'normal') {
+    /** @private */
+    _notice(popup) {
         const x = window.innerWidth / 2;
         const y = window.innerHeight / 3;
+        const message = textOf(popup.title);
 
-        // The message is shown as written. showLuckyMoment and showCombo
-        // expect a multiplier and would wrap it in "LUCKY ...×!".
-        if (type === 'legendary') {
-            this.showFloatingText(message, x, y, '#ffd700', '36px');
-            this.particleSystem.starBurst(x, y, 12);
-            this.particleSystem.confetti(x, y, 25);
-        } else if (type === 'rare') {
-            this.showFloatingText(message, x, y, '#ff6b6b', '32px');
-            this.particleSystem.fire(x, y, 20);
+        if (popup.tier === 'legendary') {
+            this._floatText({ text: message, x, y, color: '#ffd700', size: '36px' });
+            this._burst('stars', { x, y }, { count: 12 });
+            this._burst('confetti', { x, y }, { count: 25 });
+        } else if (popup.tier === 'rare') {
+            this._floatText({ text: message, x, y, color: '#ff6b6b', size: '32px' });
+            this._burst('fire', { x, y }, { count: 20 });
         } else {
-            this.showFloatingText(message, x, y, '#fff', '24px');
+            this._floatText({ text: message, x, y, color: '#fff', size: '24px' });
         }
 
         this._announce(message);
     }
 
     /**
-     * Show Game Over Summary
-     *
-     * @param {Object} data
-     * @param {number|string} data.score - Final score
-     * @param {Object} [data.metrics] - Label/value pairs listed under the score
-     * @param {Function} [data.onReplay] - Replay button handler (default: reload)
-     * @param {Function} [data.onExit] - Exit button handler (button hidden if omitted)
+     * Float a short text over the page, then remove it.
+     * @param {{ text: string, x?: number, y?: number, color?: string }} options
      */
-    showSummary(data) {
-        const overlay = document.createElement('div');
-        overlay.className = 'message-box';
-        overlay.style.display = 'flex';
-        overlay.style.position = 'absolute';
-        overlay.style.top = '50%';
-        overlay.style.left = '50%';
-        overlay.style.transform = 'translate(-50%, -50%)';
-        overlay.style.zIndex = '1000';
+    text(options) {
+        this._floatText({ ...options });
+    }
 
-        const heading = document.createElement('h1');
-        heading.textContent = 'Game Over';
+    /** @private */
+    _floatText({ text, x, y, color = '#ffd700', size = '24px' }) {
+        if (!this.container) return;
+        const floater = document.createElement('div');
+        floater.className = 'floating-text';
+        floater.textContent = textOf(text);
+        floater.style.left = (Number.isFinite(x) ? x : window.innerWidth / 2) + 'px';
+        floater.style.top = (Number.isFinite(y) ? y : window.innerHeight / 3) + 'px';
+        floater.style.color = color;
+        floater.style.fontSize = size;
 
-        const score = document.createElement('div');
-        score.className = 'summary-score';
-        score.style.cssText = 'font-size: 3rem; font-weight: bold; color: #e06020; margin: 10px 0;';
-        score.textContent = data.score;
+        this._mount(floater);
 
-        const metrics = document.createElement('div');
-        metrics.className = 'summary-metrics';
-        metrics.style.cssText = 'width: 100%; margin-bottom: 20px;';
-
-        for (const [key, value] of Object.entries(data.metrics || {})) {
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex;justify-content:space-between;width:100%';
-
-            const label = document.createElement('span');
-            label.textContent = `${key}:`;
-
-            const amount = document.createElement('strong');
-            amount.textContent = value;
-
-            row.append(label, amount);
-            metrics.appendChild(row);
-        }
-
-        overlay.append(heading, score, metrics);
-
-        // addEventListener rather than an onclick attribute: inline handlers
-        // are blocked by any script-src CSP without 'unsafe-inline'.
-        const replay = document.createElement('button');
-        replay.className = 'btn';
-        replay.textContent = 'Play Again';
-        replay.addEventListener('click', data.onReplay || (() => window.location.reload()));
-        overlay.appendChild(replay);
-
-        if (data.onExit) {
-            const exit = document.createElement('button');
-            exit.className = 'btn';
-            exit.textContent = 'Exit';
-            exit.style.cssText = 'margin-top: 10px; background: #543847;';
-            exit.addEventListener('click', data.onExit);
-            overlay.appendChild(exit);
-        }
-
-        this._mount(overlay);
-        return overlay;
+        this._defer(() => this._remove(floater), 2000);
     }
 
     /**
@@ -592,6 +554,8 @@ export class GameUI {
         this._detached = [];
 
         this.container?.remove();
+        this._style?.remove();
+        this._style = null;
         this.container = null;
         this.liveRegion = null;
         this.xpBar = null;

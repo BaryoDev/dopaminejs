@@ -39,8 +39,6 @@ export class RewardSystem extends EventEmitter {
      * @param {Object} [config]
      * @param {Object} [config.achievements] - Extra achievement definitions
      * @param {{ now(): number, localDate(ms?: number): string }} [config.clock] - Time source
-     * @param {Object} [config.events] - Kernel EventBus to mirror events onto
-     * @param {Object} [config.kernel] - Kernel; its `events` bus is used if present
      */
     constructor(dataService, config = {}) {
         super();
@@ -54,10 +52,6 @@ export class RewardSystem extends EventEmitter {
         this._deviceId = null;
         this._deviceSaved = false;
         this._middleware = new Middleware();
-
-        // Optional bridge to the kernel bus, so the two event systems can be
-        // connected without changing the rewardSystem.on(...) surface.
-        this.events = config.events || config.kernel?.events || null;
 
         // Write batching: one record is one write.
         this._batchDepth = 0;
@@ -79,15 +73,12 @@ export class RewardSystem extends EventEmitter {
     }
 
     /**
-     * Emit a frozen copy of the payload, and mirror it onto the kernel bus.
+     * Emit a frozen copy of the payload.
      * @private
      */
     _publish(event, data) {
         const payload = Object.freeze({ ...data });
         this.emit(event, payload);
-        if (this.events) {
-            this.events.emit(event, payload);
-        }
     }
 
     async _batch(fn) {

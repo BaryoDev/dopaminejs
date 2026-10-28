@@ -11,11 +11,6 @@
             "import": "./dist/dopamine.js",
             "require": "./dist/dopamine.cjs"
         },
-        "./engine": {
-            "types": "./types/index.d.ts",
-            "import": "./dist/engine.js",
-            "require": "./dist/engine.cjs"
-        },
         "./core": {
             "types": "./types/core.d.ts",
             "import": "./dist/core.js",
@@ -47,10 +42,10 @@
         "engagement",
         "rewards",
         "user-retention",
-        "game-feel",
         "juice",
         "particles",
-        "confetti"
+        "confetti",
+        "feedback"
     ],
     "author": "BaryoDev",
     "license": "MPL-2.0",
