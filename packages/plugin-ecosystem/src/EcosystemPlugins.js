@@ -69,6 +69,19 @@ export class WebhookIntegration {
     }
 
     /**
+     * Drops the queue and aborts the request in flight. Call flush() first to
+     * deliver what is queued.
+     */
+    close() {
+        this.queue.length = 0;
+        if (this._inflight) {
+            clearTimeout(this._inflight.timer);
+            this._inflight.abort.abort();
+            this._inflight = null;
+        }
+    }
+
+    /**
      * Resolves once everything queued so far has been sent or has failed.
      * @returns {Promise<void>}
      */
@@ -100,9 +113,11 @@ export class WebhookIntegration {
 
                 const abort = new AbortController();
                 const timer = setTimeout(() => abort.abort(), this.timeout);
+                this._inflight = { abort, timer };
                 try {
                     const headers = { 'Content-Type': 'application/json' };
                     const signature = await this._sign(body);
+                    if (abort.signal.aborted) continue;
                     if (signature) {
                         headers['X-Dopamine-Signature'] = `sha256=${signature}`;
                     }
@@ -122,6 +137,7 @@ export class WebhookIntegration {
                     this._log.error('[webhooks] Webhook error:', error);
                 } finally {
                     clearTimeout(timer);
+                    this._inflight = null;
                 }
             }
         } finally {
@@ -218,7 +234,7 @@ export function webhooks(options = {}) {
 
             return () => {
                 for (const off of offs) off();
-                integration.flush();
+                integration.close();
             };
         }
     };

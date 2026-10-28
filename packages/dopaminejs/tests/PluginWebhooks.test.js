@@ -86,12 +86,14 @@ describe('webhooks', () => {
         expect(String(warn.mock.calls[0][0])).toContain('crypto.subtle');
     });
 
-    it('dispose flushes and removes listeners', async () => {
+    it('dispose aborts the request in flight, drops the queue and removes listeners', async () => {
         const calls = [];
+        const signals = [];
         let release;
         const gate = new Promise((resolve) => { release = resolve; });
         const send = async (url, init) => {
             calls.push(init.body);
+            signals.push(init.signal);
             await gate;
             return { ok: true, statusText: 'OK' };
         };
@@ -112,6 +114,21 @@ describe('webhooks', () => {
 
         release();
         await plugin.flush();
+        expect(calls.length).toBeLessThanOrEqual(1);
+        expect(signals.every((signal) => signal.aborted)).toBe(true);
+    });
+
+    it('flush before dispose delivers everything queued', async () => {
+        const { calls, send } = fakeFetch();
+        const plugin = webhooks({ url: URL, fetch: send });
+        const test = createTestHost();
+        hosts.push(test);
+        await test.ready;
+        const dispose = test.use(plugin);
+        test.progress.emit('level_up', LEVEL);
+        test.progress.emit('level_up', LEVEL);
+        await plugin.flush();
+        dispose();
         expect(calls).toHaveLength(2);
     });
 
