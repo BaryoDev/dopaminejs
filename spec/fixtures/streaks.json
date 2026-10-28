@@ -815,6 +815,112 @@
                     }
                 }
             ]
+        },
+        {
+            "name": "addXP marks the day by default",
+            "clock": "2026-08-07T09:00:00",
+            "config": {
+                "builtinAchievements": false
+            },
+            "steps": [
+                {
+                    "op": "addXP",
+                    "amount": 5,
+                    "expect": {
+                        "player": {
+                            "xp": 5,
+                            "streak": {
+                                "current": 1,
+                                "longest": 1,
+                                "lastPlayDate": "2026-08-07"
+                            }
+                        },
+                        "events": [
+                            {
+                                "event": "xp_gained",
+                                "amount": 5,
+                                "reason": "",
+                                "leveledUp": false,
+                                "newLevel": 1,
+                                "total": 5
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "addXP does not mark the day when streakDays is record",
+            "clock": "2026-08-07T09:00:00",
+            "config": {
+                "builtinAchievements": false,
+                "streakDays": "record"
+            },
+            "steps": [
+                {
+                    "op": "addXP",
+                    "amount": 5,
+                    "expect": {
+                        "player": {
+                            "xp": 5,
+                            "streak": {
+                                "current": 0,
+                                "longest": 0
+                            }
+                        },
+                        "absent": [
+                            "streak.lastPlayDate"
+                        ]
+                    }
+                },
+                {
+                    "op": "record",
+                    "activity": "g",
+                    "expect": {
+                        "player": {
+                            "streak": {
+                                "current": 1,
+                                "longest": 1,
+                                "lastPlayDate": "2026-08-07"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "achievement reward XP never marks the day",
+            "clock": "2026-08-07T09:00:00",
+            "config": {
+                "builtinAchievements": false,
+                "achievements": {
+                    "x": {
+                        "name": "X",
+                        "xp": 30,
+                        "when": {
+                            "always": true
+                        }
+                    }
+                }
+            },
+            "steps": [
+                {
+                    "op": "unlockAchievement",
+                    "id": "x",
+                    "expect": {
+                        "player": {
+                            "xp": 30,
+                            "streak": {
+                                "current": 0,
+                                "longest": 0
+                            }
+                        },
+                        "absent": [
+                            "streak.lastPlayDate"
+                        ]
+                    }
+                }
+            ]
         }
     ]
 }

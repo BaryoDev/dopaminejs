@@ -84,6 +84,8 @@ throwing one does not stop the others.
 - `createDopamine({ progress, ui, particles, sound, haptics, storage, clock, plugins })`.
   A part is a value, a factory `(env) => part | null` (null means the default),
   or `false` for none.
+- `streakDays` (`'any'` default, or `'record'`) on `RewardSystem` and `createDopamine`
+  decides whether `addXP` marks a play day. Achievement reward XP never does.
 - `host.parts` has getters only. Read a part when you need it, never keep it.
 - A plugin is `{ name, version, api: 3, after?, requires?, install(ctx) }`.
   `install` returns a disposer. A wrong `api` throws `plugin_api`.

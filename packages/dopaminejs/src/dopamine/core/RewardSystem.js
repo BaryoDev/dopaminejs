@@ -39,6 +39,9 @@ export class RewardSystem extends EventEmitter {
      * @param {Object} [config]
      * @param {Object} [config.achievements] - Extra achievement definitions
      * @param {{ now(): number, localDate(ms?: number): string }} [config.clock] - Time source
+     * @param {'any'|'record'} [config.streakDays] - What marks today as a play day.
+     *   'any' (default): record() or addXP(). 'record': record() only. XP from an
+     *   achievement reward never marks a day.
      */
     constructor(dataService, config = {}) {
         super();
@@ -47,6 +50,7 @@ export class RewardSystem extends EventEmitter {
             ? config.clock
             : systemClock;
         this.achievements = { ...builtinAchievements(), ...(config.achievements || {}) };
+        this.streakDays = config.streakDays === 'record' ? 'record' : 'any';
 
         this._doc = null;
         this._deviceId = null;
@@ -329,6 +333,8 @@ export class RewardSystem extends EventEmitter {
             return { leveledUp: false, newLevel: levelOf(this._doc), xpGained: 0 };
         }
 
+        if (this.streakDays === 'any') this._markDay();
+
         const result = await this._applyXP(context.amount, context.reason, (doc, applied) => {
             if (applied >= 0) {
                 doc.xpBy[this._deviceId] = (hasOwn(doc.xpBy, this._deviceId) ? doc.xpBy[this._deviceId] : 0) + applied;
@@ -444,6 +450,25 @@ export class RewardSystem extends EventEmitter {
     }
 
     /**
+     * Count today as a play day. A new player starts at 1 without an event.
+     * @private
+     */
+    _markDay() {
+        const doc = this._doc;
+        const today = this.clock.localDate();
+        if (doc.playDates.includes(today)) return;
+        const firstEver = doc.playDates.length === 0;
+        doc.playDates = trimDays([...doc.playDates, today], today);
+        doc.longest = Math.max(doc.longest, longestRun(doc.playDates));
+        if (!firstEver) {
+            this._publish('streak_updated', {
+                current: currentStreak(doc.playDates, today),
+                longest: Math.max(doc.longest, longestRun(doc.playDates))
+            });
+        }
+    }
+
+    /**
      * @private
      */
     async _record(activity, result) {
@@ -453,21 +478,7 @@ export class RewardSystem extends EventEmitter {
             map[device] = (hasOwn(map, device) ? map[device] : 0) + by;
         };
 
-        // A game played on a new day counts for the streak, not only a page
-        // load. A tab left open past midnight used to miss the day.
-        const today = this.clock.localDate();
-        if (!doc.playDates.includes(today)) {
-            const firstEver = doc.playDates.length === 0;
-            doc.playDates = trimDays([...doc.playDates, today], today);
-            doc.longest = Math.max(doc.longest, longestRun(doc.playDates));
-            // A new player starts at 1 without an event, as 2.x did.
-            if (!firstEver) {
-                this._publish('streak_updated', {
-                    current: currentStreak(doc.playDates, today),
-                    longest: Math.max(doc.longest, longestRun(doc.playDates))
-                });
-            }
-        }
+        this._markDay();
 
         if (!hasOwn(doc.playsBy, activity)) {
             doc.playsBy[activity] = {};

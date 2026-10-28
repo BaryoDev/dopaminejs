@@ -290,11 +290,18 @@ describe('createDopamine', () => {
     it('shows an achievement popup with the icon as text by default', async () => {
         const host = make();
         await host.ready;
-        host.progress.defineAchievement('a1', { name: 'First', description: 'Did it', icon: '<img src=x>', xp: 5 });
+        host.progress.defineAchievement('a1', { name: 'First', description: 'Did it', icon: '<img src=x>', xp: 5, check: () => false });
         await host.progress.unlockAchievement('a1');
 
         expect(document.querySelector('.achievement-name').textContent).toBe('First');
         expect(document.querySelector('.achievement-icon img')).toBeNull();
+    });
+
+    it('passes streakDays to the default progress object', async () => {
+        const host = make({ streakDays: 'record' });
+        await host.ready;
+        await host.progress.addXP(5);
+        expect(host.progress.snapshot().streak.current).toBe(0);
     });
 
     it('leaves no DOM behind after dispose', async () => {

@@ -29,10 +29,13 @@ const declaredRuntimeExports = () => {
 };
 
 describe('type declarations', () => {
-    it('should declare a non-trivial number of runtime exports', () => {
-        // Guards against the regex silently matching nothing and the suite
-        // passing vacuously.
-        expect(declaredRuntimeExports().length).toBeGreaterThan(20);
+    it('should declare exactly the 3.0 runtime exports', () => {
+        // Also guards against the regex silently matching nothing.
+        expect(declaredRuntimeExports().slice().sort()).toEqual([
+            'DataService', 'DopamineError', 'EventEmitter', 'HOST_API', 'ParticleSystem',
+            'RewardSystem', 'RewardUI', 'SoundManager', 'createDopamine', 'createHaptics',
+            'createMemoryStorage', 'merge', 'prefersReducedMotion', 'resolveStorage', 'validate'
+        ]);
     });
 
     it('should not declare any runtime export the module does not have', () => {

@@ -140,6 +140,12 @@ export interface RewardSystemConfig {
     achievements?: Record<string, AchievementDefinition>;
     /** Time source. Tests pass one; the default reads the system clock. */
     clock?: Clock;
+    /**
+     * What marks today as a play day. `'any'` (default): `record()` or
+     * `addXP()`. `'record'`: `record()` only. XP from an achievement reward
+     * never marks a day.
+     */
+    streakDays?: 'any' | 'record';
 }
 
 export type RewardEvent =
@@ -578,6 +584,8 @@ export interface DopamineOptions {
     haptics?: PartOption<Haptics>;
     storage?: StorageLike;
     clock?: Clock;
+    /** Passed to the default progress object. See `RewardSystemConfig`. */
+    streakDays?: 'any' | 'record';
     plugins?: DopaminePlugin[];
     log?: Partial<Logger>;
 }

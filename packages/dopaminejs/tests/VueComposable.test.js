@@ -114,7 +114,7 @@ describe('provideRewards and useRewards', () => {
         await flush();
 
         expect(seen.rewards.player.value.xp).toBe(150);
-        expect(seen.rewards.player.value.streak.current).toBe(0);
+        expect(seen.rewards.player.value.streak.current).toBe(1);
         app.unmount();
     });
 

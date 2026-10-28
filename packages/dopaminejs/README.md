@@ -48,6 +48,19 @@ dopamine.progress.defineAchievement('die_100_times', {
 `icon` is shown as text or sanitised SVG by default. Pass `safeIcons: false` to
 `RewardUI` to render it as HTML. Every other field is always text.
 
+## Streak days
+
+A streak counts the days the player did something. By default `record()` and `addXP()`
+both mark today as a play day. To count only `record()`:
+
+```javascript
+new RewardSystem(data, { streakDays: 'record' });
+createDopamine({ streakDays: 'record' });
+```
+
+XP from an achievement reward never marks a day. A new player has a streak of 0 until
+the first marked day.
+
 ## Plugins
 
 Install only what you need:

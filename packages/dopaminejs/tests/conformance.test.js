@@ -22,7 +22,7 @@ const isRecord = (value) => value !== null && typeof value === 'object' && !Arra
 
 const CASE_KEYS = ['name', 'note', 'config', 'clock', 'device', 'savedJson', 'savedRaw', 'afterInit', 'steps', 'storage'];
 const STORAGE_OPTION_KEYS = ['failWrites'];
-const CONFIG_KEYS = ['builtinAchievements', 'achievements'];
+const CONFIG_KEYS = ['builtinAchievements', 'achievements', 'streakDays'];
 const ACHIEVEMENT_KEYS = ['name', 'description', 'icon', 'xp', 'when'];
 const EXPECT_KEYS = ['player', 'playerExact', 'doc', 'docExact', 'absent', 'achievements', 'events', 'returns', 'returnsExact', 'same', 'throws', 'code'];
 const OPS = {
@@ -111,6 +111,9 @@ function makeCheck(id, when) {
 
 function buildConfig(config = {}) {
     assertKeys('config', config, CONFIG_KEYS);
+    if (config.streakDays !== undefined && !['any', 'record'].includes(config.streakDays)) {
+        throw new Error('config.streakDays must be "any" or "record"');
+    }
     const achievements = {};
     for (const [id, def] of Object.entries(config.achievements || {})) {
         assertKeys(`achievement ${id}`, def, ACHIEVEMENT_KEYS);
@@ -170,7 +173,7 @@ function runCase(testCase) {
             let rewards;
 
             const start = async () => {
-                rewards = new RewardSystem(new DataService({ storage }), { achievements: customAchievements, clock });
+                rewards = new RewardSystem(new DataService({ storage }), { achievements: customAchievements, clock, streakDays: testCase.config?.streakDays });
                 if (!builtins) rewards.achievements = { ...customAchievements };
                 for (const name of EVENTS) {
                     rewards.on(name, (payload) => events.push({ ...payload, event: name }));

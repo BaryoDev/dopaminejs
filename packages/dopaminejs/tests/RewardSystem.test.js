@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { RewardSystem } from '../src/dopamine/core/RewardSystem.js';
 import { DataService } from '../src/dopamine/core/DataService.js';
+import { createMemoryStorage } from '../src/dopamine/utils/storage.js';
 
 describe('RewardSystem', () => {
     let rewardSystem;
@@ -283,5 +284,54 @@ describe('RewardSystem', () => {
 
         expect(Object.isFrozen(received)).toBe(true);
         expect(received.totalGamesPlayed).toBe(1);
+    });
+});
+
+describe('RewardSystem streakDays', () => {
+    const build = async (config = {}) => {
+        const clock = { now: () => 1_000, localDate: () => '2031-03-04' };
+        const system = new RewardSystem(
+            new DataService({ storage: createMemoryStorage() }),
+            { clock, ...config }
+        );
+        await system.init();
+        return system;
+    };
+
+    it('marks the day on addXP by default', async () => {
+        const system = await build();
+        expect(system.snapshot().streak.current).toBe(0);
+
+        await system.addXP(5);
+
+        expect(system.snapshot().streak.current).toBe(1);
+        expect(system.snapshot().streak.lastPlayDate).toBe('2031-03-04');
+    });
+
+    it('does not mark the day on addXP when streakDays is record', async () => {
+        const system = await build({ streakDays: 'record' });
+
+        await system.addXP(5);
+        expect(system.snapshot().streak.current).toBe(0);
+
+        await system.record('g', { score: 1 });
+        expect(system.snapshot().streak.current).toBe(1);
+    });
+
+    it('never marks the day for achievement reward XP', async () => {
+        const system = await build({
+            achievements: { gift: { name: 'Gift', xp: 40, check: () => false } }
+        });
+
+        await system.unlockAchievement('gift');
+
+        expect(system.snapshot().xp).toBe(40);
+        expect(system.snapshot().streak.current).toBe(0);
+    });
+
+    it('falls back to any for an unknown value', async () => {
+        const system = await build({ streakDays: 'nope' });
+        await system.addXP(1);
+        expect(system.snapshot().streak.current).toBe(1);
     });
 });
