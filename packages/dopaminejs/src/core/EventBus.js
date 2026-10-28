@@ -195,7 +195,7 @@ EventBus.Events = {
     XP_GAINED: 'xp_gained',
     LEVEL_UP: 'level_up',
     ACHIEVEMENT_UNLOCKED: 'achievement_unlocked',
-    NEW_HIGH_SCORE: 'new_high_score',
+    PERSONAL_BEST: 'personal_best',
     STREAK_UPDATED: 'streak_updated',
 
     // System lifecycle events

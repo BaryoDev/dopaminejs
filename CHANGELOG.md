@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Breaking
+
+Contract 3. Saved players from 2.x migrate on load.
+
+- `recordGame` is now `record`. `new_high_score` is now `personal_best` with
+  the payload `{ activity, score }`. Stats keep `plays` and `best` where they
+  had `totalPlays` and `highScore`. There are no aliases.
+- `rewards.player` is gone. `snapshot()` returns a frozen copy with the
+  derived values. Event payloads and the argument to `check` are frozen too.
+- The saved player is a document with `v: 3` that merges. XP, plays and
+  streak days are kept per device, so two copies of one player combine
+  without double counting. A player holds at most 20 devices.
+- A play, not a page load, counts as a day for the streak. A new player has a
+  streak of 0 until the first `record`.
+- Numeric strings in a saved player are dropped instead of read. Unknown
+  top-level fields are not carried. A saved `v` above 3 fails with
+  `unsupported_version`.
+
+### Added
+
+- A clock port: `new RewardSystem(data, { clock: { now, localDate } })`.
+- `use(middleware)` with `beforeXP`, `afterXP`, `beforeRecord`, `afterRecord`,
+  `beforeUnlock` and `afterUnlock`. It returns a function that removes it.
+- `defineAchievement(id, definition)`, which returns a function that removes it.
+- `export()` and `import(doc, { silent })`.
+- `DopamineError` with a `code`, `merge(a, b)` and `validate(doc)`, exported
+  from `dopaminejs/core`. `spec/schema.json` describes the document.
+- `npm run verify` runs every gate in order.
+
 ## [2.5.0] - 2026-10-26
 
 Published with this release: `dopaminejs` 2.5.0, `dopaminejs-react` 1.1.0 and

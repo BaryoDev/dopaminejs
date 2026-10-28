@@ -53,7 +53,7 @@ Returns an object with:
 
 | Property / method | Type | Description |
 |---|---|---|
-| `player` | `object` | Raw player state |
+| `player` | `object` | Frozen snapshot of the player |
 | `level` | `number` | Current player level |
 | `xp` | `number` | Current XP |
 | `progress` | `number` | 0 to 1, position inside the current level |
@@ -62,7 +62,7 @@ Returns an object with:
 | `error` | `unknown` | `null` until `init()` rejects, then the rejection. It is caught, so it never surfaces as an unhandled rejection |
 | `loadFailed` | `boolean` | `true` when `init()` could not read the saved player. Nothing is saved this session, so show the visitor that progress is not being kept |
 | `addXP(amount, reason?)` | `(number, string?) => Promise<object>` | Add XP; re-renders on `xp_gained` and `level_up`. Resolves with what `RewardSystem.addXP` returns |
-| `recordGame(gameId, stats)` | `(string, object) => Promise<void>` | Record a game session |
+| `record(gameId, stats)` | `(string, object) => Promise<boolean>` | Record a game session |
 | `unlockAchievement(key)` | `(string) => Promise<boolean>` | Unlock an achievement by id. Resolves `false` when the id is unknown or already unlocked |
 
 ## Notes

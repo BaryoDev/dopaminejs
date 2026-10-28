@@ -55,7 +55,7 @@ async function quickstart(): Promise<void> {
     const clamped: number = progress;
     void clamped;
 
-    await rewardSystem.recordGame('breakout', { score: 4200, deaths: 2 });
+    await rewardSystem.record('breakout', { score: 4200, deaths: 2 });
     gameUI.destroy();
 }
 

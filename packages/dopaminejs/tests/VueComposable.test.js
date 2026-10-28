@@ -36,6 +36,7 @@ const flush = async () => {
     for (let i = 0; i < 10; i++) {
         await Promise.resolve();
     }
+    await new Promise((resolve) => setTimeout(resolve, 0));
     await nextTick();
 };
 
@@ -107,13 +108,13 @@ describe('provideRewards and useRewards', () => {
         expect(seen.rewards.ready.value).toBe(true);
         expect(seen.rewards.error.value).toBeNull();
         expect(seen.rewards.player.value.xp).toBe(0);
-        expect(seen.rewards.player.value.streak.current).toBe(1);
+        expect(seen.rewards.player.value.streak.current).toBe(0);
 
         await seen.rewards.addXP(150);
         await flush();
 
         expect(seen.rewards.player.value.xp).toBe(150);
-        expect(seen.rewards.player.value.streak.current).toBe(1);
+        expect(seen.rewards.player.value.streak.current).toBe(0);
         app.unmount();
     });
 
@@ -136,7 +137,7 @@ describe('provideRewards and useRewards', () => {
         app.unmount();
     });
 
-    it('should show an achievement unlocked by recordGame', async () => {
+    it('should show an achievement unlocked by record', async () => {
         const config = {
             achievements: {
                 played_quiz: {
@@ -148,7 +149,7 @@ describe('provideRewards and useRewards', () => {
         const { app, el, seen } = mount({ config });
         await flush();
 
-        await seen.rewards.recordGame('quiz', { score: 1 });
+        await seen.rewards.record('quiz', { score: 1 });
         await flush();
 
         expect(seen.rewards.achievements.value.map(a => a.id)).toContain('played_quiz');
@@ -157,15 +158,15 @@ describe('provideRewards and useRewards', () => {
         app.unmount();
     });
 
-    it('should delegate recordGame and unlockAchievement', async () => {
-        const recordGame = vi.spyOn(RewardSystem.prototype, 'recordGame').mockResolvedValue(undefined);
+    it('should delegate record and unlockAchievement', async () => {
+        const record = vi.spyOn(RewardSystem.prototype, 'record').mockResolvedValue(undefined);
         const unlock = vi.spyOn(RewardSystem.prototype, 'unlockAchievement').mockResolvedValue(true);
         const { app, seen } = mount();
 
-        await seen.rewards.recordGame('quiz', { score: 9 });
+        await seen.rewards.record('quiz', { score: 9 });
         await expect(seen.rewards.unlockAchievement('first_game')).resolves.toBe(true);
 
-        expect(recordGame).toHaveBeenCalledWith('quiz', { score: 9 });
+        expect(record).toHaveBeenCalledWith('quiz', { score: 9 });
         expect(unlock).toHaveBeenCalledWith('first_game');
         app.unmount();
     });

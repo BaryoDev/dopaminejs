@@ -84,7 +84,7 @@ kernel.events.off('tick', this._onTick);
 
 Event names are lowercase strings: `tick`, `fixed_update`, `render`,
 `collision_enter`, `collision_exit`, `xp_gained`, `level_up`, `achievement_unlocked`,
-`new_high_score`, `streak_updated`, `save_failed`, `load_failed`. `EventBus.Events.LEVEL_UP`
+`personal_best`, `streak_updated`, `save_failed`, `load_failed`. `EventBus.Events.LEVEL_UP`
 is a constant whose value is `'level_up'`. Listening for `'LEVEL_UP'` never
 fires.
 
@@ -102,7 +102,7 @@ onto the bus.
   not call `init()` again. `config` takes `text`, `icons.streak` and `safeIcons`.
 - `ui.showLevelUp(oldLevel, newLevel)`.
 - `rewards.getXPForNextLevel()` returns `{ total, needed, progress }`.
-- `rewards.init()` must resolve before `addXP` or `recordGame`.
+- `rewards.init()` must resolve before `addXP` or `record`.
 
 ## Rules
 
@@ -119,8 +119,11 @@ onto the bus.
 - **Look up by own property.** Game names, achievement ids and sound keys come
   from callers. Use an own-property check (the `hasOwn` helpers), never `obj[key]` alone or
   `key in obj`.
-- **Saved state is untrusted.** Anything read from storage goes through
-  `RewardSystem._migrate`.
+- **Saved state is untrusted.** Anything read from storage, and anything
+  passed to `import` or `merge`, goes through `validate`.
+- **The save is a document that merges.** `merge` is pure, reads no clock and
+  is the same in any order. Nothing hands out the document: callers get frozen
+  `snapshot()` copies. Time comes from the `clock` in the config.
 - **`achievement.icon` is rendered as HTML on purpose**, unless `GameUI` is
   built with `safeIcons: true` (allowlisted SVG or text; the default from
   3.0). A string `icons.streak` is the same sink. A Node icon is always moved

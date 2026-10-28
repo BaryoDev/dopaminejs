@@ -132,8 +132,8 @@ export function RewardsProvider({ config, storage, children }) {
          * @param {object} stats
          * @returns {Promise<void>|undefined}
          */
-        recordGame(gameId, stats) {
-            return rewardsRef.current?.recordGame(gameId, stats);
+        record(gameId, stats) {
+            return rewardsRef.current?.record(gameId, stats);
         },
 
         /**
@@ -164,7 +164,7 @@ export function RewardsProvider({ config, storage, children }) {
  *   error: unknown,
  *   loadFailed: boolean,
  *   addXP: (amount: number, reason?: string) => Promise<object> | undefined,
- *   recordGame: (gameId: string, stats: object) => Promise<void> | undefined,
+ *   record: (gameId: string, stats: object) => Promise<void> | undefined,
  *   unlockAchievement: (key: string) => Promise<boolean> | undefined,
  * }}
  * ready is true once init() has resolved. error is null until init() rejects,

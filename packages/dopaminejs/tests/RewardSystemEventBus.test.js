@@ -53,7 +53,7 @@ describe('RewardSystem on the kernel EventBus', () => {
         const spy = vi.fn();
         bus.on(EventBus.Events.ACHIEVEMENT_UNLOCKED, spy);
 
-        await system.recordGame('game', { score: 5 });
+        await system.record('game', { score: 5 });
 
         expect(spy).toHaveBeenCalled();
     });

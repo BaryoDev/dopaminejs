@@ -153,7 +153,7 @@ Not on npm yet. `provideRewards()` and the `useRewards()` composable for Vue 3.3
 
 ## React Native, Expo and other non-browser runtimes
 
-`dopaminejs/core` exports only the progression API: `RewardSystem`, `DataService`, `EventEmitter`, `createMemoryStorage` and `resolveStorage`. It has no UI, particles, sound or engine, and nothing in it touches `window`, `document` or `localStorage` at import time. Only the default-storage fallback (`resolveStorage`) probes `localStorage`, so pass `storage` outside a browser. CI imports the built output in plain Node with those globals unset and runs `init` and `recordGame` (`scripts/check-core-import.js`).
+`dopaminejs/core` exports only the progression API: `RewardSystem`, `DataService`, `EventEmitter`, `DopamineError`, `merge`, `validate`, `createMemoryStorage` and `resolveStorage`. It has no UI, particles, sound or engine, and nothing in it touches `window`, `document` or `localStorage` at import time. Only the default-storage fallback (`resolveStorage`) probes `localStorage`, so pass `storage` outside a browser. CI imports the built output in plain Node with those globals unset and runs `init` and `record` (`scripts/check-core-import.js`).
 
 The entry resolves only through the `exports` field of `package.json`. Metro honours it by default from React Native 0.79 and Expo SDK 53. Older versions need `config.resolver.unstable_enablePackageExports = true` in `metro.config.js`.
 
@@ -167,12 +167,14 @@ const rewards = new RewardSystem(new DataService({ storage: AsyncStorage }));
 rewards.on('level_up', ({ newLevel }) => console.log(`Level ${newLevel}`));
 await rewards.init();
 
-await rewards.recordGame('quiz', { score: 80, won: true });
+await rewards.record('quiz', { score: 80, won: true });
 ```
 
 Any object with promise-returning `getItem`, `setItem` and `removeItem` works the same way.
 
 If the saved player cannot be read (`getItem` throws or rejects), `init()` still resolves with a new player in memory, fires `load_failed` with `reason: 'read'`, and saves nothing for the rest of the session, so the real player is never overwritten. Call `init()` again to retry; a retry that fails again keeps the progress made in memory. If the saved value is not valid JSON, it is kept under the `player_corrupt` key as a JSON string (`JSON.parse` it once to get the original), `load_failed` fires with `reason: 'corrupt'`, and a new player starts. If that backup cannot be written, `backedUp` is false and nothing is saved this session. A data service that overrides `load` must pass the third argument (`{ strict: true }`) on, or a failed read looks like an empty one. `rewards.loadFailed` is `true` after a failed read, and the React and Vue packages expose it as `loadFailed`. Show the visitor that progress is not being kept when it is. A failed write fires `save_failed`.
+
+`merge(a, b)` joins two saves of the same player into one, in any order, so a server can merge saves without a browser. `rewards.export()` gives the saved document and `rewards.import(doc)` merges one in.
 
 Without a `storage` option, `DataService` falls back to `localStorage` if present, then to memory, so state is lost when the app closes. `GameUI`, `ParticleSystem` and `SoundManager` are web only and stay on the root `dopaminejs` entry.
 

@@ -3,6 +3,7 @@ Collider: class(0) proto[getBounds,kernel,onAttach,onDetach]
 Component: class(0) proto[events,input,loader,onAttach,onDetach,physics,render,update]
 DataService: class(0) proto[clear,load,save]
 Director: class(1) proto[run]
+DopamineError: class(2)
 DopamineKernel: class(0) proto[destroy,input,loader,physics,renderer,start,stop,ticker]
 EventBus: class(0) static[Events] proto[clear,emit,hasListeners,off,on,once]
 EventEmitter: class(0) proto[clear,emit,off,on]
@@ -23,7 +24,7 @@ ParticleSystem: class(0) proto[clear,coinShower,confetti,destroy,emit,fire,play,
 Physics: class(0) proto[add,addBody,checkCollision,checkOverlap,destroy,fixedUpdate,init,raycast,remove,removeBody,setGravity,step]
 PluginRegistry: class(1) proto[clear,get,getLoadOrder,getPluginNames,has,remove,use,useAsync]
 Renderer: class(0) proto[clear,resize]
-RewardSystem: class(1) proto[addXP,checkAchievements,getStreakMultiplier,getUnlockedAchievements,getUnseenAchievements,getXPForNextLevel,init,loadFailed,markAchievementsSeen,recordGame,save,unlockAchievement]
+RewardSystem: class(1) proto[addXP,checkAchievements,defineAchievement,export,getStreakMultiplier,getUnlockedAchievements,getUnseenAchievements,getXPForNextLevel,import,init,loadFailed,markAchievementsSeen,record,save,snapshot,unlockAchievement,use]
 Scene: class(0) proto[add,kernel,onEnter,onExit,remove,render,update]
 ScreenShake: class(0) proto[shake,update]
 SoundManager: class(0) proto[destroy,getVolume,initAudio,loadSound,play,playClick,playError,playGameOver,playJump,playScore,playSuccess,playTone,preloadSounds,registerSound,setVolume,toggleMute,unlockOn]
@@ -36,5 +37,7 @@ Vector2: class(0) static[distance] proto[add,clone,distance,normalize,scale,sub]
 createHaptics: function(0)
 createMemoryStorage: function(0)
 default: class(0) proto[destroy,init]
+merge: function(3)
 prefersReducedMotion: function(0)
 resolveStorage: function(0)
+validate: function(1)

@@ -1,11 +1,14 @@
 import { RewardSystem } from './core/RewardSystem.js';
 import { DataService } from './core/DataService.js';
+import { DopamineError } from './core/DopamineError.js';
+import { merge } from './core/merge.js';
+import { validate } from './core/store.js';
 import { GameUI } from './ui/GameUI.js';
 import { ParticleSystem } from './effects/ParticleSystem.js';
 import { SoundManager } from './audio/SoundManager.js';
 import './ui/dopamine.css';
 
-export { RewardSystem, DataService, GameUI, ParticleSystem, SoundManager };
+export { RewardSystem, DataService, DopamineError, merge, validate, GameUI, ParticleSystem, SoundManager };
 
 export default class Dopamine {
     constructor(config = {}) {
@@ -39,7 +42,7 @@ export default class Dopamine {
      * @private
      */
     _syncUI() {
-        const { player } = this.rewardSystem;
+        const player = this.rewardSystem.snapshot();
         const { total, needed, progress } = this.rewardSystem.getXPForNextLevel();
 
         this.gameUI.updateXP(player.xp, needed, total, progress);
@@ -53,7 +56,7 @@ export default class Dopamine {
         this._unsubscribe = [
             rewards.on('xp_gained', () => {
                 const { total, needed, progress } = rewards.getXPForNextLevel();
-                this.gameUI.updateXP(rewards.player.xp, needed, total, progress);
+                this.gameUI.updateXP(rewards.snapshot().xp, needed, total, progress);
             }),
 
             rewards.on('level_up', (data) => {
@@ -69,7 +72,7 @@ export default class Dopamine {
                 this.gameUI.updateStreak(data.current);
             }),
 
-            rewards.on('new_high_score', (data) => {
+            rewards.on('personal_best', (data) => {
                 this.gameUI.showNotification(`New High Score: ${data.score}!`, 'legendary');
                 this.soundManager.playSuccess();
             })

@@ -85,16 +85,22 @@ describe('Dopamine facade', () => {
     it('should update the streak badge when the day rolls over', async () => {
         await dopamine.init();
         const rewards = dopamine.rewardSystem;
-        rewards.player.streak = { current: 2, longest: 2, lastPlayDate: rewards._getYesterdayDateString() };
+        const day = (offset) => {
+            const d = new Date();
+            d.setDate(d.getDate() - offset);
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        };
+        await rewards.import({ v: 3, playDates: [day(2), day(1)] }, { silent: true });
 
-        await rewards.recordGame('snake', { score: 0 });
+        await rewards.record('snake', { score: 0 });
 
         expect(text('.streak-number')).toBe('3');
     });
 
     it('should show the high score message as written', async () => {
         await dopamine.init();
-        await dopamine.rewardSystem.recordGame('snake', { score: 500 });
+        await dopamine.rewardSystem.record('snake', { score: 500 });
 
         const floaters = [...document.querySelectorAll('.floating-text')].map((el) => el.textContent);
         expect(floaters).toContain('New High Score: 500!');

@@ -7,13 +7,21 @@ export {
     RewardSystem,
     DataService,
     EventEmitter,
+    DopamineError,
+    merge,
+    validate,
     createMemoryStorage,
     resolveStorage
 } from './index';
 
 export type {
     Player,
+    PlayerDocument,
     PlayerStreak,
+    Clock,
+    DopamineErrorCode,
+    ValidateOptions,
+    Middleware,
     UnlockedAchievement,
     AchievementDefinition,
     GameResult,

@@ -33,7 +33,7 @@ const firstId: string | undefined = rewards.achievements.value[0]?.id;
 void [level, ready, error, progress, firstId];
 
 rewards.addXP(10, 'lesson').then(result => result.newLevel.toFixed());
-rewards.recordGame('quiz', { score: 3 });
+rewards.record('quiz', { score: 3 });
 rewards.unlockAchievement('first').then((unlocked: boolean) => unlocked);
 
 // @ts-expect-error amount must be a number

@@ -23,7 +23,6 @@ import {
     onScopeDispose,
     provide,
     shallowRef,
-    triggerRef,
 } from 'vue';
 import { RewardSystem, DataService } from 'dopaminejs';
 import { buildState } from './state.js';
@@ -80,9 +79,6 @@ export function provideRewards({ config, storage } = {}) {
         xp.value = next.xp;
         progress.value = next.progress;
         achievements.value = next.achievements;
-        // RewardSystem mutates the player in place, so the same object comes
-        // back and the assignment above would not notify.
-        triggerRef(player);
     }
 
     // A rejected init() must not escape as an unhandled rejection, which can
@@ -129,8 +125,8 @@ export function provideRewards({ config, storage } = {}) {
          * @param {object} stats
          * @returns {Promise<void>}
          */
-        recordGame(gameId, stats) {
-            return rewards.recordGame(gameId, stats);
+        record(gameId, stats) {
+            return rewards.record(gameId, stats);
         },
 
         /**

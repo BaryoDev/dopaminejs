@@ -91,13 +91,13 @@
         // Expose for buttons
         window.testXP = async () => {
             // Simulate a game "demo"
-            await rewardSystem.recordGame('demo', { score: 100, demo_clicks: 1 });
+            await rewardSystem.record('demo', { score: 100, demo_clicks: 1 });
             soundManager.playClick();
         };
 
         window.testLevelUp = () => {
             // Manually trigger for demo purposes
-            const { level } = rewardSystem.player;
+            const { level } = rewardSystem.snapshot();
             gameUI.showLevelUp(level, level + 1);
             soundManager.playSuccess();
         };

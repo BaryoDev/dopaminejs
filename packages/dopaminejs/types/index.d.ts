@@ -13,15 +13,18 @@
 export interface PlayerStreak {
     current: number;
     longest: number;
-    /** Local calendar day, YYYY-MM-DD. Not UTC. */
-    lastPlayDate: string;
+    /** Local calendar day, YYYY-MM-DD. Not UTC. Absent until the first play. */
+    lastPlayDate?: string;
 }
 
 export interface UnlockedAchievement {
     unlockedAt: number;
     seen: boolean;
+    /** XP the achievement paid when it was unlocked. */
+    reward: number;
 }
 
+/** A frozen copy of the player with the derived values. */
 export interface Player {
     name: string;
     xp: number;
@@ -31,8 +34,69 @@ export interface Player {
     lastPlayedAt: number;
     streak: PlayerStreak;
     achievements: Record<string, UnlockedAchievement>;
-    /** Per-game stats. Games add their own keys. */
-    stats: Record<string, Record<string, number>>;
+    /** Per-activity stats: `plays`, `best`, and any other number a result carried. */
+    stats: Record<string, { plays: number; best: number } & Record<string, number>>;
+}
+
+/**
+ * The saved document. It merges: see `merge`. Treat it as opaque and pass it
+ * to `merge`, `validate` and `import`.
+ */
+export interface PlayerDocument {
+    v: 3;
+    name: string;
+    createdAt: number;
+    lastPlayedAt: number;
+    level: number;
+    longest: number;
+    /** Local days, YYYY-MM-DD, sorted, at most the last 400. */
+    playDates: string[];
+    xpBy: Record<string, number>;
+    xpSpentBy: Record<string, number>;
+    gamesBy: Record<string, number>;
+    playsBy: Record<string, Record<string, number>>;
+    best: Record<string, number>;
+    sumsBy: Record<string, Record<string, Record<string, number>>>;
+    achievements: Record<string, UnlockedAchievement>;
+}
+
+export interface Clock {
+    now(): number;
+    /** Local calendar day, YYYY-MM-DD, never UTC. Defaults to now. */
+    localDate(ms?: number): string;
+}
+
+export type DopamineErrorCode = 'invalid_document' | 'unsupported_version' | 'too_many_devices';
+
+export class DopamineError extends Error {
+    constructor(code: string, message?: string);
+    readonly code: DopamineErrorCode | string;
+}
+
+export interface ValidateOptions {
+    /** Fills missing timestamps. Default 0. */
+    now?: number;
+    /** A local date (YYYY-MM-DD). When set, play dates older than 400 days counting from it are dropped. Default: none are dropped. */
+    today?: string;
+    /** XP a 2.x save already holds for each achievement id. Default: the built-ins. */
+    rewards?: Record<string, number>;
+}
+
+/** Clean any value into a version 3 document, or throw a DopamineError. Pure. */
+export function validate(input: unknown, options?: ValidateOptions): PlayerDocument;
+/**
+ * Join two saves. Pure, and the same in any order or grouping.
+ * @throws DopamineError `too_many_devices`, `unsupported_version`, `invalid_document`.
+ */
+export function merge(a: unknown, b: unknown, options?: ValidateOptions): PlayerDocument;
+
+export interface Middleware {
+    beforeXP?(context: { amount: number; reason: string }): Partial<{ amount: number; reason: string }> | false | void | Promise<Partial<{ amount: number; reason: string }> | false | void>;
+    afterXP?(context: { amount: number; reason: string; total: number; level: number }): void | Promise<void>;
+    beforeRecord?(context: { activity: string; result: GameResult }): Partial<{ activity: string; result: GameResult }> | false | void | Promise<Partial<{ activity: string; result: GameResult }> | false | void>;
+    afterRecord?(context: { activity: string; result: GameResult; xp: number }): void | Promise<void>;
+    beforeUnlock?(context: { id: string; reward: number }): Partial<{ reward: number }> | false | void | Promise<Partial<{ reward: number }> | false | void>;
+    afterUnlock?(context: { id: string; reward: number }): void | Promise<void>;
 }
 
 export interface AchievementDefinition {
@@ -46,7 +110,7 @@ export interface AchievementDefinition {
     icon?: string | Node;
     /** Omitted means 0. Never undefined at runtime. */
     xp?: number;
-    check(player: Player, gameName?: string, result?: GameResult): boolean;
+    check(player: Player, activity?: string, result?: GameResult): boolean;
 }
 
 export interface GameResult {
@@ -75,13 +139,16 @@ export interface RewardSystemConfig {
     events?: EventBus;
     /** Alternative to `events`; the kernel's bus is used. */
     kernel?: DopamineKernel;
+    /** Time source. Tests pass one; the default reads the system clock. */
+    clock?: Clock;
 }
 
 export type RewardEvent =
     | 'xp_gained'
     | 'level_up'
     | 'achievement_unlocked'
-    | 'new_high_score'
+    /** Payload `{ activity, score }`. */
+    | 'personal_best'
     /** Payload `{ current, longest }`. Fires when the day rolls over. */
     | 'streak_updated'
     /** Payload `{ key }`. The storage write failed; state lives in memory only. */
@@ -107,7 +174,6 @@ export class EventEmitter {
 export class RewardSystem extends EventEmitter {
     constructor(dataService: DataService, config?: RewardSystemConfig);
 
-    player: Player | null;
     achievements: Record<string, AchievementDefinition>;
     /** Kernel bus events are mirrored onto, if one was supplied. */
     events: EventBus | null;
@@ -118,6 +184,19 @@ export class RewardSystem extends EventEmitter {
     readonly loadFailed: boolean;
 
     init(): Promise<Player>;
+    /** A frozen copy of the player with the derived values. */
+    snapshot(): Player;
+    /** The versioned document, a detached copy. */
+    export(): PlayerDocument;
+    /**
+     * Merge a document into this player. Unless `silent`, announces the XP,
+     * level and achievements that went up.
+     */
+    import(doc: unknown, options?: { silent?: boolean }): Promise<Player>;
+    /** Hooks run in `use` order. Returns a function that removes it. */
+    use(middleware: Middleware): () => void;
+    /** Adds a rule at runtime. Returns a function that removes it. */
+    defineAchievement(id: string, definition: AchievementDefinition): () => void;
     save(): Promise<void>;
 
     /** @throws TypeError if `amount` is not finite. */
@@ -126,12 +205,13 @@ export class RewardSystem extends EventEmitter {
 
     /**
      * Persists once for the whole call, not once per internal mutation.
-     * @throws TypeError for an empty or reserved game name, or a `score` that
-     *   is not a finite number.
+     * @throws TypeError for an empty or reserved activity name, or a `score`
+     *   that is not a finite number.
+     * @returns false when a `beforeRecord` hook rejected it.
      */
-    recordGame(gameName: string, result?: GameResult): Promise<void>;
+    record(activity: string, result?: GameResult): Promise<boolean>;
 
-    checkAchievements(gameName: string, result: GameResult): Promise<AchievementDefinition[]>;
+    checkAchievements(activity: string, result: GameResult): Promise<AchievementDefinition[]>;
     unlockAchievement(achievementId: string): Promise<boolean>;
     getUnlockedAchievements(): Array<AchievementDefinition & UnlockedAchievement & { id: string }>;
     getUnseenAchievements(): Array<AchievementDefinition & UnlockedAchievement & { id: string }>;
@@ -382,7 +462,7 @@ export interface EventBusEvents {
     XP_GAINED: 'xp_gained';
     LEVEL_UP: 'level_up';
     ACHIEVEMENT_UNLOCKED: 'achievement_unlocked';
-    NEW_HIGH_SCORE: 'new_high_score';
+    PERSONAL_BEST: 'personal_best';
     STREAK_UPDATED: 'streak_updated';
     SYSTEM_REGISTERED: 'system_registered';
     SYSTEM_UNREGISTERED: 'system_unregistered';

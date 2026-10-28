@@ -31,7 +31,9 @@ const settle = async () => {
 };
 
 describe('RewardsProvider', () => {
-    afterEach(() => {
+    afterEach(async () => {
+        // Let every init the test left running finish before the next test.
+        await settle();
         vi.restoreAllMocks();
         dispatched.length = 0;
     });
