@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs-plugin-ecosystem",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "description": "Webhook plugin for DopamineJS: posts reward events to your URL, optionally signed",
     "type": "module",
     "main": "./dist/index.umd.cjs",

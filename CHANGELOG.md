@@ -2,9 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [3.0.0] - 2026-10-28
 
-### 3.0 engine removal
+dopaminejs 3.0.0 replaces the engine with `createDopamine` and a small plugin
+contract. Upgrade steps are in [docs/MIGRATION-3.0.md](docs/MIGRATION-3.0.md).
+2.x is deprecated on npm and no longer supported.
+
+Published with this release: `dopaminejs` 3.0.0, `dopaminejs-react` 2.0.0,
+`dopaminejs-themes` 2.0.0, `dopaminejs-plugin-debug-overlay` 2.0.0,
+`dopaminejs-plugin-ecosystem` 3.0.0, `dopaminejs-plugin-howler-audio` 2.0.0,
+`dopaminejs-plugin-sound-packs` 2.0.0 and `dopaminejs-plugin-webgl-particles` 2.0.0.
+`dopaminejs-vue` stays private.
+
+### Removed
+
+- The engine, `dopaminejs/engine` and the default export.
+- The kernel plugin API. Plugins use the `createDopamine` contract (`HOST_API` 3).
+- The `dopaminejs-plugin-feedback-effects` package. The core popups, text and
+  particles replace it.
+- The battle pass and the leaderboard, from `dopaminejs-plugin-ecosystem`.
+- `playJump`, `playScore`, `playGameOver` and `playSuccess`.
+
+### Renamed
+
+No aliases are kept.
+
+- `recordGame` is `record`.
+- `new_high_score` is `personal_best`.
+- `totalPlays` and `highScore` are `plays` and `best`.
+- `GameUI` is `RewardUI`.
+- `rewards.player` is `snapshot()`.
+- `rewardSystem` is `progress`.
+
+### Engine removal and new entry points
 
 - Removed `dopaminejs/engine`, the default export and everything only the engine used.
 - `GameUI` is now `RewardUI`, with `hud`, `popup` and `text`. There is no alias.
@@ -43,6 +73,7 @@ Contract 3. Saved players from 2.x migrate on load.
 
 ### Added
 
+- The `streakDays` option (`'any'` or `'record'`) sets what counts as a play day.
 - A clock port: `new RewardSystem(data, { clock: { now, localDate } })`.
 - `use(middleware)` with `beforeXP`, `afterXP`, `beforeRecord`, `afterRecord`,
   `beforeUnlock` and `afterUnlock`. It returns a function that removes it.
@@ -51,6 +82,21 @@ Contract 3. Saved players from 2.x migrate on load.
 - `DopamineError` with a `code`, `merge(a, b)` and `validate(doc)`, exported
   from `dopaminejs/core`. `spec/schema.json` describes the document.
 - `npm run verify` runs every gate in order.
+
+### Packages
+
+Every package below needs `dopaminejs ^3.0.0`. A 2.x release of any of them does not work with 3.0.
+
+- `dopaminejs` 3.0.0: the core changes above.
+- `dopaminejs-react` 2.0.0: the provider runs on `createDopamine`.
+- `dopaminejs-themes` 2.0.0: adds the `theme(name)` plugin, applied to the UI root.
+- `dopaminejs-plugin-debug-overlay` 2.0.0: `debugOverlay(opts)` replaces `DebugOverlayPlugin`.
+- `dopaminejs-plugin-ecosystem` 3.0.0: `webhooks(opts)` and `WebhookIntegration` stay. The battle pass and the leaderboard are removed.
+- `dopaminejs-plugin-howler-audio` 2.0.0: `howlerSound(opts)` replaces `HowlerAudioPlugin`.
+- `dopaminejs-plugin-sound-packs` 2.0.0: `soundPack(name)` registers each sound on `sound`.
+- `dopaminejs-plugin-webgl-particles` 2.0.0: `webglParticles(opts)` replaces `WebGLParticlePlugin`.
+- `dopaminejs-vue` 2.0.0 (private, not published): peer range moves to `dopaminejs ^3.0.0`.
+- `scripts/check-versions.js` fails when a public package's peer range does not accept the sibling version in the same tree.
 
 ## [2.5.0] - 2026-10-26
 
