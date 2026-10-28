@@ -91,7 +91,7 @@ Every package below needs `dopaminejs ^3.0.0`. A 2.x release of any of them does
 - `dopaminejs-react` 2.0.0: the provider runs on `createDopamine`.
 - `dopaminejs-themes` 2.0.0: adds the `theme(name)` plugin, applied to the UI root.
 - `dopaminejs-plugin-debug-overlay` 2.0.0: `debugOverlay(opts)` replaces `DebugOverlayPlugin`.
-- `dopaminejs-plugin-ecosystem` 3.0.0: `webhooks(opts)` and `WebhookIntegration` stay. The battle pass and the leaderboard are removed.
+- `dopaminejs-plugin-ecosystem` 3.0.0: `webhooks(opts)` and `WebhookIntegration` stay. The battle pass and the leaderboard are removed. Disposing `webhooks` now aborts the request in flight and drops the queue, then emits `webhooks:dropped` with `{ count }` and warns. Await `flush()` first to send everything queued. Failed requests are logged, not retried.
 - `dopaminejs-plugin-howler-audio` 2.0.0: `howlerSound(opts)` replaces `HowlerAudioPlugin`.
 - `dopaminejs-plugin-sound-packs` 2.0.0: `soundPack(name)` registers each sound on `sound`.
 - `dopaminejs-plugin-webgl-particles` 2.0.0: `webglParticles(opts)` replaces `WebGLParticlePlugin`.

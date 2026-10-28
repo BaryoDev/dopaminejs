@@ -71,14 +71,19 @@ export class WebhookIntegration {
     /**
      * Drops the queue and aborts the request in flight. Call flush() first to
      * deliver what is queued.
+     * @returns {number} How many events were dropped without confirmed
+     *   delivery. An aborted request counts, since the server may have got it.
      */
     close() {
+        let dropped = this.queue.length;
         this.queue.length = 0;
         if (this._inflight) {
             clearTimeout(this._inflight.timer);
             this._inflight.abort.abort();
             this._inflight = null;
+            dropped += 1;
         }
+        return dropped;
     }
 
     /**
@@ -185,8 +190,11 @@ export class WebhookIntegration {
  *
  *   createDopamine({ plugins: [webhooks({ url: 'https://example.com/hook', secret })] });
  *
- * Nothing is sent without a `url`. Disposing the plugin stops listening and
- * lets what is already queued finish.
+ * Nothing is sent without a `url`. Disposing the plugin stops listening,
+ * aborts the request in flight and drops the queue. When anything is dropped
+ * it emits `webhooks:dropped` with `{ count }` and warns. Await `flush()`
+ * before disposing to send everything queued. Failed requests are logged,
+ * not retried.
  *
  * @param {Object} options
  * @param {string} options.url
@@ -234,7 +242,11 @@ export function webhooks(options = {}) {
 
             return () => {
                 for (const off of offs) off();
-                integration.close();
+                const count = integration.close();
+                if (count > 0) {
+                    ctx.events.emit('webhooks:dropped', { count });
+                    ctx.log.warn(`[webhooks] ${count} event(s) dropped without confirmed delivery. Await flush() before disposing to send them.`);
+                }
             };
         }
     };

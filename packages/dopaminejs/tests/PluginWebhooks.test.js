@@ -98,9 +98,12 @@ describe('webhooks', () => {
             return { ok: true, statusText: 'OK' };
         };
         const plugin = webhooks({ url: URL, fetch: send });
-        const test = createTestHost();
+        const warn = vi.fn();
+        const test = createTestHost({ log: { warn } });
         hosts.push(test);
         await test.ready;
+        const dropped = [];
+        test.events.on('webhooks:dropped', (data) => dropped.push(data));
         const count = () => [...test.progress.listeners.values()].reduce((sum, set) => sum + set.size, 0);
         const before = count();
         const dispose = test.use(plugin);
@@ -110,6 +113,8 @@ describe('webhooks', () => {
         test.progress.emit('level_up', LEVEL);
         dispose();
         expect(count()).toBe(before);
+        expect(dropped).toEqual([{ count: 2 }]);
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('2 event(s) dropped without confirmed delivery'));
         test.progress.emit('level_up', LEVEL);
 
         release();
@@ -121,7 +126,8 @@ describe('webhooks', () => {
     it('flush before dispose delivers everything queued', async () => {
         const { calls, send } = fakeFetch();
         const plugin = webhooks({ url: URL, fetch: send });
-        const test = createTestHost();
+        const warn = vi.fn();
+        const test = createTestHost({ log: { warn } });
         hosts.push(test);
         await test.ready;
         const dispose = test.use(plugin);
@@ -130,6 +136,8 @@ describe('webhooks', () => {
         await plugin.flush();
         dispose();
         expect(calls).toHaveLength(2);
+        expect(warn).not.toHaveBeenCalled();
+        expect(test.events.log.some((entry) => entry.event === 'webhooks:dropped')).toBe(false);
     });
 
     it('sends nothing and says so without a url', async () => {
