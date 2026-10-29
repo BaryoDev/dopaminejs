@@ -61,8 +61,8 @@ UTC.
 
 - `builtinAchievements`: `false` removes the five built-ins (`first_game`,
   `level_5`, `level_10`, `streak_3`, `streak_7`). Default `true`. The JS core
-  has no such option; the runner emulates it by replacing the achievement table
-  after construction. A port must do the same.
+  takes it as `RewardSystem` config. A save that already holds a built-in keeps
+  it and its reward XP when the option is off.
 - `streakDays`: `"any"` (default) or `"record"`. With `any`, `record` and `addXP` mark today as a play day. With `record`, only `record` does. XP from an achievement reward never marks a day.
 - `achievements`: extra achievements by id, `{ name, description?, icon?, xp?, when }`.
 

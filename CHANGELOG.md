@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- The `builtinAchievements` option on `RewardSystem` and `createDopamine`. `false`
+  defines none of the five built-in achievements. A save that already holds one
+  keeps it and its XP. Default `true`.
+
 ## [3.0.0] - 2026-10-28
 
 dopaminejs 3.0.0 replaces the engine with `createDopamine` and a small plugin
