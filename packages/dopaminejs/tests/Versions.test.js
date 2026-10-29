@@ -62,7 +62,7 @@ describe('release manifests', () => {
         if (process.env.GITHUB_REF_TYPE === 'tag') {
             expect(process.env.GITHUB_REF_NAME).toBe(`v${core.version}`);
         }
-        expect(`v${core.version}`).toBe('v3.0.0');
+        expect(`v${core.version}`).toBe('v3.1.0');
     });
 
     it('the public package set matches the expected list', () => {
