@@ -32,7 +32,7 @@ const OPS = {
     record: ['activity', 'result'],
     unlockAchievement: ['id'],
     markAchievementsSeen: ['ids'],
-    reset: [],
+    reset: ['overwrite'],
     getXPForNextLevel: [],
     export: ['as'],
     import: ['doc', 'from', 'silent'],
@@ -293,7 +293,7 @@ function runCase(testCase) {
                             returned = await rewards.markAchievementsSeen(step.ids);
                             break;
                         case 'reset':
-                            returned = await rewards.reset();
+                            returned = await rewards.reset(hasOwn(step, 'overwrite') ? { overwrite: step.overwrite } : undefined);
                             break;
                         case 'getXPForNextLevel':
                             returned = rewards.getXPForNextLevel();

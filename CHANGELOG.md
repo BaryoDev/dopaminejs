@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `reset({ overwrite: false })` replaces the player in memory without writing when the last load failed,
+  so the stored player is kept and `loadFailed` stays true. After a load that worked it saves like `reset()`.
+  A corrupt save that init() backed up to `player_corrupt` counts as loaded, so `overwrite: false` saves like a plain reset(). If the backup failed, it counts as a failed load and nothing is written.
+  The `spec/` `reset` op takes `overwrite`.
+- `reset()` now throws a `TypeError` for an argument that is not an options object (before, any argument was ignored),
+  so `.then(rewards.reset)` style calls that pass a value now reject.
+
 ## [3.1.0] - 2026-10-29
 
 Published with this release: `dopaminejs` 3.1.0 and `dopaminejs-react` 2.1.0.

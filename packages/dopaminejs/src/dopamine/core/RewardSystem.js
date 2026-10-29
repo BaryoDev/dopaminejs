@@ -275,15 +275,36 @@ export class RewardSystem extends EventEmitter {
      * could not read the saved player: the stored player is replaced, without
      * a backup, and `loadFailed` goes back to false.
      *
+     * Pass `{ overwrite: false }` to keep the stored player when the last
+     * init() could not read it (an unsupported newer version, or a read that
+     * keeps failing). The player in memory is replaced by a new empty one,
+     * nothing is written, `loadFailed` stays true so later writes stay
+     * blocked, and `player_reset` is still emitted. When the last init() did
+     * read the saved player, `overwrite: false` changes nothing: it saves
+     * like a plain reset(). A corrupt save that init() backed up to `player_corrupt` counts as loaded, so `overwrite: false` saves like a plain reset().
+     * If the backup failed, it counts as a failed load and nothing is written.
+     *
      * Timing: call it after init() has resolved, not while init() is pending.
      * A record() already in flight when reset() runs lands in the new player.
      * Called from inside a hook, the write happens when the outer record or
      * unlock finishes.
      *
+     * @param {Object} [options]
+     * @param {boolean} [options.overwrite=true] - false keeps the stored player after a failed load
      * @returns {Promise<Object>} Frozen snapshot of the new player
      */
-    async reset() {
+    async reset(options) {
+        const overwrite = options?.overwrite;
+        if (options !== undefined && (options === null || typeof options !== 'object' || Array.isArray(options))
+            || overwrite !== undefined && typeof overwrite !== 'boolean') {
+            throw new TypeError('[DopamineJS] reset expects { overwrite?: boolean }');
+        }
         this._requirePlayer();
+        if (overwrite === false && this._readFailed) {
+            this._doc = emptyDoc(this.clock.now());
+            this._publish('player_reset', {});
+            return this.snapshot();
+        }
         await this._batch(async () => {
             this._doc = emptyDoc(this.clock.now());
             this._loadFailed = false;

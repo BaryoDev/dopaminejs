@@ -211,8 +211,15 @@ export class RewardSystem extends EventEmitter {
      * Call it after `init()` has resolved, not while `init()` is pending. A
      * `record()` already in flight when it runs lands in the new player. Called
      * from inside a hook, the write happens when the outer record or unlock finishes.
+     *
+     * With `{ overwrite: false }` and a failed load, the stored player is kept:
+     * the player in memory is replaced by a new empty one, nothing is written,
+     * `loadFailed` stays true and `player_reset` is still emitted. After a load
+     * that worked, `overwrite: false` behaves like a plain `reset()` and saves.
+     * A corrupt save that init() backed up to `player_corrupt` counts as loaded, so `overwrite: false` saves like a plain reset(). If the backup failed, it counts as a failed load and nothing is written.
+     * A non-object `options` or a non-boolean `overwrite` throws a `TypeError`.
      */
-    reset(): Promise<Player>;
+    reset(options?: { overwrite?: boolean }): Promise<Player>;
     /** Hooks run in `use` order. Returns a function that removes it. */
     use(middleware: Middleware): () => void;
     /** Adds a rule at runtime. Returns a function that removes it. */
