@@ -294,12 +294,10 @@ export class RewardSystem extends EventEmitter {
      * @returns {Promise<Object>} Frozen snapshot of the new player
      */
     async reset(options) {
-        if (options !== undefined && (options === null || typeof options !== 'object' || Array.isArray(options))) {
-            throw new TypeError(`[DopamineJS] reset expects an options object, received ${String(options)}`);
-        }
         const overwrite = options?.overwrite;
-        if (overwrite !== undefined && typeof overwrite !== 'boolean') {
-            throw new TypeError(`[DopamineJS] reset expects overwrite to be a boolean, received ${String(overwrite)}`);
+        if (options !== undefined && (options === null || typeof options !== 'object' || Array.isArray(options))
+            || overwrite !== undefined && typeof overwrite !== 'boolean') {
+            throw new TypeError('[DopamineJS] reset expects { overwrite?: boolean }');
         }
         this._requirePlayer();
         if (overwrite === false && this._readFailed) {
