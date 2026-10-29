@@ -10,7 +10,7 @@ import { EventEmitter } from './EventEmitter.js';
 import { DopamineError } from './DopamineError.js';
 import { systemClock } from './clock.js';
 import { levelFor, thresholdFor } from './levels.js';
-import { builtinAchievements, rewardsOf } from './achievements.js';
+import { BUILTIN_REWARDS, builtinAchievements, rewardsOf } from './achievements.js';
 import { Middleware } from './middleware.js';
 import { merge } from './merge.js';
 import { currentStreak, longestRun, trimDays } from './streaks.js';
@@ -38,6 +38,9 @@ export class RewardSystem extends EventEmitter {
      * @param {Object} dataService - Persistence, see DataService
      * @param {Object} [config]
      * @param {Object} [config.achievements] - Extra achievement definitions
+     * @param {boolean} [config.builtinAchievements] - false defines none of the five built-ins
+     *   (first_game, level_5, level_10, streak_3, streak_7). Default true. A save that
+     *   already holds one keeps it and its XP. Any value but false means true.
      * @param {{ now(): number, localDate(ms?: number): string }} [config.clock] - Time source
      * @param {'any'|'record'} [config.streakDays] - What marks today as a play day.
      *   'any' (default): record() or addXP(). 'record': record() only. XP from an
@@ -49,7 +52,7 @@ export class RewardSystem extends EventEmitter {
         this.clock = config.clock && typeof config.clock.now === 'function' && typeof config.clock.localDate === 'function'
             ? config.clock
             : systemClock;
-        this.achievements = { ...builtinAchievements(), ...(config.achievements || {}) };
+        this.achievements = { ...(config.builtinAchievements === false ? {} : builtinAchievements()), ...(config.achievements || {}) };
         this.streakDays = config.streakDays === 'record' ? 'record' : 'any';
 
         this._doc = null;
@@ -100,7 +103,9 @@ export class RewardSystem extends EventEmitter {
     }
 
     _options() {
-        return { now: this.clock.now(), today: this.clock.localDate(), rewards: rewardsOf(this.achievements) };
+        // The built-in rewards stay the base: a save that holds a built-in
+        // must read the same whether or not it is defined here.
+        return { now: this.clock.now(), today: this.clock.localDate(), rewards: { ...BUILTIN_REWARDS, ...rewardsOf(this.achievements) } };
     }
 
     /**
@@ -253,7 +258,8 @@ export class RewardSystem extends EventEmitter {
             this._publish('level_up', { oldLevel: before.level, newLevel: after.level, totalXP: after.xp });
         }
         for (const id of Object.keys(after.achievements)) {
-            if (!hasOwn(before.achievements, id)) {
+            // An id with no definition stays in the save but has nothing to announce.
+            if (!hasOwn(before.achievements, id) && hasOwn(this.achievements, id)) {
                 this._publish('achievement_unlocked', { ...this.achievements[id], id });
             }
         }

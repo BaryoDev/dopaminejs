@@ -174,8 +174,7 @@ function runCase(testCase) {
             let rewards;
 
             const start = async () => {
-                rewards = new RewardSystem(new DataService({ storage }), { achievements: customAchievements, clock, streakDays: testCase.config?.streakDays });
-                if (!builtins) rewards.achievements = { ...customAchievements };
+                rewards = new RewardSystem(new DataService({ storage }), { achievements: customAchievements, clock, streakDays: testCase.config?.streakDays, builtinAchievements: builtins });
                 for (const name of EVENTS) {
                     rewards.on(name, (payload) => events.push({ ...payload, event: name }));
                 }

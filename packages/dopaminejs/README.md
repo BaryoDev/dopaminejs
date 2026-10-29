@@ -61,6 +61,21 @@ createDopamine({ streakDays: 'record' });
 XP from an achievement reward never marks a day. A new player has a streak of 0 until
 the first marked day.
 
+## Built-in achievements
+
+`first_game`, `level_5`, `level_10`, `streak_3` and `streak_7` are defined by default.
+To define none of them, and still use your own `achievements`:
+
+```javascript
+new RewardSystem(data, { builtinAchievements: false });
+createDopamine({ builtinAchievements: false });
+```
+
+A save that already holds one of them (from an older version or another device)
+keeps it and its XP. `getUnlockedAchievements()` returns it without a `name`, since
+no definition is loaded. `defineAchievement` can still add one of those ids by hand.
+Any value but `false` means `true`.
+
 ## Plugins
 
 Install only what you need:

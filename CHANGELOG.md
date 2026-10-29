@@ -8,6 +8,14 @@ All notable changes to this project will be documented in this file.
 
 - `RewardSystem.reset()` replaces the player with an empty one, keeps the device id, saves once and emits `player_reset`.
   The `spec/` step list gains a `reset` op.
+- The `builtinAchievements` option on `RewardSystem` and `createDopamine`. `false`
+  defines none of the five built-in achievements. A save that already holds one
+  keeps it and its XP. Default `true`.
+
+### Fixed
+
+- `import` no longer publishes `achievement_unlocked` for an id with no definition,
+  such as a built-in id when `builtinAchievements` is `false`. The id stays in the save.
 
 ## [3.0.0] - 2026-10-28
 

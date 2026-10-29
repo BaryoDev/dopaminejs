@@ -138,6 +138,12 @@ export interface AddXPResult {
 
 export interface RewardSystemConfig {
     achievements?: Record<string, AchievementDefinition>;
+    /**
+     * `false` defines none of the built-in achievements (`first_game`,
+     * `level_5`, `level_10`, `streak_3`, `streak_7`). Default `true`. A save
+     * that already holds one keeps it and its XP. Any other value means `true`.
+     */
+    builtinAchievements?: boolean;
     /** Time source. Tests pass one; the default reads the system clock. */
     clock?: Clock;
     /**
@@ -607,6 +613,8 @@ export interface DopamineOptions {
     clock?: Clock;
     /** Passed to the default progress object. See `RewardSystemConfig`. */
     streakDays?: 'any' | 'record';
+    /** Passed to the default progress object. See `RewardSystemConfig`. */
+    builtinAchievements?: boolean;
     plugins?: DopaminePlugin[];
     log?: Partial<Logger>;
 }

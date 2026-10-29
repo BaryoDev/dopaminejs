@@ -352,6 +352,13 @@ describe('createDopamine', () => {
         expect(host.progress.snapshot().streak.current).toBe(0);
     });
 
+    it('passes builtinAchievements to the default progress object', async () => {
+        const host = make({ builtinAchievements: false });
+        await host.ready;
+        await host.progress.record('g');
+        expect(host.progress.snapshot().achievements).toEqual({});
+    });
+
     it('leaves no DOM behind after dispose', async () => {
         const host = make();
         await host.ready;
