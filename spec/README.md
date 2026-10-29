@@ -99,6 +99,7 @@ except for `setClock`, where it is accepted and checked if present.
 | `record` | `activity`, `result?` | `record(activity, result)`. A missing `result` means the default. `null` is passed as `null`. Returns `true`. |
 | `unlockAchievement` | `id` | `unlockAchievement(id)`. |
 | `markAchievementsSeen` | `ids` | `markAchievementsSeen(ids)`. |
+| `reset` | none | `reset()`. Replaces the player with an empty document, keeps the device id, saves, and returns the new snapshot. Fires no event. |
 | `getXPForNextLevel` | none | Reads `{ total, needed, progress }`. |
 | `export` | `as` | `export()`. Keeps the document under the name `as`. |
 | `import` | `doc` or `from`, `silent?` | `import(doc, { silent })`. `from` names a kept document. Returns the snapshot. |

@@ -196,6 +196,11 @@ export class RewardSystem extends EventEmitter {
      * level and achievements that went up.
      */
     import(doc: unknown, options?: { silent?: boolean }): Promise<Player>;
+    /**
+     * Replaces the player with a new one and saves it. The device id is kept.
+     * Writes even after a failed load, and then `loadFailed` is false. Emits no event.
+     */
+    reset(): Promise<Player>;
     /** Hooks run in `use` order. Returns a function that removes it. */
     use(middleware: Middleware): () => void;
     /** Adds a rule at runtime. Returns a function that removes it. */

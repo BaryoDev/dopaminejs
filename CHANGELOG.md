@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `RewardSystem.reset()` replaces the player with an empty one, keeps the device id and saves once.
+  The `spec/` step list gains a `reset` op.
+
 ## [3.0.0] - 2026-10-28
 
 dopaminejs 3.0.0 replaces the engine with `createDopamine` and a small plugin

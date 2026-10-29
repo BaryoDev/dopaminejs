@@ -32,6 +32,7 @@ const OPS = {
     record: ['activity', 'result'],
     unlockAchievement: ['id'],
     markAchievementsSeen: ['ids'],
+    reset: [],
     getXPForNextLevel: [],
     export: ['as'],
     import: ['doc', 'from', 'silent'],
@@ -291,6 +292,9 @@ function runCase(testCase) {
                             break;
                         case 'markAchievementsSeen':
                             returned = await rewards.markAchievementsSeen(step.ids);
+                            break;
+                        case 'reset':
+                            returned = await rewards.reset();
                             break;
                         case 'getXPForNextLevel':
                             returned = rewards.getXPForNextLevel();

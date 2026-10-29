@@ -260,6 +260,27 @@ export class RewardSystem extends EventEmitter {
     }
 
     /**
+     * Replace the player with a new one and save it. The device id stays, so
+     * the new player counts under the same device. No event is emitted.
+     *
+     * This is an explicit request, so it also writes when the last init()
+     * could not read the saved player: the stored player is replaced and
+     * `loadFailed` goes back to false.
+     *
+     * @returns {Promise<Object>} Frozen snapshot of the new player
+     */
+    async reset() {
+        this._requirePlayer();
+        await this._batch(async () => {
+            this._doc = emptyDoc(this.clock.now());
+            this._loadFailed = false;
+            this._readFailed = false;
+            await this.save();
+        });
+        return this.snapshot();
+    }
+
+    /**
      * Add a middleware object with any of beforeXP, afterXP, beforeRecord,
      * afterRecord, beforeUnlock and afterUnlock. Hooks run in `use` order.
      * @returns {Function} Removes it again
