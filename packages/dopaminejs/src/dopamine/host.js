@@ -156,6 +156,7 @@ export function createDopamine(options = {}) {
             slots.sound?.play('achievement');
         })),
         events.on('streak_updated', react(sync)),
+        events.on('player_reset', react(sync)),
         events.on('personal_best', react((e) => {
             slots.ui?.popup({ kind: 'notice', title: `New High Score: ${e.score}!`, tier: 'legendary' });
             slots.sound?.play('personal_best');

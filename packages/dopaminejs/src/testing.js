@@ -18,6 +18,7 @@ const CORE_EVENTS = {
     achievement_unlocked: { id: 'test', name: 'Test', description: 'Test', icon: '', xp: 5 },
     personal_best: { activity: 'test', score: 10 },
     streak_updated: { current: 1, longest: 1 },
+    player_reset: {},
     save_failed: { error: new Error('save failed') },
     load_failed: { reason: 'corrupt' }
 };

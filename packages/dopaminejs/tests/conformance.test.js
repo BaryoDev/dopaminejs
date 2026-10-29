@@ -12,7 +12,7 @@ import { emptyDoc, validate, view } from '../src/dopamine/core/store.js';
 // a fixture can never silently check nothing.
 
 const FIXTURE_DIR = fileURLToPath(new URL('../../../spec/fixtures/', import.meta.url));
-const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated', 'save_failed', 'load_failed'];
+const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated', 'player_reset', 'save_failed', 'load_failed'];
 const STORAGE_KEY = 'dopamine_player';
 const DEVICE_KEY = 'dopamine_device';
 const CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
@@ -32,6 +32,7 @@ const OPS = {
     record: ['activity', 'result'],
     unlockAchievement: ['id'],
     markAchievementsSeen: ['ids'],
+    reset: [],
     getXPForNextLevel: [],
     export: ['as'],
     import: ['doc', 'from', 'silent'],
@@ -290,6 +291,9 @@ function runCase(testCase) {
                             break;
                         case 'markAchievementsSeen':
                             returned = await rewards.markAchievementsSeen(step.ids);
+                            break;
+                        case 'reset':
+                            returned = await rewards.reset();
                             break;
                         case 'getXPForNextLevel':
                             returned = rewards.getXPForNextLevel();

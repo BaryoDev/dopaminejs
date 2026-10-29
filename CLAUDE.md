@@ -77,7 +77,7 @@ stop();
 ```
 
 Core events: `xp_gained`, `level_up`, `achievement_unlocked`, `personal_best`,
-`streak_updated`, `save_failed`, `load_failed`. Plugin events are named
+`streak_updated`, `player_reset`, `save_failed`, `load_failed`. Plugin events are named
 `<plugin>:<event>`. Listeners are synchronous and each is wrapped, so a
 throwing one does not stop the others.
 
