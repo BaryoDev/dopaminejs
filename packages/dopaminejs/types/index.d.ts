@@ -156,6 +156,8 @@ export type RewardEvent =
     | 'personal_best'
     /** Payload `{ current, longest }`. Fires when the day rolls over. */
     | 'streak_updated'
+    /** Payload `{}`. `reset()` replaced the player and saved it. */
+    | 'player_reset'
     /** Payload `{ key }`. The storage write failed; state lives in memory only. */
     | 'save_failed'
     /**
@@ -182,7 +184,7 @@ export class RewardSystem extends EventEmitter {
     achievements: Record<string, AchievementDefinition>;
     /**
      * True when the last `init()` could not read the saved player, so nothing
-     * is saved until `init()` is called again and the read works.
+     * is saved until `init()` is called again and the read works, or `reset()` is called.
      */
     readonly loadFailed: boolean;
 
@@ -196,6 +198,15 @@ export class RewardSystem extends EventEmitter {
      * level and achievements that went up.
      */
     import(doc: unknown, options?: { silent?: boolean }): Promise<Player>;
+    /**
+     * Replaces the player with a new one and saves it. The device id is kept.
+     * Emits `player_reset` after the save. Writes even after a failed load,
+     * without a backup of the save it replaces, and then `loadFailed` is false.
+     * Call it after `init()` has resolved, not while `init()` is pending. A
+     * `record()` already in flight when it runs lands in the new player. Called
+     * from inside a hook, the write happens when the outer record or unlock finishes.
+     */
+    reset(): Promise<Player>;
     /** Hooks run in `use` order. Returns a function that removes it. */
     use(middleware: Middleware): () => void;
     /** Adds a rule at runtime. Returns a function that removes it. */

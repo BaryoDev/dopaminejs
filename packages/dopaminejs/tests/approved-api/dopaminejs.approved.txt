@@ -3,7 +3,7 @@ DopamineError: class(2)
 EventEmitter: class(0) proto[clear,emit,off,on]
 HOST_API: number
 ParticleSystem: class(0) proto[burst,clear,coinShower,confetti,destroy,emit,fire,play,registerEffect,registerSprite,sparkle,starBurst]
-RewardSystem: class(1) proto[addXP,checkAchievements,defineAchievement,export,getStreakMultiplier,getUnlockedAchievements,getUnseenAchievements,getXPForNextLevel,import,init,loadFailed,markAchievementsSeen,record,save,snapshot,unlockAchievement,use]
+RewardSystem: class(1) proto[addXP,checkAchievements,defineAchievement,export,getStreakMultiplier,getUnlockedAchievements,getUnseenAchievements,getXPForNextLevel,import,init,loadFailed,markAchievementsSeen,record,reset,save,snapshot,unlockAchievement,use]
 RewardUI: class(0) proto[destroy,hud,popup,root,text]
 SoundManager: class(0) proto[destroy,getVolume,initAudio,loadSound,play,playAchievement,playClick,playError,playLevelUp,playPersonalBest,playTone,playXP,preloadSounds,register,registerSound,setVolume,toggleMute,unlockOn]
 createDopamine: function(0)

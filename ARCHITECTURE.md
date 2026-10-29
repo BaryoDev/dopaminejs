@@ -19,7 +19,7 @@ events and installs plugins.
     current part and cannot replace it.
 -   **One event bus.** The progress object is the bus. Core events have plain names
     (`xp_gained`, `level_up`, `achievement_unlocked`, `streak_updated`, `personal_best`,
-    `save_failed`, `load_failed`). Plugin events are `<plugin>:<event>`. Listeners are
+    `player_reset`, `save_failed`, `load_failed`). Plugin events are `<plugin>:<event>`. Listeners are
     synchronous and each one is wrapped.
 -   **Three extension shapes.** A subscriber plugin `{ name, version, api: 3, install(ctx) }`
     reacts to events. A part replaces the ui, particles, sound or haptics. Middleware
