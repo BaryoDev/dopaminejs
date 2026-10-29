@@ -179,3 +179,88 @@ describe('RewardSystem.reset', () => {
         await expect(rewards.reset()).rejects.toThrow('init()');
     });
 });
+
+describe('RewardSystem.reset with overwrite false', () => {
+    it('should keep a newer-version save and replace the player in memory', async () => {
+        const storage = createMemoryStorage();
+        const raw = JSON.stringify({ v: 99, xpBy: { a: 900 } });
+        storage.setItem('dopamine_player', raw);
+        const rewards = build(storage);
+        const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+        await rewards.init();
+        await rewards.addXP(30);
+        const seen = vi.fn();
+        rewards.on('player_reset', seen);
+
+        const before = rewards.snapshot();
+        const after = await rewards.reset({ overwrite: false });
+        await rewards.addXP(5);
+
+        expect(before.xp).toBe(30);
+        expect(after.xp).toBe(0);
+        expect(after.totalGamesPlayed).toBe(0);
+        expect(rewards.loadFailed).toBe(true);
+        expect(seen).toHaveBeenCalledTimes(1);
+        expect(storage.getItem('dopamine_player')).toBe(raw);
+        error.mockRestore();
+    });
+
+    it('should keep the save when the read throws', async () => {
+        const storage = createMemoryStorage();
+        const raw = JSON.stringify({ v: 3, name: 'Old' });
+        storage.setItem('dopamine_player', raw);
+        const real = storage.getItem.bind(storage);
+        storage.getItem = (key) => {
+            if (key === 'dopamine_player') throw new Error('blocked');
+            return real(key);
+        };
+        const rewards = build(storage);
+        const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+        await rewards.init();
+        await rewards.addXP(30);
+        const seen = vi.fn();
+        rewards.on('player_reset', seen);
+
+        const after = await rewards.reset({ overwrite: false });
+
+        expect(after.xp).toBe(0);
+        expect(rewards.loadFailed).toBe(true);
+        expect(seen).toHaveBeenCalledTimes(1);
+        expect(real('dopamine_player')).toBe(raw);
+        error.mockRestore();
+    });
+
+    it('should write after a load that worked', async () => {
+        const storage = createMemoryStorage();
+        const rewards = await freshSystem(storage);
+        await rewards.addXP(30);
+
+        const after = await rewards.reset({ overwrite: false });
+
+        expect(after.xp).toBe(0);
+        expect(rewards.loadFailed).toBe(false);
+        expect(sum(JSON.parse(storage.getItem('dopamine_player')).xpBy)).toBe(0);
+    });
+
+    it('should treat an empty options object and overwrite true as a plain reset', async () => {
+        const storage = createMemoryStorage();
+        const rewards = await freshSystem(storage);
+        await rewards.addXP(30);
+        await rewards.reset({});
+        expect(sum(JSON.parse(storage.getItem('dopamine_player')).xpBy)).toBe(0);
+        await rewards.addXP(30);
+        await rewards.reset({ overwrite: true });
+        expect(sum(JSON.parse(storage.getItem('dopamine_player')).xpBy)).toBe(0);
+    });
+
+    it('should throw a TypeError for bad options', async () => {
+        const rewards = await freshSystem();
+
+        for (const bad of [null, 'no', 1, true, []]) {
+            await expect(rewards.reset(bad)).rejects.toThrow(TypeError);
+        }
+        for (const bad of ['false', 0, null]) {
+            await expect(rewards.reset({ overwrite: bad })).rejects.toThrow(TypeError);
+        }
+    });
+});
