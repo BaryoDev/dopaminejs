@@ -921,7 +921,7 @@
             ]
         },
         {
-            "name": "reset starts a new player with no streak and no event",
+            "name": "reset starts a new player with no streak and one player_reset event",
             "clock": "2026-08-07T09:00:00",
             "config": {
                 "builtinAchievements": false
@@ -954,7 +954,11 @@
                             "streak.lastPlayDate"
                         ],
                         "achievements": [],
-                        "events": []
+                        "events": [
+                            {
+                                "event": "player_reset"
+                            }
+                        ]
                     }
                 }
             ]

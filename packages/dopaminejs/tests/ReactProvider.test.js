@@ -113,6 +113,21 @@ describe('RewardsProvider', () => {
         expect(dispatched.at(-1).payload.loadFailed).toBe(true);
     });
 
+    it('refreshes loadFailed after reset', async () => {
+        const on = vi.spyOn(RewardSystem.prototype, 'on');
+        const storage = createMemoryStorage();
+        storage.getItem = () => { throw new Error('offline'); };
+        RewardsProvider({ storage, children: null });
+        await settle();
+        expect(dispatched.at(-1).payload.loadFailed).toBe(true);
+        expect(on.mock.calls.map(call => call[0])).toContain('player_reset');
+
+        await on.mock.contexts[0].reset();
+        await settle();
+
+        expect(dispatched.at(-1).payload.loadFailed).toBe(false);
+    });
+
     it('syncs on personal_best', async () => {
         const on = vi.spyOn(RewardSystem.prototype, 'on');
         render();

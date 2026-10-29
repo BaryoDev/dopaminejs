@@ -28,7 +28,7 @@ import { RewardSystem, DataService, createDopamine } from 'dopaminejs';
 import { buildState } from './state.js';
 
 // Event names emitted by RewardSystem are lowercase.
-const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated'];
+const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated', 'player_reset'];
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
@@ -103,7 +103,7 @@ export function RewardsProvider({ config, storage, dopamine, children }) {
 
         function sync() {
             if (!mounted) return;
-            dispatchRef.current({ type: 'SYNC', payload: buildState(rewards) });
+            dispatchRef.current({ type: 'SYNC', payload: { ...buildState(rewards), loadFailed: rewards.loadFailed } });
         }
 
         for (const name of EVENTS) rewards.on(name, sync);

@@ -99,7 +99,7 @@ except for `setClock`, where it is accepted and checked if present.
 | `record` | `activity`, `result?` | `record(activity, result)`. A missing `result` means the default. `null` is passed as `null`. Returns `true`. |
 | `unlockAchievement` | `id` | `unlockAchievement(id)`. |
 | `markAchievementsSeen` | `ids` | `markAchievementsSeen(ids)`. |
-| `reset` | none | `reset()`. Replaces the player with an empty document, keeps the device id, saves, and returns the new snapshot. Fires no event. |
+| `reset` | none | `reset()`. Replaces the player with an empty document, keeps the device id, saves, and returns the new snapshot. Fires `player_reset` after the save. |
 | `getXPForNextLevel` | none | Reads `{ total, needed, progress }`. |
 | `export` | `as` | `export()`. Keeps the document under the name `as`. |
 | `import` | `doc` or `from`, `silent?` | `import(doc, { silent })`. `from` names a kept document. Returns the snapshot. |
@@ -144,7 +144,7 @@ CI also runs the conformance file once in `America/Los_Angeles`
 (`DOPAMINE_TEST_TZ`), so the daylight saving case can fail.
 
 Event names: `xp_gained`, `level_up`, `achievement_unlocked`, `personal_best`
-(payload `{ activity, score }`), `streak_updated`, `save_failed` and
+(payload `{ activity, score }`), `streak_updated`, `player_reset` (empty payload), `save_failed` and
 `load_failed`. `load_failed` is covered for a corrupt value and for a document
 the core refuses (`reason` is `corrupt`, `unsupported_version` or
 `too_many_devices`). A read that fails in storage cannot be made by a fixture.

@@ -62,14 +62,15 @@ export class RewardSystem extends EventEmitter {
         this._pendingSave = false;
 
         // Set when init() could not read storage. Saving stays off until a
-        // later init() reads it, so the saved player is never replaced.
+        // later init() reads it or reset() is called, so the saved player is
+        // never replaced by accident.
         this._loadFailed = false;
         this._readFailed = false;
     }
 
     /**
      * True when the last init() could not read the saved player, so nothing
-     * is saved until init() is called again and the read works.
+     * is saved until init() is called again and the read works, or reset() is called.
      * @returns {boolean}
      */
     get loadFailed() {
@@ -261,11 +262,17 @@ export class RewardSystem extends EventEmitter {
 
     /**
      * Replace the player with a new one and save it. The device id stays, so
-     * the new player counts under the same device. No event is emitted.
+     * the new player counts under the same device. After the save it emits
+     * `player_reset`, so wrappers can refresh.
      *
      * This is an explicit request, so it also writes when the last init()
-     * could not read the saved player: the stored player is replaced and
-     * `loadFailed` goes back to false.
+     * could not read the saved player: the stored player is replaced, without
+     * a backup, and `loadFailed` goes back to false.
+     *
+     * Timing: call it after init() has resolved, not while init() is pending.
+     * A record() already in flight when reset() runs lands in the new player.
+     * Called from inside a hook, the write happens when the outer record or
+     * unlock finishes.
      *
      * @returns {Promise<Object>} Frozen snapshot of the new player
      */
@@ -277,6 +284,7 @@ export class RewardSystem extends EventEmitter {
             this._readFailed = false;
             await this.save();
         });
+        this._publish('player_reset', {});
         return this.snapshot();
     }
 

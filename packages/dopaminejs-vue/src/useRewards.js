@@ -34,7 +34,7 @@ const REWARDS_KEY = Symbol.for('dopaminejs-rewards');
 const provided = new WeakMap();
 
 // Event names emitted by RewardSystem are lowercase.
-const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated'];
+const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated', 'player_reset'];
 
 /**
  * @param {object} [options]
@@ -87,6 +87,7 @@ export function provideRewards({ config, storage, dopamine } = {}) {
         xp.value = next.xp;
         progress.value = next.progress;
         achievements.value = next.achievements;
+        loadFailed.value = rewards.loadFailed;
     }
 
     // A rejected init() must not escape as an unhandled rejection, which can

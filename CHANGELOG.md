@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- `RewardSystem.reset()` replaces the player with an empty one, keeps the device id and saves once.
+- `RewardSystem.reset()` replaces the player with an empty one, keeps the device id, saves once and emits `player_reset`.
   The `spec/` step list gains a `reset` op.
 
 ## [3.0.0] - 2026-10-28

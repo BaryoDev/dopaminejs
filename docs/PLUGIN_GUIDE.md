@@ -44,7 +44,7 @@ createDopamine({ plugins: [myAnalyticsPlugin] });
 | `expose(handle)` | Share an object with other plugins |
 
 Core events: `xp_gained`, `level_up`, `achievement_unlocked`, `personal_best`,
-`streak_updated`, `save_failed`, `load_failed`. Plugin events are `<plugin>:<event>`.
+`streak_updated`, `player_reset`, `save_failed`, `load_failed`. Plugin events are `<plugin>:<event>`.
 
 ## Part
 

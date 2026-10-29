@@ -46,6 +46,38 @@ describe('RewardSystem.reset', () => {
         await rewards.reset();
 
         expect(storage.getItem('dopamine_device')).toBe(before);
+        const id = JSON.parse(before);
+        await rewards.addXP(7);
+        expect(Object.keys(rewards.export().xpBy)).toEqual([id]);
+    });
+
+    it('should publish player_reset once, after the save', async () => {
+        const rewards = await freshSystem();
+        await rewards.addXP(10);
+        const order = [];
+        const save = vi.spyOn(rewards.dataService, 'save').mockImplementation(async () => { order.push('save'); return true; });
+        rewards.on('player_reset', (data) => order.push(['player_reset', data]));
+
+        await rewards.reset();
+
+        expect(order).toEqual(['save', ['player_reset', {}]]);
+        save.mockRestore();
+    });
+
+    it('should replace a newer-version save with no backup', async () => {
+        const storage = createMemoryStorage();
+        storage.setItem('dopamine_player', JSON.stringify({ v: 999 }));
+        const rewards = build(storage);
+        const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+        await rewards.init();
+        expect(rewards.loadFailed).toBe(true);
+
+        await rewards.reset();
+
+        expect(rewards.loadFailed).toBe(false);
+        expect(JSON.parse(storage.getItem('dopamine_player')).v).not.toBe(999);
+        expect(storage.getItem('dopamine_player_corrupt')).toBeNull();
+        error.mockRestore();
     });
 
     it('should write once', async () => {
