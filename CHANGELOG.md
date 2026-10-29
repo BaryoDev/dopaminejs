@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-10-29
+
+Published with this release: `dopaminejs` 3.1.0 and `dopaminejs-react` 2.1.0.
+`dopaminejs-react` and `dopaminejs-vue` (2.1.0, still private) refresh on
+`player_reset` and pass `loadFailed` on every sync.
+
 ### Added
 
 - `RewardSystem.reset()` replaces the player with an empty one, keeps the device id, saves once and emits `player_reset`.

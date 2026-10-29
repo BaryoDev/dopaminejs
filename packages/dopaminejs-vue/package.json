@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs-vue",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "private": true,
     "description": "Vue 3 bindings for DopamineJS: a useRewards() composable and provideRewards() for XP, levels, achievements and daily streaks",
     "type": "module",
