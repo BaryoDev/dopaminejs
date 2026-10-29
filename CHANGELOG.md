@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file.
   defines none of the five built-in achievements. A save that already holds one
   keeps it and its XP. Default `true`.
 
+### Fixed
+
+- `import` no longer publishes `achievement_unlocked` for an id with no definition,
+  such as a built-in id when `builtinAchievements` is `false`. The id stays in the save.
+
 ## [3.0.0] - 2026-10-28
 
 dopaminejs 3.0.0 replaces the engine with `createDopamine` and a small plugin

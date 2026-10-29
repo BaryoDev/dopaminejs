@@ -101,7 +101,7 @@ except for `setClock`, where it is accepted and checked if present.
 | `markAchievementsSeen` | `ids` | `markAchievementsSeen(ids)`. |
 | `getXPForNextLevel` | none | Reads `{ total, needed, progress }`. |
 | `export` | `as` | `export()`. Keeps the document under the name `as`. |
-| `import` | `doc` or `from`, `silent?` | `import(doc, { silent })`. `from` names a kept document. Returns the snapshot. |
+| `import` | `doc` or `from`, `silent?` | `import(doc, { silent })`. `from` names a kept document. Returns the snapshot. Achievement ids with no definition are kept but fire no event. |
 | `merge` | `a`, `b`, `as?` | `merge(a, b)`. Each side is a document or the name of a kept one. Returns the document. |
 | `validate` | `doc`, `as?` | `validate(doc)`. Returns the cleaned document. |
 

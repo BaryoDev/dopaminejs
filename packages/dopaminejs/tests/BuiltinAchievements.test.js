@@ -188,3 +188,55 @@ describe('RewardSystem builtinAchievements: false with a held built-in', () => {
         expect(phone.system.snapshot().xp).toBe(web.system.snapshot().xp);
     });
 });
+
+describe('RewardSystem import events for achievement ids', () => {
+    const docWith = (ids) => ({
+        v: 3,
+        name: 'Player',
+        createdAt: 1,
+        lastPlayedAt: 1,
+        level: 1,
+        longest: 0,
+        playDates: [],
+        xpBy: { phone: 25 },
+        xpSpentBy: {},
+        gamesBy: { phone: 1 },
+        playsBy: { g: { phone: 1 } },
+        best: { g: 0 },
+        sumsBy: { g: {} },
+        achievements: Object.fromEntries(ids.map((id) => [id, { unlockedAt: 5, seen: true, reward: 50 }]))
+    });
+
+    const listen = (system) => {
+        const events = [];
+        system.on('achievement_unlocked', (payload) => events.push(payload));
+        return events;
+    };
+
+    it('fires no unlock event for a built-in id when builtinAchievements is false, and keeps the id', async () => {
+        const { system } = await build({ builtinAchievements: false });
+        const events = listen(system);
+        await system.import(docWith(['first_game']));
+        expect(events).toEqual([]);
+        expect(unlockedIds(system)).toEqual(['first_game']);
+        expect(system.getUnlockedAchievements().map((a) => a.id)).toEqual(['first_game']);
+    });
+
+    it('fires no unlock event for an id in no table, and keeps the id', async () => {
+        const { system } = await build({});
+        const events = listen(system);
+        await system.import(docWith(['nowhere']));
+        expect(events).toEqual([]);
+        expect(unlockedIds(system)).toEqual(['nowhere']);
+    });
+
+    it('still fires the unlock event for a defined id the player lacks', async () => {
+        const { system } = await build({});
+        const events = listen(system);
+        await system.import(docWith(['first_game']));
+        expect(events).toHaveLength(1);
+        expect(events[0].id).toBe('first_game');
+        expect(events[0].name).toEqual(expect.any(String));
+        expect(events[0].xp).toEqual(expect.any(Number));
+    });
+});

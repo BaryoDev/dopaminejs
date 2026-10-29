@@ -257,7 +257,8 @@ export class RewardSystem extends EventEmitter {
             this._publish('level_up', { oldLevel: before.level, newLevel: after.level, totalXP: after.xp });
         }
         for (const id of Object.keys(after.achievements)) {
-            if (!hasOwn(before.achievements, id)) {
+            // An id with no definition stays in the save but has nothing to announce.
+            if (!hasOwn(before.achievements, id) && hasOwn(this.achievements, id)) {
                 this._publish('achievement_unlocked', { ...this.achievements[id], id });
             }
         }
