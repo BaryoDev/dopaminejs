@@ -281,7 +281,8 @@ export class RewardSystem extends EventEmitter {
      * nothing is written, `loadFailed` stays true so later writes stay
      * blocked, and `player_reset` is still emitted. When the last init() did
      * read the saved player, `overwrite: false` changes nothing: it saves
-     * like a plain reset().
+     * like a plain reset(). A corrupt save that init() backed up to `player_corrupt` counts as loaded, so `overwrite: false` saves like a plain reset().
+     * If the backup failed, it counts as a failed load and nothing is written.
      *
      * Timing: call it after init() has resolved, not while init() is pending.
      * A record() already in flight when reset() runs lands in the new player.

@@ -216,6 +216,7 @@ export class RewardSystem extends EventEmitter {
      * the player in memory is replaced by a new empty one, nothing is written,
      * `loadFailed` stays true and `player_reset` is still emitted. After a load
      * that worked, `overwrite: false` behaves like a plain `reset()` and saves.
+     * A corrupt save that init() backed up to `player_corrupt` counts as loaded, so `overwrite: false` saves like a plain reset(). If the backup failed, it counts as a failed load and nothing is written.
      * A non-object `options` or a non-boolean `overwrite` throws a `TypeError`.
      */
     reset(options?: { overwrite?: boolean }): Promise<Player>;
