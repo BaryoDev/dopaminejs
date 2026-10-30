@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-10-30
+
+Published with this release: `dopaminejs` 3.2.0. The wrappers did not change.
+
 ### Added
 
 - `reset({ overwrite: false })` replaces the player in memory without writing when the last load failed,
