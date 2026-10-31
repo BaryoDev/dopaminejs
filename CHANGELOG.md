@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+Published with this release: `dopaminejs-plugin-howler-audio` 2.1.0.
+
+### Added
+
+- A music channel on `howlerSound()`: `registerTrack`, `playTrack`, `fadeOutTrack`, `crossfade`,
+  `duckMusic`, `unduck`, `setMusicVolume`, `setEffectsVolume`, `muteMusic`, `unmuteMusic`
+  and `getTrackPosition`. Fading a track out pauses it and keeps its place; playing it again
+  resumes. Fades use smoothstep by default. The existing methods did not change.
+
 ## [3.2.0] - 2026-10-30
 
 Published with this release: `dopaminejs` 3.2.0. The wrappers did not change.
