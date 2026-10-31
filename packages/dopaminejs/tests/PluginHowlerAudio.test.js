@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { howlerSound } from '../../plugin-howler-audio/src/index.js';
 import { conformance } from '../src/testing.js';
 
-const mocks = vi.hoisted(() => ({ howls: [], Howler: { mute: null, volume: null } }));
+const mocks = vi.hoisted(() => ({ howls: [], locked: false, Howler: { mute: null, volume: null } }));
 
 // Howler needs a real audio stack, so it is replaced by a recorder. Nothing
 // here plays sound.
@@ -20,11 +20,28 @@ vi.mock('howler', () => {
             this.seeks = [];
             this.pauses = 0;
             this.playIds = [];
+            this.pauseIds = [];
+            this.handlers = [];
+            this.queued = null;
             mocks.howls.push(this);
         }
-        play(id) { this.played += 1; this.playIds.push(id); return id === undefined ? this.played : id; }
+        once(event, fn) { this.handlers.push({ event, fn }); }
+        emit(event, id) {
+            const now = this.handlers.filter((h) => h.event === event);
+            this.handlers = this.handlers.filter((h) => h.event !== event);
+            now.forEach((h) => h.fn(id));
+        }
+        // While locked, the first play only queues. 'play' fires on unlock.
+        play(id) {
+            this.played += 1;
+            this.playIds.push(id);
+            const out = id === undefined ? this.played : id;
+            if (mocks.locked && id === undefined) this.queued = out;
+            else if (id === undefined) this.emit('play', out);
+            return out;
+        }
         stop() { this.stopped = true; }
-        pause() { this.pauses += 1; }
+        pause(id) { this.pauses += 1; this.pauseIds.push(id); }
         seek(to) {
             if (to === undefined) return this.pos;
             this.seeks.push(to);
@@ -39,7 +56,6 @@ vi.mock('howler', () => {
         }
         loop() {}
         rate() {}
-        once() {}
     }
     mocks.Howler.mute = vi.fn();
     mocks.Howler.volume = vi.fn();
@@ -48,6 +64,7 @@ vi.mock('howler', () => {
 
 beforeEach(() => {
     mocks.howls.length = 0;
+    mocks.locked = false;
     mocks.Howler.mute.mockClear();
     mocks.Howler.volume.mockClear();
 });
@@ -198,24 +215,37 @@ describe('howlerSound music channel', () => {
         expect(track(0).vol).toBe(1);
     });
 
-    it('a second crossfade cancels the timers of the first', () => {
+    it('a second crossfade lets the first outgoing track finish fading', () => {
         part.registerTrack('c', '/c.mp3');
         part.playTrack('a');
-        part.crossfade('a', 'b', { out: 1000, in: 1000 });
+        part.crossfade('a', 'b', { out: 1000, in: 1000, curve: 'linear' });
         clock.tick(300);
-        const cancels = clock.cancels;
-        const gainOfB = track(1).vol;
+        expect(track(0).vol).toBeCloseTo(0.7, 10);
 
-        part.crossfade('b', 'c', { out: 1000, in: 1000 });
-        expect(clock.cancels).toBeGreaterThan(cancels);
-        // Only one frame request is ever waiting.
-        expect(clock.pending).not.toBeNull();
+        part.crossfade('b', 'c', { out: 1000, in: 1000, curve: 'linear' });
+        // No hard pause of a: it keeps fading from where it is.
+        expect(track(0).pauses).toBe(0);
+        clock.tick(100);
+        expect(track(0).vol).toBeCloseTo(0.6, 10);
+        expect(track(0).pauses).toBe(0);
+
+        clock.tick(600);
         expect(track(0).pauses).toBe(1);
-
-        clock.tick(1000);
+        clock.tick(300);
         expect(track(1).pauses).toBe(1);
         expect(track(2).vol).toBe(1);
-        expect(gainOfB).toBeGreaterThan(0);
+        expect(clock.pending).toBeNull();
+    });
+
+    it('a crossfade back to the outgoing track takes over its fade', () => {
+        part.playTrack('a');
+        part.crossfade('a', 'b', { out: 1000, in: 1000, curve: 'linear' });
+        clock.tick(500);
+        part.crossfade('b', 'a', { out: 1000, in: 1000, curve: 'linear' });
+        clock.tick(1000);
+        expect(track(0).pauses).toBe(0);
+        expect(track(0).vol).toBe(1);
+        expect(track(1).pauses).toBe(1);
     });
 
     it('uses inIfPlaying when the target is already playing', () => {
@@ -302,5 +332,126 @@ describe('howlerSound music channel', () => {
         part.destroy();
         expect(track(0).unloaded).toBe(true);
         expect(clock.pending).toBeNull();
+    });
+
+    it('crossfading a track into itself does nothing', () => {
+        part.playTrack('a');
+        const requests = clock.requests;
+        part.crossfade('a', 'a', { out: 500, in: 500 });
+        expect(clock.requests).toBe(requests);
+        expect(clock.pending).toBeNull();
+    });
+
+    it('clamps volumes to 0..1', () => {
+        part.playTrack('a');
+        expect(part.setMusicVolume(5)).toBe(1);
+        expect(part.setMusicVolume(-1)).toBe(0);
+        expect(part.getMusicVolume()).toBe(0);
+        part.setMusicVolume(1);
+
+        part.duckMusic(2, 0);
+        expect(track(0).vol).toBe(1);
+        part.duckMusic(-1, 0);
+        expect(track(0).vol).toBe(0);
+        part.unduck(0);
+
+        part.registerTrack('loud', '/l.mp3', { volume: 5 });
+        part.registerTrack('quiet', '/q.mp3', { volume: -1 });
+        expect(track(2).vol).toBe(1);
+        expect(track(3).vol).toBe(0);
+    });
+
+    it('a zero length fade applies at once and starts no timer', () => {
+        part.playTrack('a', { fadeIn: 0 });
+        expect(track(0).vol).toBe(1);
+        part.duckMusic(0.5, 0);
+        expect(track(0).vol).toBe(0.5);
+        part.unduck(0);
+        part.fadeOutTrack('a', 0);
+        expect(track(0).pauses).toBe(1);
+        expect(track(0).vol).toBe(0);
+        expect(clock.requests).toBe(0);
+    });
+
+    it('registering a key again unloads the old track', () => {
+        part.registerTrack('a', '/a2.mp3');
+        expect(track(0).unloaded).toBe(true);
+        expect(track(2).unloaded).toBe(false);
+        expect(part.tracks.size).toBe(2);
+    });
+
+    it('getTrackPosition survives a Howl that cannot seek', () => {
+        part.playTrack('a');
+        track(0).pos = 12;
+        expect(part.getTrackPosition('a')).toBe(12);
+        track(0).seek = () => { throw new Error('no audio'); };
+        expect(part.getTrackPosition('a')).toBe(12);
+        part.registerTrack('z', '/z.mp3');
+        track(2).seek = () => { throw new Error('no audio'); };
+        expect(part.getTrackPosition('z')).toBe(0);
+    });
+
+    it('play, fade out, play while audio is locked plays once and keeps sounding', () => {
+        mocks.locked = true;
+        part.playTrack('a');
+        part.fadeOutTrack('a', 100);
+        clock.tick(100);
+        part.playTrack('a');
+        expect(track(0).played).toBe(1);
+        expect(track(0).pauses).toBe(0);
+
+        mocks.locked = false;
+        track(0).emit('play', track(0).queued);
+        expect(track(0).played).toBe(1);
+        expect(track(0).pauses).toBe(0);
+        expect(part.tracks.get('a').playing).toBe(true);
+    });
+
+    it('a pause asked for while locked is applied once when audio unlocks', () => {
+        mocks.locked = true;
+        part.playTrack('a');
+        part.fadeOutTrack('a', 100);
+        clock.tick(100);
+        expect(track(0).pauses).toBe(0);
+
+        mocks.locked = false;
+        track(0).emit('play', track(0).queued);
+        expect(track(0).played).toBe(1);
+        expect(track(0).pauses).toBe(1);
+        expect(track(0).pauseIds).toEqual([1]);
+    });
+});
+
+describe('howlerSound effects volume order', () => {
+    it('applies the effects volume to sounds registered after it is set', () => {
+        const part = howlerSound({ volume: 0.7 });
+        part.register('before', '/b.mp3');
+        expect(mocks.howls[0].options.volume).toBe(0.7);
+
+        part.setEffectsVolume(0.2);
+        part.register('after', '/a.mp3');
+        expect(mocks.howls[0].vol).toBe(0.2);
+        expect(mocks.howls[1].options.volume).toBe(0.2);
+    });
+});
+
+describe('howlerSound default clock', () => {
+    it('finishes a fade when animation frames never fire', () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1));
+        vi.stubGlobal('cancelAnimationFrame', vi.fn());
+        try {
+            const part = howlerSound();
+            part.registerTrack('a', '/a.mp3');
+            part.playTrack('a', { fadeIn: 1000, curve: 'linear' });
+            vi.advanceTimersByTime(500);
+            expect(mocks.howls[0].vol).toBeCloseTo(0.5, 1);
+            vi.advanceTimersByTime(600);
+            expect(mocks.howls[0].vol).toBe(1);
+            part.destroy();
+        } finally {
+            vi.useRealTimers();
+            vi.unstubAllGlobals();
+        }
     });
 });

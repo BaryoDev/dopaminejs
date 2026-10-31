@@ -23,12 +23,28 @@ const CURVES = {
     smoothstep: (k) => k * k * (3 - 2 * k),
 };
 
+// A hidden tab stops animation frames, so a frame races a 100 ms timer and the
+// first one to fire runs the step. Fades go by wall time, so they still end.
 const defaultClock = () => {
     const raf = typeof requestAnimationFrame === 'function';
     return {
         now: () => (typeof performance !== 'undefined' ? performance.now() : Date.now()),
-        request: (fn) => (raf ? requestAnimationFrame(fn) : setTimeout(fn, 16)),
-        cancel: (handle) => (raf ? cancelAnimationFrame(handle) : clearTimeout(handle)),
+        request: (fn) => {
+            if (!raf) return { timer: setTimeout(fn, 16) };
+            const handle = {};
+            const run = () => {
+                cancelAnimationFrame(handle.frame);
+                clearTimeout(handle.timer);
+                fn();
+            };
+            handle.frame = requestAnimationFrame(run);
+            handle.timer = setTimeout(run, 100);
+            return handle;
+        },
+        cancel: (handle) => {
+            if (raf && handle.frame !== undefined) cancelAnimationFrame(handle.frame);
+            clearTimeout(handle.timer);
+        },
     };
 };
 
@@ -47,7 +63,7 @@ class HowlerSound {
         this._fades = new Set();
         this._frame = null;
         this._musicVolume = 1;
-        this._effectsVolume = 1;
+        this._effectsVolume = undefined; // unset until setEffectsVolume is called
         this._duck = 1;
         this._duckFade = null;
         this._muteGain = 1;
@@ -69,7 +85,7 @@ class HowlerSound {
         const url = urlOf(source);
         if (this._destroyed || typeof key !== 'string' || key === '' || url === '') return NOOP;
         this.sounds.get(key)?.unload();
-        const howl = new Howl({ src: [url], volume: this._volume, mute: this._muted });
+        const howl = new Howl({ src: [url], volume: this._effectsVolume ?? this._volume, mute: this._muted });
         this.sounds.set(key, howl);
         return () => {
             if (this.sounds.get(key) !== howl) return;
@@ -166,7 +182,7 @@ class HowlerSound {
             old.howl.unload();
         }
         const base = Number.isFinite(options.volume) ? clamp01(options.volume) : 1;
-        const track = { howl: null, base, gain: 1, playing: false, id: undefined, fade: null };
+        const track = { howl: null, base, gain: 1, playing: false, pending: false, id: undefined, pos: 0, fade: null };
         track.howl = new Howl({ src: list, loop: true, volume: 0, mute: this._muted });
         this.tracks.set(key, track);
         this._apply(track);
@@ -212,20 +228,15 @@ class HowlerSound {
         if (this._destroyed) return;
         const next = this._track(to);
         if (!next || from === to) return;
+        // The earlier outgoing track keeps fading and pauses at its end. A fade
+        // is only cancelled when this call starts a new one on the same track.
         const prev = this._crossfade;
-        this._crossfade = null;
-        if (prev) {
-            prev.fades.forEach((fade) => fade.cancel());
-            const outgoing = this.tracks.get(prev.from);
-            const incoming = this.tracks.get(prev.to);
-            if (outgoing && prev.from !== to && prev.from !== from) this._pause(outgoing);
-            if (incoming && prev.to !== from && prev.to !== to && incoming.playing) {
-                this._fadeOut(incoming, options.out, options.curve);
-            }
+        const stray = prev && this.tracks.get(prev.to);
+        if (stray && prev.to !== from && prev.to !== to && stray.playing) {
+            this._fadeOut(stray, options.out, options.curve);
         }
-        const fades = [];
         const outgoing = this._track(from);
-        if (outgoing && outgoing.playing) fades.push(this._fadeOut(outgoing, options.out, options.curve));
+        if (outgoing && outgoing.playing) this._fadeOut(outgoing, options.out, options.curve);
         const inMs = next.playing && Number.isFinite(options.inIfPlaying) ? options.inIfPlaying : options.in;
         next.fade?.cancel();
         if (!next.playing) {
@@ -233,8 +244,8 @@ class HowlerSound {
             this._apply(next);
             this._start(next);
         }
-        fades.push(this._fadeTrack(next, 1, inMs, options.curve));
-        this._crossfade = { from, to, fades: fades.filter(Boolean) };
+        this._fadeTrack(next, 1, inMs, options.curve);
+        this._crossfade = { from, to };
     }
 
     /** Fades the music down to `level` (0 to 1 of its normal volume). */
@@ -264,14 +275,14 @@ class HowlerSound {
 
     /** Sets the volume of the sounds added with `register`. Tracks are not touched. */
     setEffectsVolume(value) {
-        if (!Number.isFinite(value)) return this._effectsVolume;
+        if (!Number.isFinite(value)) return this._effectsVolume ?? 1;
         this._effectsVolume = clamp01(value);
         for (const howl of this.sounds.values()) howl.volume(this._effectsVolume);
         return this._effectsVolume;
     }
 
     getEffectsVolume() {
-        return this._effectsVolume;
+        return this._effectsVolume ?? 1;
     }
 
     /** Fades the music out without pausing it, so it keeps its place. */
@@ -287,8 +298,7 @@ class HowlerSound {
     getTrackPosition(key) {
         const track = this.tracks.get(key);
         if (!track) return 0;
-        const pos = track.howl.seek();
-        return typeof pos === 'number' && Number.isFinite(pos) ? pos : 0;
+        return this._position(track);
     }
 
     _track(key) {
@@ -296,16 +306,45 @@ class HowlerSound {
         return this.tracks.get(key);
     }
 
+    // Seconds into the track. Without audio, seek can throw: use the last known place.
+    _position(track) {
+        try {
+            const pos = track.howl.seek();
+            if (typeof pos === 'number' && Number.isFinite(pos)) track.pos = pos;
+        } catch {
+            // keep the stored position
+        }
+        return track.pos;
+    }
+
+    // `playing` is the wanted state. While Howler is locked the first play is
+    // queued until the first gesture, and calling play or pause again would
+    // leave a second source behind or silence the one that should sound. So
+    // nothing is sent to Howler until its 'play' event, which then applies the
+    // wanted state once.
     _start(track) {
-        track.id = track.id === undefined ? track.howl.play() : track.howl.play(track.id);
         track.playing = true;
+        if (track.pending) return;
+        if (track.id !== undefined) {
+            track.howl.play(track.id);
+            return;
+        }
+        track.pending = true;
+        track.howl.once('play', (id) => {
+            track.pending = false;
+            if (track.id === undefined) track.id = id;
+            if (!track.playing) track.howl.pause(track.id);
+        });
+        track.id = track.howl.play();
     }
 
     _pause(track) {
         track.fade?.cancel();
         track.fade = null;
-        track.howl.pause();
         track.playing = false;
+        if (track.pending) return;
+        this._position(track);
+        track.howl.pause(track.id);
     }
 
     _apply(track) {

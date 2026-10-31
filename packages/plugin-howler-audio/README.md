@@ -36,11 +36,16 @@ sound.muteMusic(500);        // fades to silence, the song keeps its place
 sound.unmuteMusic(1200);
 
 sound.getTrackPosition('game'); // seconds
+sound.getMusicVolume();
+sound.getEffectsVolume();
 ```
 
-Fades use `smoothstep` by default (`k * k * (3 - 2 * k)`). Pass
-`curve: 'linear'` for a straight line. They run on `requestAnimationFrame`,
-or a 16 ms timer where that does not exist. Tests can pass their own
+Track and duck fades use `smoothstep` by default (`k * k * (3 - 2 * k)`). Pass
+`curve: 'linear'` for a straight line. Mute and unmute fades are always linear.
+Fades run on `requestAnimationFrame` raced against a 100 ms timer, so they
+still finish in a hidden tab. Where there is no `requestAnimationFrame` they use a 16 ms timer.
+A track played before the first user gesture waits for Howler to unlock, and
+plays once then. Tests can pass their own
 `clock: { now, request, cancel }` to `howlerSound()`.
 
 `fadeOutTrack(key, ms, curve)` fades one track out and pauses it.
