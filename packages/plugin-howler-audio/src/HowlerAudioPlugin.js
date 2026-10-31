@@ -16,6 +16,38 @@ const urlOf = (source) => {
     return '';
 };
 
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+const CURVES = {
+    linear: (k) => k,
+    smoothstep: (k) => k * k * (3 - 2 * k),
+};
+
+// A hidden tab stops animation frames, so a frame races a 100 ms timer and the
+// first one to fire runs the step. Fades go by wall time, so they still end.
+const defaultClock = () => {
+    const raf = typeof requestAnimationFrame === 'function';
+    return {
+        now: () => (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+        request: (fn) => {
+            if (!raf) return { timer: setTimeout(fn, 16) };
+            const handle = {};
+            const run = () => {
+                cancelAnimationFrame(handle.frame);
+                clearTimeout(handle.timer);
+                fn();
+            };
+            handle.frame = requestAnimationFrame(run);
+            handle.timer = setTimeout(run, 100);
+            return handle;
+        },
+        cancel: (handle) => {
+            if (raf && handle.frame !== undefined) cancelAnimationFrame(handle.frame);
+            clearTimeout(handle.timer);
+        },
+    };
+};
+
 class HowlerSound {
     constructor(options) {
         const opts = options !== null && typeof options === 'object' ? options : {};
@@ -24,6 +56,19 @@ class HowlerSound {
         this._volume = 1;
         this._muted = false;
         this._destroyed = false;
+
+        // Music channel state. Tracks are kept apart from `sounds`.
+        this.tracks = new Map();
+        this._clock = opts.clock && typeof opts.clock.now === 'function' ? opts.clock : defaultClock();
+        this._fades = new Set();
+        this._frame = null;
+        this._musicVolume = 1;
+        this._effectsVolume = undefined; // unset until setEffectsVolume is called
+        this._duck = 1;
+        this._duckFade = null;
+        this._muteGain = 1;
+        this._muteFade = null;
+        this._crossfade = null;
 
         if (opts.volume !== undefined) this.setVolume(opts.volume);
         if (opts.muted === true) this.setMuted(true);
@@ -40,7 +85,7 @@ class HowlerSound {
         const url = urlOf(source);
         if (this._destroyed || typeof key !== 'string' || key === '' || url === '') return NOOP;
         this.sounds.get(key)?.unload();
-        const howl = new Howl({ src: [url], volume: this._volume, mute: this._muted });
+        const howl = new Howl({ src: [url], volume: this._effectsVolume ?? this._volume, mute: this._muted });
         this.sounds.set(key, howl);
         return () => {
             if (this.sounds.get(key) !== howl) return;
@@ -114,8 +159,272 @@ class HowlerSound {
 
     destroy() {
         this._destroyed = true;
+        for (const fade of [...this._fades]) fade.cancel();
+        for (const track of this.tracks.values()) track.howl.unload();
+        this.tracks.clear();
         for (const howl of this.sounds.values()) howl.unload();
         this.sounds.clear();
+    }
+
+    /**
+     * Adds a looping track. It never starts by itself.
+     * @param {string} key
+     * @param {string|string[]} source One file URL or a list of formats.
+     * @param {{ volume?: number }} [options]
+     */
+    registerTrack(key, source, options = {}) {
+        if (this._destroyed || typeof key !== 'string' || key === '') return;
+        const list = (Array.isArray(source) ? source : [source]).filter((u) => typeof u === 'string' && u !== '');
+        if (list.length === 0) return;
+        const old = this.tracks.get(key);
+        if (old) {
+            old.fade?.cancel();
+            old.howl.unload();
+        }
+        const base = Number.isFinite(options.volume) ? clamp01(options.volume) : 1;
+        const track = { howl: null, base, gain: 1, playing: false, pending: false, id: undefined, pos: 0, fade: null };
+        track.howl = new Howl({ src: list, loop: true, volume: 0, mute: this._muted });
+        this.tracks.set(key, track);
+        this._apply(track);
+    }
+
+    /**
+     * Starts or resumes a track. A track that was paused continues from where it
+     * stopped. Only the first play starts at the beginning.
+     * @param {string} key
+     * @param {{ fadeIn?: number, curve?: 'linear'|'smoothstep' }} [options]
+     */
+    playTrack(key, options = {}) {
+        const track = this._track(key);
+        if (!track) return;
+        const ms = Number.isFinite(options.fadeIn) ? options.fadeIn : 0;
+        const wasPlaying = track.playing;
+        track.fade?.cancel();
+        if (!wasPlaying) {
+            track.gain = ms > 0 ? 0 : 1;
+            this._apply(track);
+            this._start(track);
+        } else if (ms <= 0) {
+            track.gain = 1;
+            this._apply(track);
+        }
+        if (ms > 0) this._fadeTrack(track, 1, ms, options.curve);
+    }
+
+    /** Fades a track to silence, then pauses it. The position is kept. */
+    fadeOutTrack(key, ms, curve) {
+        const track = this._track(key);
+        if (!track || !track.playing) return;
+        this._fadeOut(track, ms, curve);
+    }
+
+    /**
+     * Fades `from` out and `to` in. A second call cancels the first.
+     * @param {string} from
+     * @param {string} to
+     * @param {{ out: number, in: number, inIfPlaying?: number, curve?: string }} options
+     */
+    crossfade(from, to, options = {}) {
+        if (this._destroyed) return;
+        const next = this._track(to);
+        if (!next || from === to) return;
+        // The earlier outgoing track keeps fading and pauses at its end. A fade
+        // is only cancelled when this call starts a new one on the same track.
+        const prev = this._crossfade;
+        const stray = prev && this.tracks.get(prev.to);
+        if (stray && prev.to !== from && prev.to !== to && stray.playing) {
+            this._fadeOut(stray, options.out, options.curve);
+        }
+        const outgoing = this._track(from);
+        if (outgoing && outgoing.playing) this._fadeOut(outgoing, options.out, options.curve);
+        const inMs = next.playing && Number.isFinite(options.inIfPlaying) ? options.inIfPlaying : options.in;
+        next.fade?.cancel();
+        if (!next.playing) {
+            next.gain = 0;
+            this._apply(next);
+            this._start(next);
+        }
+        this._fadeTrack(next, 1, inMs, options.curve);
+        this._crossfade = { from, to };
+    }
+
+    /** Fades the music down to `level` (0 to 1 of its normal volume). */
+    duckMusic(level, ms) {
+        if (!Number.isFinite(level)) return;
+        this._duckFade?.cancel();
+        this._duckFade = this._fade(this._duck, clamp01(level), ms, 'smoothstep', (v) => {
+            this._duck = v;
+            this._applyAll();
+        });
+    }
+
+    unduck(ms) {
+        this.duckMusic(1, ms);
+    }
+
+    setMusicVolume(value) {
+        if (!Number.isFinite(value)) return this._musicVolume;
+        this._musicVolume = clamp01(value);
+        this._applyAll();
+        return this._musicVolume;
+    }
+
+    getMusicVolume() {
+        return this._musicVolume;
+    }
+
+    /** Sets the volume of the sounds added with `register`. Tracks are not touched. */
+    setEffectsVolume(value) {
+        if (!Number.isFinite(value)) return this._effectsVolume ?? 1;
+        this._effectsVolume = clamp01(value);
+        for (const howl of this.sounds.values()) howl.volume(this._effectsVolume);
+        return this._effectsVolume;
+    }
+
+    getEffectsVolume() {
+        return this._effectsVolume ?? 1;
+    }
+
+    /** Fades the music out without pausing it, so it keeps its place. */
+    muteMusic(fadeMs = 0) {
+        this._fadeMute(0, fadeMs);
+    }
+
+    unmuteMusic(fadeMs = 0) {
+        this._fadeMute(1, fadeMs);
+    }
+
+    /** Seconds into the track, 0 for an unknown key. */
+    getTrackPosition(key) {
+        const track = this.tracks.get(key);
+        if (!track) return 0;
+        return this._position(track);
+    }
+
+    _track(key) {
+        if (this._destroyed || typeof key !== 'string') return undefined;
+        return this.tracks.get(key);
+    }
+
+    // Seconds into the track. Without audio, seek can throw: use the last known place.
+    _position(track) {
+        try {
+            const pos = track.howl.seek();
+            if (typeof pos === 'number' && Number.isFinite(pos)) track.pos = pos;
+        } catch {
+            // keep the stored position
+        }
+        return track.pos;
+    }
+
+    // `playing` is the wanted state. While Howler is locked the first play is
+    // queued until the first gesture, and calling play or pause again would
+    // leave a second source behind or silence the one that should sound. So
+    // nothing is sent to Howler until its 'play' event, which then applies the
+    // wanted state once.
+    _start(track) {
+        track.playing = true;
+        if (track.pending) return;
+        if (track.id !== undefined) {
+            track.howl.play(track.id);
+            return;
+        }
+        track.pending = true;
+        track.howl.once('play', (id) => {
+            track.pending = false;
+            if (track.id === undefined) track.id = id;
+            if (!track.playing) track.howl.pause(track.id);
+        });
+        track.id = track.howl.play();
+    }
+
+    _pause(track) {
+        track.fade?.cancel();
+        track.fade = null;
+        track.playing = false;
+        if (track.pending) return;
+        this._position(track);
+        track.howl.pause(track.id);
+    }
+
+    _apply(track) {
+        track.howl.volume(track.base * track.gain * this._musicVolume * this._duck * this._muteGain);
+    }
+
+    _applyAll() {
+        for (const track of this.tracks.values()) this._apply(track);
+    }
+
+    _fadeTrack(track, to, ms, curve, onDone) {
+        track.fade?.cancel();
+        const fade = this._fade(track.gain, to, ms, curve, (v) => {
+            track.gain = v;
+            this._apply(track);
+        }, () => {
+            if (track.fade?.done) track.fade = null;
+            onDone?.();
+        });
+        if (!fade.done) track.fade = fade;
+        return fade;
+    }
+
+    _fadeOut(track, ms, curve) {
+        return this._fadeTrack(track, 0, ms, curve, () => this._pause(track));
+    }
+
+    _fadeMute(to, ms) {
+        this._muteFade?.cancel();
+        this._muteFade = this._fade(this._muteGain, to, ms, 'linear', (v) => {
+            this._muteGain = v;
+            this._applyAll();
+        });
+    }
+
+    /**
+     * Runs `apply(value)` from `from` to `to` over `ms`. A fade of zero length
+     * applies at once. `cancel()` stops it without calling `onDone`.
+     */
+    _fade(from, to, ms, curve, apply, onDone) {
+        const shape = Object.prototype.hasOwnProperty.call(CURVES, curve) ? CURVES[curve] : CURVES.smoothstep;
+        const fade = {
+            done: false,
+            cancel: () => {
+                fade.done = true;
+                this._fades.delete(fade);
+                if (this._fades.size === 0 && this._frame !== null) {
+                    this._clock.cancel(this._frame);
+                    this._frame = null;
+                }
+            },
+        };
+        if (!Number.isFinite(ms) || ms <= 0) {
+            fade.done = true;
+            apply(to);
+            onDone?.();
+            return fade;
+        }
+        const start = this._clock.now();
+        fade.step = (now) => {
+            const k = Math.min(1, (now - start) / ms);
+            apply(from + (to - from) * (k >= 1 ? 1 : shape(k)));
+            if (k < 1) return;
+            fade.done = true;
+            this._fades.delete(fade);
+            onDone?.();
+        };
+        this._fades.add(fade);
+        this._pump();
+        return fade;
+    }
+
+    _pump() {
+        if (this._frame !== null || this._fades.size === 0) return;
+        this._frame = this._clock.request(() => {
+            this._frame = null;
+            const now = this._clock.now();
+            for (const fade of [...this._fades]) if (!fade.done) fade.step(now);
+            this._pump();
+        });
     }
 }
 
