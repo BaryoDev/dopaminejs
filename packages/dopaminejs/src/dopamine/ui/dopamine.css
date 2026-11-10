@@ -369,7 +369,7 @@
     
     .achievement-popup {
         right: var(--dopamine-toast-right, 12px);
-        max-width: var(--dopamine-toast-max-width, calc(100% - 24px));
+        max-width: min(var(--dopamine-toast-max-width, 320px), calc(100% - 24px));
     }
     
     .level-up-number {

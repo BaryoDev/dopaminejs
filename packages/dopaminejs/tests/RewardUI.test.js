@@ -199,6 +199,23 @@ describe('RewardUI', () => {
             expect(document.querySelector('.floating-text')).not.toBeNull();
         });
 
+        it('a card that throws while building does not block later cards', () => {
+            const bad = { kind: 'achievement', get title() { throw new Error('bad title'); } };
+            expect(() => ui.popup(bad)).toThrow('bad title');
+
+            ui.popup({ kind: 'achievement', title: 'After' });
+            expect(cards()).toEqual(['After']);
+        });
+
+        it('a throwing card in the queue lets the next one show', () => {
+            ui.popup({ kind: 'achievement', title: 'First' });
+            ui.popup({ kind: 'achievement', get title() { throw new Error('bad title'); } });
+            ui.popup({ kind: 'achievement', title: 'Third' });
+
+            expect(() => vi.advanceTimersByTime(4300)).toThrow('bad title');
+            expect(cards()).toEqual(['Third']);
+        });
+
         it('destroy clears a queued card and leaves no timer', () => {
             ui.popup({ kind: 'achievement', title: 'First' });
             ui.popup({ kind: 'achievement', title: 'Second' });
@@ -217,5 +234,10 @@ describe('RewardUI', () => {
         const rule = css.match(/\.achievement-popup \{[^}]*\}/)[0];
         expect(rule).toContain('var(--dopamine-toast-bg');
         expect(rule).toContain('env(safe-area-inset-top');
+        for (const name of ['bg', 'text', 'muted', 'accent', 'radius', 'shadow', 'top', 'right', 'left', 'max-width']) {
+            expect(css).toContain(`var(--dopamine-toast-${name},`);
+        }
+        // A game's max width must not undo the small-screen cap.
+        expect(css).toContain('min(var(--dopamine-toast-max-width, 320px), calc(100% - 24px))');
     });
 });

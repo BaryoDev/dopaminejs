@@ -109,7 +109,7 @@ The achievement card reads CSS variables. Each has a fallback, so the default lo
 | `--dopamine-toast-top` | distance from the top, plus the safe area inset | `80px` |
 | `--dopamine-toast-right` | distance from the right | `20px` (`12px` on small screens) |
 | `--dopamine-toast-left` | distance from the left | `auto` |
-| `--dopamine-toast-max-width` | max width | `320px` |
+| `--dopamine-toast-max-width` | max width, never wider than the screen less 24px on small screens | `320px` |
 
 ```css
 :root {
@@ -120,7 +120,9 @@ The achievement card reads CSS variables. Each has a fallback, so the default lo
 }
 ```
 
-Cards show one at a time. A second unlock waits until the first has left.
+To put the card on the left, set `--dopamine-toast-right: auto` as well. With both sides set, the card stretches between them up to its max width.
+
+Cards show one at a time. A second unlock waits until the first has left, so its announcement and confetti come later too.
 
 ## Cleanup
 

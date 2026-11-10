@@ -20,7 +20,8 @@ Published with this release: `dopaminejs-plugin-howler-audio` 2.1.0.
 ### Fixed
 
 - Two achievements unlocking together no longer stack on one spot. Cards show one at a time, and the
-  next one shows when the previous one is gone.
+  next one shows when the previous one is gone, so its announcement and confetti come later too.
+  A card that throws while it is built does not hold up the ones after it.
 - The achievement card top offset now adds the safe area inset, so it clears a phone notch.
 
 ## [3.2.0] - 2026-10-30

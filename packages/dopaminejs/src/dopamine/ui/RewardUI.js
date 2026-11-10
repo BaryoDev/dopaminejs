@@ -432,7 +432,15 @@ export class RewardUI {
         const next = this._cardQueue.shift();
         if (!next) return;
         this._cardActive = true;
-        this._showCard(next[0], next[1]);
+        try {
+            this._showCard(next[0], next[1]);
+        } catch (error) {
+            // A card that fails to build never schedules its removal, so the
+            // flag would stay set and every later card would be lost.
+            this._cardActive = false;
+            this._nextCard();
+            throw error;
+        }
     }
 
     /** @private */
