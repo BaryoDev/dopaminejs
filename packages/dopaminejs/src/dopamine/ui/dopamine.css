@@ -112,15 +112,16 @@
 
 .achievement-popup {
     position: fixed;
-    top: 80px;
-    right: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 16px;
+    top: calc(var(--dopamine-toast-top, 80px) + env(safe-area-inset-top, 0px));
+    right: var(--dopamine-toast-right, 20px);
+    left: var(--dopamine-toast-left, auto);
+    background: var(--dopamine-toast-bg, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+    border-radius: var(--dopamine-toast-radius, 16px);
     padding: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--dopamine-toast-shadow, 0 8px 32px rgba(0, 0, 0, 0.4));
     animation: slideIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
     z-index: 10000;
-    max-width: 320px;
+    max-width: var(--dopamine-toast-max-width, 320px);
     overflow: hidden;
 }
 
@@ -153,7 +154,7 @@
 .achievement-title {
     font-size: 12px;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--dopamine-toast-muted, rgba(255, 255, 255, 0.9));
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -161,13 +162,13 @@
 .achievement-name {
     font-size: 18px;
     font-weight: 800;
-    color: white;
+    color: var(--dopamine-toast-text, white);
     margin: 2px 0;
 }
 
 .achievement-desc {
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--dopamine-toast-muted, rgba(255, 255, 255, 0.8));
     margin-bottom: 4px;
 }
 
@@ -178,7 +179,7 @@
     border-radius: 8px;
     font-size: 12px;
     font-weight: 700;
-    color: #ffd700;
+    color: var(--dopamine-toast-accent, #ffd700);
 }
 
 /* ==================== LEVEL UP OVERLAY ==================== */
@@ -367,8 +368,8 @@
     }
     
     .achievement-popup {
-        right: 12px;
-        max-width: calc(100% - 24px);
+        right: var(--dopamine-toast-right, 12px);
+        max-width: min(var(--dopamine-toast-max-width, 320px), calc(100% - 24px));
     }
     
     .level-up-number {

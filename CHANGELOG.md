@@ -14,6 +14,15 @@ Published with this release: `dopaminejs-plugin-howler-audio` 2.1.0.
   playing it again resumes. Track and duck fades use smoothstep by default; mute and unmute fades are linear.
   Fades also finish in a hidden tab, and a track played before the first user gesture is played once.
   The existing methods did not change; `register` follows `setEffectsVolume` once it has been called.
+- `--dopamine-toast-*` CSS variables for the achievement card: `bg`, `text`, `muted`, `accent`, `radius`,
+  `shadow`, `top`, `right`, `left` and `max-width`. Each falls back to the old value.
+
+### Fixed
+
+- Two achievements unlocking together no longer stack on one spot. Cards show one at a time, and the
+  next one shows when the previous one is gone, so its announcement and confetti come later too.
+  A card that throws while it is built does not hold up the ones after it.
+- The achievement card top offset now adds the safe area inset, so it clears a phone notch.
 
 ## [3.2.0] - 2026-10-30
 
