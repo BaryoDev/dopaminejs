@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-Published with this release: `dopaminejs-plugin-howler-audio` 2.1.0.
+## [3.3.0] - 2026-11-10
+
+Published with this release: `dopaminejs` 3.3.0. `dopaminejs-plugin-howler-audio` 2.1.0, with the
+music channel below, was already published on 2026-11-01. The wrappers did not change.
 
 ### Added
 
