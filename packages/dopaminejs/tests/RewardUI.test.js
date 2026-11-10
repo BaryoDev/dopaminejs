@@ -2,6 +2,9 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { RewardUI } from '../src/dopamine/ui/RewardUI.js';
 
 describe('RewardUI', () => {
@@ -56,10 +59,12 @@ describe('RewardUI', () => {
         const kinds = parts.particles.burst.mock.calls.map((call) => call[0]);
         expect(kinds).toContain('stars');
 
+        vi.advanceTimersByTime(4600);
         ui.popup({ kind: 'custom', title: 'Mine' });
         const names = [...document.querySelectorAll('.achievement-name')].map((el) => el.textContent);
         expect(names).toContain('Mine');
-        expect(document.querySelectorAll('.achievement-title')[1].textContent).toBe('');
+        // The first card is gone by now, so the custom card is the only one.
+        expect(document.querySelectorAll('.achievement-title')[0].textContent).toBe('');
     });
 
     it('popup text is set as text, not markup', () => {
@@ -143,5 +148,74 @@ describe('RewardUI', () => {
         ui = null;
 
         expect(document.getElementById('game-ui-overlay')).toBeNull();
+    });
+
+    describe('card queue', () => {
+        const cards = () => [...document.querySelectorAll('.achievement-popup .achievement-name')]
+            .map((el) => el.textContent);
+
+        it('shows one card at a time and the next after the first is gone', () => {
+            ui.popup({ kind: 'achievement', title: 'First' });
+            ui.popup({ kind: 'achievement', title: 'Second' });
+            expect(cards()).toEqual(['First']);
+
+            vi.advanceTimersByTime(4299);
+            expect(cards()).toEqual(['First']);
+
+            vi.advanceTimersByTime(1);
+            expect(cards()).toEqual(['Second']);
+
+            vi.advanceTimersByTime(4300);
+            expect(cards()).toEqual([]);
+        });
+
+        it('announces each card when it shows, in order', () => {
+            ui.popup({ kind: 'achievement', title: 'First' });
+            ui.popup({ kind: 'custom', title: 'Second' });
+            expect(ui.liveRegion.textContent).toBe('Achievement Unlocked!: First');
+
+            vi.advanceTimersByTime(4300);
+            expect(ui.liveRegion.textContent).toBe('Second');
+        });
+
+        it('bursts confetti for a queued card when it shows', () => {
+            ui.popup({ kind: 'achievement', title: 'First' });
+            ui.popup({ kind: 'achievement', title: 'Second' });
+            vi.advanceTimersByTime(400);
+            expect(parts.particles.burst).toHaveBeenCalledTimes(1);
+
+            // The second card mounts at 4300ms and bursts 300ms after that.
+            vi.advanceTimersByTime(3900);
+            expect(parts.particles.burst).toHaveBeenCalledTimes(1);
+            vi.advanceTimersByTime(300);
+            expect(parts.particles.burst).toHaveBeenCalledTimes(2);
+        });
+
+        it('does not queue level-up overlays or floating text', () => {
+            ui.popup({ kind: 'achievement', title: 'First' });
+            ui.popup({ kind: 'level', body: '2' });
+            ui.popup({ kind: 'notice', title: 'Note' });
+            expect(document.querySelector('.level-up-overlay')).not.toBeNull();
+            expect(document.querySelector('.floating-text')).not.toBeNull();
+        });
+
+        it('destroy clears a queued card and leaves no timer', () => {
+            ui.popup({ kind: 'achievement', title: 'First' });
+            ui.popup({ kind: 'achievement', title: 'Second' });
+            ui.destroy();
+
+            expect(vi.getTimerCount()).toBe(0);
+            vi.advanceTimersByTime(10000);
+            expect(document.querySelector('.achievement-popup')).toBeNull();
+            expect(parts.particles.burst).not.toHaveBeenCalled();
+        });
+    });
+
+    it('the stylesheet reads the toast variables', () => {
+        const here = dirname(fileURLToPath(import.meta.url));
+        const css = readFileSync(resolve(here, '../src/dopamine/ui/dopamine.css'), 'utf8');
+        const rule = css.match(/\.achievement-popup \{[^}]*\}/)[0];
+        expect(rule).toContain('var(--dopamine-toast-bg');
+        expect(rule).toContain('env(safe-area-inset-top');
     });
 });

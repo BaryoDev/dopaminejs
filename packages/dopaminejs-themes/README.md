@@ -18,8 +18,9 @@ themeEngine.setTheme('dark-cyberpunk');
 ```
 
 A theme sets `--dopamine-*` CSS variables on the document root. The core
-`dopaminejs/style.css` does not read them yet, so setting a theme does not
-restyle the built-in overlay. Use the variables in your own CSS:
+`dopaminejs/style.css` reads only the `--dopamine-toast-*` variables (the achievement card), not
+these, so setting a theme does not restyle the rest of the built-in overlay. Use the variables in
+your own CSS:
 
 ```css
 .my-panel {

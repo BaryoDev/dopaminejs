@@ -187,6 +187,11 @@ export class RewardUI {
         this._timers = new Set();
         this._detached = [];
 
+        // Achievement and custom cards share one spot, so they show one at a
+        // time. Each entry is the arguments of a _card call.
+        this._cardQueue = [];
+        this._cardActive = false;
+
         this._build();
     }
 
@@ -411,8 +416,27 @@ export class RewardUI {
         }
     }
 
-    /** @private */
+    /**
+     * Queue a card. Two unlocks in the same moment would otherwise mount at the
+     * same fixed spot and hide each other.
+     * @private
+     */
     _card(popup, withHeading) {
+        this._cardQueue.push([popup, withHeading]);
+        this._nextCard();
+    }
+
+    /** @private */
+    _nextCard() {
+        if (this._cardActive) return;
+        const next = this._cardQueue.shift();
+        if (!next) return;
+        this._cardActive = true;
+        this._showCard(next[0], next[1]);
+    }
+
+    /** @private */
+    _showCard(popup, withHeading) {
         const card = document.createElement('div');
         card.className = 'achievement-popup';
         card.innerHTML = `
@@ -445,7 +469,11 @@ export class RewardUI {
 
         this._defer(() => {
             card.style.animation = 'slideOut 0.3s ease-in forwards';
-            this._defer(() => this._remove(card), 300);
+            this._defer(() => {
+                this._remove(card);
+                this._cardActive = false;
+                this._nextCard();
+            }, 300);
         }, 4000);
     }
 
@@ -547,6 +575,8 @@ export class RewardUI {
             clearTimeout(id);
         }
         this._timers.clear();
+        this._cardQueue = [];
+        this._cardActive = false;
 
         for (const el of this._detached) {
             el.remove();

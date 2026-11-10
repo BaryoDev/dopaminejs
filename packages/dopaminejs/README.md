@@ -94,6 +94,34 @@ import { myPlugin } from './my-plugin.js';
 const dopamine = createDopamine({ plugins: [myPlugin] });
 ```
 
+## Style the achievement card
+
+The achievement card reads CSS variables. Each has a fallback, so the default look stays as it is.
+
+| Variable | Sets | Default |
+|---|---|---|
+| `--dopamine-toast-bg` | background | purple gradient |
+| `--dopamine-toast-text` | name colour | `white` |
+| `--dopamine-toast-muted` | title and description colour | translucent white |
+| `--dopamine-toast-accent` | XP chip text | `#ffd700` |
+| `--dopamine-toast-radius` | corner radius | `16px` |
+| `--dopamine-toast-shadow` | box shadow | `0 8px 32px rgba(0, 0, 0, 0.4)` |
+| `--dopamine-toast-top` | distance from the top, plus the safe area inset | `80px` |
+| `--dopamine-toast-right` | distance from the right | `20px` (`12px` on small screens) |
+| `--dopamine-toast-left` | distance from the left | `auto` |
+| `--dopamine-toast-max-width` | max width | `320px` |
+
+```css
+:root {
+    --dopamine-toast-bg: #1b1f3a;
+    --dopamine-toast-accent: #7cf5c8;
+    --dopamine-toast-top: 16px;
+    --dopamine-toast-radius: 8px;
+}
+```
+
+Cards show one at a time. A second unlock waits until the first has left.
+
 ## Cleanup
 
 Everything that touches the DOM can be torn down:
