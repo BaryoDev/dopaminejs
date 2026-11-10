@@ -422,7 +422,10 @@ export class RewardUI {
      * @private
      */
     _card(popup, withHeading) {
-        this._cardQueue.push([popup, withHeading]);
+        // Copy the fields now, so a caller that reuses its object cannot change
+        // a card that is still waiting.
+        const { title, body, meta, icon } = popup;
+        this._cardQueue.push([{ title, body, meta, icon }, withHeading]);
         this._nextCard();
     }
 

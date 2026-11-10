@@ -207,12 +207,31 @@ describe('RewardUI', () => {
             expect(cards()).toEqual(['After']);
         });
 
-        it('a throwing card in the queue lets the next one show', () => {
+        it('a queued card keeps the content it was given', () => {
             ui.popup({ kind: 'achievement', title: 'First' });
-            ui.popup({ kind: 'achievement', get title() { throw new Error('bad title'); } });
-            ui.popup({ kind: 'achievement', title: 'Third' });
+            const reused = { kind: 'achievement', title: 'Second' };
+            ui.popup(reused);
+            reused.title = 'Changed';
 
-            expect(() => vi.advanceTimersByTime(4300)).toThrow('bad title');
+            vi.advanceTimersByTime(4300);
+            expect(cards()).toEqual(['Second']);
+        });
+
+        it('a card that fails to mount lets the next one show', () => {
+            ui.popup({ kind: 'achievement', title: 'First' });
+            ui.popup({ kind: 'achievement', title: 'Second' });
+            ui.popup({ kind: 'achievement', title: 'Third' });
+            const mount = ui._mount.bind(ui);
+            let failed = false;
+            ui._mount = (el) => {
+                if (!failed && el.textContent.includes('Second')) {
+                    failed = true;
+                    throw new Error('mount failed');
+                }
+                mount(el);
+            };
+
+            expect(() => vi.advanceTimersByTime(4300)).toThrow('mount failed');
             expect(cards()).toEqual(['Third']);
         });
 
