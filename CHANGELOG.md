@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Two `unlockAchievement()` calls for one id, or two `record()` calls fired together, no longer fire
+  `achievement_unlocked`, `xp_gained` and `afterUnlock` twice. The stored XP was already right.
+- A negative sum in an imported or saved document is dropped on load, like any other invalid
+  value, so a sum can no longer reach `-Infinity` and show as `null`. `spec/schema.json` now says
+  `minimum: 0` for sums.
+- A saved player that is valid JSON but not an object (`[1,2]`, `5`) is kept under `player_corrupt`
+  and `load_failed` fires with reason `corrupt`, as for unparseable data. Before, it was overwritten
+  with no backup and no event.
+- `markAchievementsSeen()` before `init()` gives the usual "init() must be awaited" error.
+- CI's dependency audit skips peer and optional dependencies, so it checks what the packages ship.
+
 ## [3.3.0] - 2026-11-10
 
 Published with this release: `dopaminejs` 3.3.0. `dopaminejs-plugin-howler-audio` 2.1.0, with the

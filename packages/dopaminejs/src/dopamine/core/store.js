@@ -110,7 +110,7 @@ function nestedSums(source) {
     const map = {};
     if (!isRecord(source)) return map;
     for (const activity of Object.keys(source)) {
-        if (isSafeKey(activity)) map[activity] = pickNested(source[activity], isNumber);
+        if (isSafeKey(activity)) map[activity] = pickNested(source[activity], isAmount);
     }
     return map;
 }
@@ -148,7 +148,7 @@ function read2(input, now, rewards, today) {
             doc.best[activity] = isAmount(entry.highScore) ? cap(entry.highScore) : 0;
             doc.sumsBy[activity] = {};
             for (const key of Object.keys(entry)) {
-                if (isSafeKey(key) && key !== 'totalPlays' && key !== 'highScore' && isNumber(entry[key])) {
+                if (isSafeKey(key) && key !== 'totalPlays' && key !== 'highScore' && isAmount(entry[key])) {
                     doc.sumsBy[activity][key] = { [LEGACY]: cap(entry[key]) };
                 }
             }
