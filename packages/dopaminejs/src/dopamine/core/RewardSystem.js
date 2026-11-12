@@ -60,6 +60,10 @@ export class RewardSystem extends EventEmitter {
         this._deviceSaved = false;
         this._middleware = new Middleware();
 
+        // Ids whose unlock is waiting on a hook, so a second call for the
+        // same id does not unlock it again.
+        this._unlocking = new Set();
+
         // Write batching: one record is one write.
         this._batchDepth = 0;
         this._pendingSave = false;
@@ -133,22 +137,32 @@ export class RewardSystem extends EventEmitter {
         this._loadFailed = true;
         try {
             const saved = await this.dataService.load('player', null, { strict: true });
+            if (saved !== null && !isRecord(saved)) {
+                // Valid JSON that is not a player: keep it like unreadable data.
+                return await this._keepCorrupt(saved);
+            }
             this._loadFailed = false;
             this._readFailed = false;
             return saved;
         } catch (error) {
-            if (error?.code === 'DOPAMINE_CORRUPT') {
-                // Keep the unreadable value instead of losing it on the next save.
-                const kept = await this.dataService.save('player_corrupt', error.raw);
-                if (kept) this._loadFailed = false;
-                this._readFailed = !kept;
-                this._publish('load_failed', { key: 'player', reason: 'corrupt', backedUp: kept });
-                return null;
-            }
+            if (error?.code === 'DOPAMINE_CORRUPT') return this._keepCorrupt(error.raw);
             this._readFailed = true;
             this._publish('load_failed', { key: 'player', reason: 'read', error });
             return null;
         }
+    }
+
+    /**
+     * Keep an unreadable value instead of losing it on the next save.
+     * @private
+     */
+    async _keepCorrupt(raw) {
+        this._loadFailed = true;
+        const kept = await this.dataService.save('player_corrupt', raw);
+        if (kept) this._loadFailed = false;
+        this._readFailed = !kept;
+        this._publish('load_failed', { key: 'player', reason: 'corrupt', backedUp: kept });
+        return null;
     }
 
     /**
@@ -624,17 +638,26 @@ export class RewardSystem extends EventEmitter {
 
         // Already unlocked: paying the XP again would let one call farm levels.
         if (hasOwn(this._doc.achievements, achievementId)) return false;
+        if (this._unlocking.has(achievementId)) return false;
 
         const achievement = this.achievements[achievementId];
         if (!achievement) return false;
 
         const { [achievementId]: reward } = rewardsOf(this.achievements);
-        const context = await this._middleware.before(
-            'beforeUnlock',
-            { id: achievementId, reward },
-            (next) => Number.isFinite(next.reward) && next.reward >= 0
-        );
+        this._unlocking.add(achievementId);
+        let context;
+        try {
+            context = await this._middleware.before(
+                'beforeUnlock',
+                { id: achievementId, reward },
+                (next) => Number.isFinite(next.reward) && next.reward >= 0
+            );
+        } finally {
+            this._unlocking.delete(achievementId);
+        }
         if (context === false) return false;
+        // A reset or an import during the hook may have unlocked it already.
+        if (hasOwn(this._doc.achievements, achievementId)) return false;
 
         const doc = this._doc;
         const oldLevel = levelOf(doc);
@@ -674,6 +697,7 @@ export class RewardSystem extends EventEmitter {
      * Mark achievements as seen
      */
     async markAchievementsSeen(achievementIds) {
+        this._requirePlayer();
         for (const id of achievementIds) {
             if (hasOwn(this._doc.achievements, id)) {
                 this._doc.achievements[id].seen = true;

@@ -42,10 +42,12 @@ jobs:
       # here rather than silently resolving something different.
       - run: npm ci
 
-      # Shipped dependencies only. Dev-tool advisories arrive as Dependabot
-      # PRs and should not block an unrelated change.
+      # Runtime dependencies only. The core has none (check-zero-deps). Peer
+      # dependencies (vue, react, howler) are installed by the consumer, and
+      # optional ones are build tooling, so both are left out. Dev-tool
+      # advisories arrive as Dependabot PRs and should not block an unrelated change.
       - name: Audit runtime dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --omit=dev --omit=peer --omit=optional --audit-level=high
 
       - name: Typecheck declarations
         run: npm run typecheck
