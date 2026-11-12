@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs-monorepo",
-    "version": "3.2.0",
+    "version": "3.3.0",
     "private": true,
     "type": "module",
     "description": "DopamineJS monorepo - Game Feel Engine for the web",
@@ -46,12 +46,12 @@
         {
             "path": "packages/dopaminejs/dist/dopamine.js",
             "import": "*",
-            "limit": "15 KB",
+            "limit": "15.5 KB",
             "name": "dopaminejs (ESM)"
         },
         {
             "path": "packages/dopaminejs/dist/dopamine.cjs",
-            "limit": "15 KB",
+            "limit": "15.5 KB",
             "name": "dopaminejs (CJS)"
         },
         {
