@@ -30,7 +30,7 @@ const problems = [];
 function entryPoints(pkg) {
     const found = [];
 
-    for (const field of ['main', 'module', 'style', 'browser', 'types']) {
+    for (const field of ['main', 'module', 'style', 'browser', 'unpkg', 'jsdelivr', 'types']) {
         if (typeof pkg[field] === 'string') {
             found.push({ field, path: pkg[field] });
         }

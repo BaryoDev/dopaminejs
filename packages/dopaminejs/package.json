@@ -5,6 +5,8 @@
     "type": "module",
     "main": "./dist/dopamine.cjs",
     "module": "./dist/dopamine.js",
+    "unpkg": "./dist/dopamine.global.js",
+    "jsdelivr": "./dist/dopamine.global.js",
     "exports": {
         ".": {
             "types": "./types/index.d.ts",
@@ -38,7 +40,7 @@
     ],
     "scripts": {
         "dev": "vite",
-        "build": "vite build",
+        "build": "vite build && vite build --config vite.config.iife.js",
         "test": "vitest run",
         "test:watch": "vitest",
         "preview": "vite preview"

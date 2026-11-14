@@ -63,6 +63,8 @@ packages/dopaminejs/src/
     feel/             haptics, reduced motion
 ```
 
+`dist/dopamine.global.js` is the script tag build (`vite.config.iife.js`, run after the main build, which owns `dist/`). It exposes `window.Dopamine`. `tests/ScriptTag.test.js` builds it into a temp folder.
+
 `dopaminejs/style.css` is emitted by the build from `ui/dopamine.css`. Nothing
 imports it. `RewardUI` takes `injectCss: true` to add it from code.
 
@@ -172,6 +174,8 @@ went through this.
 Bump the versions, update `CHANGELOG.md`, tag `v<core version>`, push the tag.
 Only packages whose version is not on npm get published. Never run
 `npm publish` by hand. Details are in the README.
+
+After a release that ships `dist/dopamine.global.js`, take the hash the publish job printed ("Print SRI hash of the script tag build", also in the job summary) and put it and the version into the README "No build step" section.
 
 ## Commits
 
