@@ -57,20 +57,22 @@ describe('script tag build', () => {
         window.close();
     });
 
-    it('leaves the rest of the output folder alone', () => {
+    it('leaves the rest of the output folder alone', async () => {
         const dir = mkdtempSync(join(tmpdir(), 'script-tag-files-'));
-        const stray = join(dir, 'keep.txt');
-        writeFileSync(stray, 'kept');
-        return build({
-            root: pkgDir,
-            configFile: join(pkgDir, 'vite.config.iife.js'),
-            logLevel: 'silent',
-            build: { outDir: dir }
-        }).then(() => {
+        try {
+            const stray = join(dir, 'keep.txt');
+            writeFileSync(stray, 'kept');
+            await build({
+                root: pkgDir,
+                configFile: join(pkgDir, 'vite.config.iife.js'),
+                logLevel: 'silent',
+                build: { outDir: dir }
+            });
             // emptyOutDir is off, so the main build's files survive.
             expect(readFileSync(stray, 'utf8')).toBe('kept');
+        } finally {
             rmSync(dir, { recursive: true, force: true });
-        });
+        }
     }, 60000);
 });
 

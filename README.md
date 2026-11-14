@@ -77,25 +77,23 @@ Importing `dopaminejs` has no side effects. Import `dopaminejs/style.css` yourse
 
 ### No build step
 
-A page with no bundler can load one script. It sets `window.Dopamine` with the same named
-exports as the package. Pin an exact version and keep the `integrity` attribute, so the
-browser refuses a file that changed.
+The script tag build ships from the release after 3.3.0. It is not on the CDNs for 3.3.0.
+
+From that release, a page with no bundler can load one script. It sets `window.Dopamine`
+with the same named exports as the package. Replace `VERSION` with that exact version.
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@3.3.0/dist/style.css">
-<script
-  src="https://cdn.jsdelivr.net/npm/dopaminejs@3.3.0/dist/dopamine.global.js"
-  integrity="sha384-REPLACE_WITH_HASH_PRINTED_BY_THE_PUBLISH_WORKFLOW"
-  crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@VERSION/dist/style.css">
+<script src="https://cdn.jsdelivr.net/npm/dopaminejs@VERSION/dist/dopamine.global.js"></script>
 <script>
   const rewards = new Dopamine.RewardSystem(new Dopamine.DataService());
   rewards.init().then(() => rewards.addXP(250));
 </script>
 ```
 
-The script tag file ships from the first release after 3.3.0. Until then the version and
-hash above are placeholders: use that release's version, and the sha384 hash its publish
-workflow prints. `unpkg.com` serves the same file.
+To have the browser refuse a changed file, add `integrity="sha384-..."` and
+`crossorigin="anonymous"` to the script tag. The publish job prints the sha384 value for each
+release. `unpkg.com` serves the same file.
 
 ## Why streaks are the hard part
 
