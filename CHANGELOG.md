@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-11-14
+
+Published with this release: `dopaminejs` 3.4.0. The wrappers and plugins did not change.
+
 ### Added
 
 - A script tag build, `dist/dopamine.global.js`, that sets `window.Dopamine` for pages with no bundler. The `unpkg` and `jsdelivr` fields point at it. The ESM and CJS outputs are unchanged.
