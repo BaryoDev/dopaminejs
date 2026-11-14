@@ -59,6 +59,16 @@ jobs:
       - name: Build all packages
         run: npm run build --workspaces --if-present
 
+      # The hash for the README script tag snippet's `integrity` attribute.
+      # Fails if the file is missing.
+      - name: Print SRI hash of the script tag build
+        run: |
+          FILE=packages/dopaminejs/dist/dopamine.global.js
+          test -f "$FILE" || { echo "$FILE is missing" >&2; exit 1; }
+          HASH="sha384-$(openssl dgst -sha384 -binary "$FILE" | openssl base64 -A)"
+          echo "$FILE $HASH"
+          echo "dopamine.global.js integrity: \`$HASH\`" >> "$GITHUB_STEP_SUMMARY"
+
       # Nothing is published until every declared entry point exists on disk.
       - name: Check every entry point resolves
         run: node scripts/check-versions.js --dist
