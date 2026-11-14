@@ -77,10 +77,10 @@ Importing `dopaminejs` has no side effects. Import `dopaminejs/style.css` yourse
 
 ### No build step
 
-The script tag build ships from the release after 3.3.0. It is not on the CDNs for 3.3.0.
+The script tag build ships from 3.4.0. It is not on the CDNs for 3.3.0 or earlier.
 
-From that release, a page with no bundler can load one script. It sets `window.Dopamine`
-with the same named exports as the package. Replace `VERSION` with that exact version.
+From 3.4.0, a page with no bundler can load one script. It sets `window.Dopamine`
+with the same named exports as the package. Replace `VERSION` with an exact version, such as `3.4.0`.
 
 ```html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@VERSION/dist/style.css">
