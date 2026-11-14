@@ -63,6 +63,8 @@ packages/dopaminejs/src/
     feel/             haptics, reduced motion
 ```
 
+`dist/dopamine.global.js` is the script tag build (`vite.config.iife.js`, run after the main build, which owns `dist/`). It exposes `window.Dopamine`. `tests/ScriptTag.test.js` builds it into a temp folder.
+
 `dopaminejs/style.css` is emitted by the build from `ui/dopamine.css`. Nothing
 imports it. `RewardUI` takes `injectCss: true` to add it from code.
 

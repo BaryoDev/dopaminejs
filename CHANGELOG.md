@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- A script tag build, `dist/dopamine.global.js`, that sets `window.Dopamine` for pages with no bundler. The `unpkg` and `jsdelivr` fields point at it. The ESM and CJS outputs are unchanged.
+
 ### Fixed
 
 - Two `unlockAchievement()` calls for one id, or two `record()` calls fired together, no longer fire

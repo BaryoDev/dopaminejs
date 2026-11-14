@@ -75,6 +75,28 @@ new RewardUI(parts, {
 Importing `dopaminejs` has no side effects. Import `dopaminejs/style.css` yourself, or pass
 `injectCss: true`.
 
+### No build step
+
+A page with no bundler can load one script. It sets `window.Dopamine` with the same named
+exports as the package. Pin an exact version and keep the `integrity` attribute, so the
+browser refuses a file that changed.
+
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@3.3.0/dist/style.css">
+<script
+  src="https://cdn.jsdelivr.net/npm/dopaminejs@3.3.0/dist/dopamine.global.js"
+  integrity="sha384-REPLACE_WITH_HASH_PRINTED_BY_THE_PUBLISH_WORKFLOW"
+  crossorigin="anonymous"></script>
+<script>
+  const rewards = new Dopamine.RewardSystem(new Dopamine.DataService());
+  rewards.init().then(() => rewards.addXP(250));
+</script>
+```
+
+The script tag file ships from the first release after 3.3.0. Until then the version and
+hash above are placeholders: use that release's version, and the sha384 hash its publish
+workflow prints. `unpkg.com` serves the same file.
+
 ## Why streaks are the hard part
 
 A daily streak is a calendar question, not a clock question. "Did they come back yesterday"

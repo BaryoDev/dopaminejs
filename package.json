@@ -55,6 +55,11 @@
             "name": "dopaminejs (CJS)"
         },
         {
+            "path": "packages/dopaminejs/dist/dopamine.global.js",
+            "limit": "16.5 KB",
+            "name": "dopaminejs (script tag)"
+        },
+        {
             "path": "packages/dopaminejs/dist/core.js",
             "import": "*",
             "limit": "6 KB",
