@@ -151,6 +151,23 @@ describe('createDopamine', () => {
         expect(init).not.toHaveBeenCalled();
     });
 
+    it('refreshes the HUD when a failed read is recovered', () => {
+        const handlers = {};
+        const hud = vi.fn();
+        const progress = {
+            on: (name, fn) => { handlers[name] = fn; return () => {}; },
+            off: () => {},
+            init: async () => {},
+            snapshot: () => ({ xp: 7, level: 2, streak: { current: 3 } }),
+            getXPForNextLevel: () => ({ total: 10, progress: 0.5 })
+        };
+        make({ progress, ui: () => ({ hud, popup: () => {}, destroy: () => {} }), sound: false });
+
+        handlers.load_recovered({ key: 'player' });
+
+        expect(hud).toHaveBeenCalledWith({ xp: 7, level: 2, progress: 0.5, streak: 3, next: 10 });
+    });
+
     it('lets a name be used again after it was disposed or failed', () => {
         const host = make();
         const off = host.use(plugin('again'));

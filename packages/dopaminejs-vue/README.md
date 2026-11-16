@@ -72,7 +72,7 @@ Returns an object with:
 | `achievements` | `Ref<object[]>` | Unlocked achievements |
 | `ready` | `Ref<boolean>` | `true` once `init()` has resolved |
 | `error` | `Ref<unknown>` | `null` until `init()` rejects, then the rejection. It is caught, so it never surfaces as an unhandled rejection |
-| `loadFailed` | `Ref<boolean>` | `true` when `init()` could not read the saved player. Nothing is saved this session, so show the visitor that progress is not being kept |
+| `loadFailed` | `Ref<boolean>` | `true` when `init()` could not read the saved player. Nothing is saved this session, so show the visitor that progress is not being kept. It goes back to `false` on `load_recovered`, when a later read works and the session is merged and saved |
 | `addXP(amount, reason?)` | `(number, string?) => Promise<object>` | Add XP. Resolves with what `RewardSystem.addXP` returns |
 | `record(activity, result)` | `(string, object) => Promise<boolean>` | Record an activity result. May award XP, update its best and mark a play day |
 | `unlockAchievement(key)` | `(string) => Promise<boolean>` | Unlock an achievement by id. Resolves `false` when the id is unknown or already unlocked |

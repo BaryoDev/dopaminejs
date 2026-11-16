@@ -5,7 +5,7 @@
  * Components call useRewards() to read player state and dispatch XP/games.
  *
  * The provider subscribes to xp_gained, level_up, achievement_unlocked,
- * personal_best and streak_updated on mount and unsubscribes on unmount. The emitter holds
+ * personal_best, streak_updated, player_reset and load_recovered on mount and unsubscribes on unmount. The emitter holds
  * strong references, so a component that mounts and unmounts repeatedly
  * without cleanup would accumulate duplicate listeners.
  *
@@ -28,7 +28,7 @@ import { RewardSystem, DataService, createDopamine } from 'dopaminejs';
 import { buildState } from './state.js';
 
 // Event names emitted by RewardSystem are lowercase.
-const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated', 'player_reset'];
+const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated', 'player_reset', 'load_recovered'];
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 

@@ -12,10 +12,10 @@ import { systemClock } from './clock.js';
 import { levelFor, thresholdFor } from './levels.js';
 import { BUILTIN_REWARDS, builtinAchievements, rewardsOf } from './achievements.js';
 import { Middleware } from './middleware.js';
-import { merge } from './merge.js';
+import { merge, mergeSession, rekey, ownCounters, raiseOwn, countedDevices } from './merge.js';
 import { currentStreak, longestRun, trimDays } from './streaks.js';
 import {
-    LEGACY, MAX_DEVICES, cap, deviceIds, emptyDoc, validate, view, xpOf, levelOf, clone, freeze, isSafeKey, hasOwn, isRecord
+    LEGACY, MAX_DEVICES, cap, checkDevices, deviceIds, emptyDoc, validate, view, xpOf, levelOf, clone, freeze, isSafeKey, hasOwn, isRecord
 } from './store.js';
 
 const DEVICE_KEY = 'device';
@@ -45,6 +45,8 @@ export class RewardSystem extends EventEmitter {
      * @param {'any'|'record'} [config.streakDays] - What marks today as a play day.
      *   'any' (default): record() or addXP(). 'record': record() only. XP from an
      *   achievement reward never marks a day.
+     * @param {number} [config.loadRetryMs] - After a failed read, a blocked save retries the
+     *   read at most this often, in ms of the clock. Default 30000. 0 retries on every blocked save.
      */
     constructor(dataService, config = {}) {
         super();
@@ -73,11 +75,26 @@ export class RewardSystem extends EventEmitter {
         // never replaced by accident.
         this._loadFailed = false;
         this._readFailed = false;
+
+        // Retry of a failed read: when it last read, the retry in flight, and a
+        // counter that lets init() cancel a retry it overtakes.
+        this.loadRetryMs = Number.isFinite(config.loadRetryMs) && config.loadRetryMs >= 0 ? config.loadRetryMs : 30000;
+        this._lastRead = 0;
+        this._reading = false;
+        this._recovering = null;
+        this._epoch = 0;
+
+        // What imports and good reads put into this device's counters while the
+        // read is blocked. It is not progress made here, so a recovery does not add it.
+        this._forgetImports();
+        this._recoveries = 0;
     }
 
     /**
      * True when the last init() could not read the saved player, so nothing
-     * is saved until init() is called again and the read works, or reset() is called.
+     * is saved until a retry or init() reads it, or reset() is called. A blocked
+     * save retries the read (see `loadRetryMs`) and, when it works, merges the
+     * progress made since into the saved player, saves it and fires `load_recovered`.
      * @returns {boolean}
      */
     get loadFailed() {
@@ -117,9 +134,16 @@ export class RewardSystem extends EventEmitter {
      * @returns {Promise<Object>} Frozen snapshot of the player
      */
     async init() {
+        const known = this._doc && !this._loadFailed && ownCounters(this._doc, this._deviceId);
         const saved = await this._readSaved();
         // A failed retry keeps the progress made since the first init.
-        if (!(this._loadFailed && this._doc)) this._doc = this._load(saved);
+        if (!(this._loadFailed && this._doc)) {
+            this._doc = this._load(saved);
+            this._forgetImports();
+        } else if (known) {
+            // That player came from storage, so what it held is not new progress.
+            known.forEach((value, path) => this._base.set(path, Math.max(this._base.get(path) ?? 0, value)));
+        }
         await this._readDevice();
         await this.save();
         return this.snapshot();
@@ -135,6 +159,10 @@ export class RewardSystem extends EventEmitter {
         // Stay blocked until the read succeeds, so a write made while a
         // retry is in flight cannot land.
         this._loadFailed = true;
+        this._reading = true;
+        this._epoch++;
+        this._recovering = null;
+        this._lastRead = this.clock.now();
         try {
             const saved = await this.dataService.load('player', null, { strict: true });
             if (saved !== null && !isRecord(saved)) {
@@ -149,7 +177,82 @@ export class RewardSystem extends EventEmitter {
             this._readFailed = true;
             this._publish('load_failed', { key: 'player', reason: 'read', error });
             return null;
+        } finally {
+            this._reading = false;
         }
+    }
+
+    /**
+     * Retry the read for a blocked save, at most once per interval, and merge
+     * the session player into what it finds. Resolves true when it saved. A
+     * retry already in flight is reused. Any failure leaves saving blocked and
+     * the session player as it is.
+     * @private
+     */
+    _recover() {
+        // A retry in flight belongs to the call that started it. Others return
+        // at once, as a blocked save always did, so a read that never settles
+        // stalls only that one call.
+        if (this._recovering || !this._readFailed || this._reading) return Promise.resolve(false);
+        const since = this.clock.now() - this._lastRead;
+        if (since >= 0 && since < this.loadRetryMs) return Promise.resolve(false);
+        this._lastRead = this.clock.now();
+        const retry = this._retryRead(this._epoch).finally(() => {
+            if (this._recovering === retry) this._recovering = null;
+        });
+        this._recovering = retry;
+        return retry;
+    }
+
+    async _retryRead(epoch) {
+        let saved;
+        let adopt = null;
+        try {
+            saved = await this.dataService.load('player', null, { strict: true });
+            if (saved !== null && !isRecord(saved)) return false;
+            if (!this._deviceSaved) {
+                const stored = await this.dataService.load(DEVICE_KEY, null, { strict: true });
+                if (isDeviceId(stored) && stored !== this._deviceId) adopt = stored;
+            }
+        } catch {
+            return false;
+        }
+        // init() or reset() ran meanwhile and owns the state now.
+        if (epoch !== this._epoch || !this._loadFailed) return false;
+        // Entries under the stored id that came from an import or from a read
+        // cannot be told from progress made here, so the move would count them twice.
+        if (countedDevices(this._doc).has(adopt)) return false;
+
+        // No await from here to the assignment, so the session player is
+        // merged as it stands, including any XP added while the read was out.
+        let merged;
+        try {
+            const options = this._options();
+            const device = adopt ?? this._deviceId;
+            const session = adopt ? rekey(this._doc, this._deviceId, adopt) : this._doc;
+            merged = saved === null ? clone(session) : mergeSession(saved, session, device, options, this._base);
+            checkDevices(merged);
+            merged.level = levelOf(merged);
+        } catch {
+            return false;
+        }
+        if (adopt) {
+            this._deviceId = adopt;
+            this._deviceSaved = true;
+        }
+        this._doc = merged;
+        this._recoveries++;
+        this._savedLevel = Number(saved?.level) || 0;
+        this._loadFailed = false;
+        this._readFailed = false;
+        this._forgetImports();
+        await this._write();
+        this._publish('load_recovered', { key: 'player' });
+        return true;
+    }
+
+    _forgetImports() {
+        this._base = new Map();
     }
 
     /**
@@ -253,9 +356,28 @@ export class RewardSystem extends EventEmitter {
         this._requirePlayer();
         const before = this.snapshot();
         const incoming = validate(doc, this._options());
-        const merged = merge(this._doc, incoming, this._options());
+        let session = this._doc;
+        let base = null;
+        if (this._readFailed) {
+            // This device's counters in the import are not new progress. Count them
+            // as a baseline so a recovery adds only what the session earned on top.
+            base = new Map(this._base);
+            const raise = new Map();
+            const have = ownCounters(this._doc, this._deviceId);
+            ownCounters(incoming, this._deviceId).forEach((value, path) => {
+                // At or below what the session holds, it is the session's own export or older.
+                if (value > (have.get(path) ?? 0)) {
+                    raise.set(path, value - (base.get(path) ?? 0));
+                    base.set(path, value);
+                }
+            });
+            session = clone(this._doc);
+            raiseOwn(session, this._deviceId, raise);
+        }
+        const merged = merge(session, incoming, this._options());
         merged.level = levelOf(merged);
         this._doc = merged;
+        if (base) this._base = base;
 
         const after = this.snapshot();
         await this.save();
@@ -292,8 +414,9 @@ export class RewardSystem extends EventEmitter {
      * Pass `{ overwrite: false }` to keep the stored player when the last
      * init() could not read it (an unsupported newer version, or a read that
      * keeps failing). The player in memory is replaced by a new empty one,
-     * nothing is written, `loadFailed` stays true so later writes stay
-     * blocked, and `player_reset` is still emitted. When the last init() did
+     * nothing is written, `loadFailed` stays true and `player_reset` is still
+     * emitted. A later write may retry the read and, when it returns a
+     * player, merges the new session into it (see `loadRetryMs`). When the last init() did
      * read the saved player, `overwrite: false` changes nothing: it saves
      * like a plain reset(). A corrupt save that init() backed up to `player_corrupt` counts as loaded, so `overwrite: false` saves like a plain reset().
      * If the backup failed, it counts as a failed load and nothing is written.
@@ -316,6 +439,7 @@ export class RewardSystem extends EventEmitter {
         this._requirePlayer();
         if (overwrite === false && this._readFailed) {
             this._doc = emptyDoc(this.clock.now());
+            this._forgetImports();
             this._publish('player_reset', {});
             return this.snapshot();
         }
@@ -323,6 +447,7 @@ export class RewardSystem extends EventEmitter {
             this._doc = emptyDoc(this.clock.now());
             this._loadFailed = false;
             this._readFailed = false;
+            this._forgetImports();
             await this.save();
         });
         this._publish('player_reset', {});
@@ -378,7 +503,11 @@ export class RewardSystem extends EventEmitter {
      * @private
      */
     async _write() {
-        if (this._loadFailed) return;
+        if (this._loadFailed) {
+            // The retry saves everything changed before it merged.
+            await this._recover();
+            return;
+        }
         this._doc.lastPlayedAt = this.clock.now();
         if (!this._deviceSaved) {
             this._deviceSaved = (await this.dataService.save(DEVICE_KEY, this._deviceId)) !== false;
@@ -448,12 +577,22 @@ export class RewardSystem extends EventEmitter {
 
     async _announceXP(oldLevel, amount, reason) {
         const doc = this._doc;
-        const total = xpOf(doc);
-        const newLevel = Math.max(oldLevel, levelFor(total));
-        const leveledUp = newLevel > oldLevel;
+        let total = xpOf(doc);
+        let newLevel = Math.max(oldLevel, levelFor(total));
         if (newLevel > doc.level) doc.level = newLevel;
 
+        const recoveries = this._recoveries;
         await this.save();
+
+        // A save that recovered a failed read replaced the document with the
+        // merged one. Report that, and compare with the merged level before
+        // this gain, so a level the saved player already had is not announced.
+        if (this._recoveries !== recoveries) {
+            total = xpOf(this._doc);
+            newLevel = Math.max(newLevel, levelOf(this._doc));
+            oldLevel = Math.max(oldLevel, this._savedLevel, levelFor(total - amount));
+        }
+        const leveledUp = newLevel > oldLevel;
 
         this._publish('xp_gained', { amount, reason, leveledUp, newLevel, total });
         if (leveledUp) {

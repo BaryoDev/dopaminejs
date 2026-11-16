@@ -34,7 +34,7 @@ const REWARDS_KEY = Symbol.for('dopaminejs-rewards');
 const provided = new WeakMap();
 
 // Event names emitted by RewardSystem are lowercase.
-const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated', 'player_reset'];
+const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated', 'player_reset', 'load_recovered'];
 
 /**
  * @param {object} [options]

@@ -128,6 +128,24 @@ describe('RewardsProvider', () => {
         expect(dispatched.at(-1).payload.loadFailed).toBe(false);
     });
 
+    it('clears loadFailed on load_recovered', async () => {
+        const on = vi.spyOn(RewardSystem.prototype, 'on');
+        const storage = createMemoryStorage();
+        const real = storage.getItem.bind(storage);
+        storage.getItem = () => { throw new Error('offline'); };
+        RewardsProvider({ storage, config: { loadRetryMs: 0 }, children: null });
+        await settle();
+        expect(dispatched.at(-1).payload.loadFailed).toBe(true);
+        expect(on.mock.calls.map(call => call[0])).toContain('load_recovered');
+        storage.getItem = real;
+
+        // save() fires load_recovered only. There is no xp_gained to sync on.
+        await on.mock.contexts[0].save();
+        await settle();
+
+        expect(dispatched.at(-1).payload.loadFailed).toBe(false);
+    });
+
     it('syncs on personal_best', async () => {
         const on = vi.spyOn(RewardSystem.prototype, 'on');
         render();

@@ -153,6 +153,12 @@ export interface RewardSystemConfig {
      * never marks a day.
      */
     streakDays?: 'any' | 'record';
+    /**
+     * After a failed read of the saved player, a blocked save retries the read
+     * at most this often, in milliseconds of `clock`. Default 30000. 0 retries
+     * on every blocked save.
+     */
+    loadRetryMs?: number;
 }
 
 export type RewardEvent =
@@ -176,7 +182,13 @@ export type RewardEvent =
      * A `load()` override must pass its third argument on, or a failed read
      * looks like an empty one.
      */
-    | 'load_failed';
+    | 'load_failed'
+    /**
+     * Payload `{ key }`. After a `load_failed` with `reason: 'read'`, a retry read
+     * the saved player, merged the progress made since into it and saved it.
+     * `loadFailed` is false again.
+     */
+    | 'load_recovered';
 
 export class EventEmitter {
     on(event: string, callback: (data?: unknown) => void): () => void;
@@ -191,9 +203,13 @@ export class RewardSystem extends EventEmitter {
     achievements: Record<string, AchievementDefinition>;
     /**
      * True when the last `init()` could not read the saved player, so nothing
-     * is saved until `init()` is called again and the read works, or `reset()` is called.
+     * is saved until a retry or `init()` reads it, or `reset()` is called. A blocked
+     * save retries the read (see `loadRetryMs`); on success it merges the session
+     * into the saved player, saves it and fires `load_recovered`.
      */
     readonly loadFailed: boolean;
+    /** Minimum clock time between read retries after a failed read. Default 30000. */
+    readonly loadRetryMs: number;
 
     init(): Promise<Player>;
     /** A frozen copy of the player with the derived values. */
@@ -215,7 +231,9 @@ export class RewardSystem extends EventEmitter {
      *
      * With `{ overwrite: false }` and a failed load, the stored player is kept:
      * the player in memory is replaced by a new empty one, nothing is written,
-     * `loadFailed` stays true and `player_reset` is still emitted. After a load
+     * `loadFailed` stays true and `player_reset` is still emitted. A later write
+     * may retry the read and, when it returns a player, merges the new session
+     * into it (see `loadRetryMs`). After a load
      * that worked, `overwrite: false` behaves like a plain `reset()` and saves.
      * A corrupt save that init() backed up to `player_corrupt` counts as loaded, so `overwrite: false` saves like a plain reset(). If the backup failed, it counts as a failed load and nothing is written.
      * A non-object `options` or a non-boolean `overwrite` throws a `TypeError`.
@@ -623,6 +641,8 @@ export interface DopamineOptions {
     streakDays?: 'any' | 'record';
     /** Passed to the default progress object. See `RewardSystemConfig`. */
     builtinAchievements?: boolean;
+    /** Passed to the default progress object. See `RewardSystemConfig`. */
+    loadRetryMs?: number;
     plugins?: DopaminePlugin[];
     log?: Partial<Logger>;
 }

@@ -46,23 +46,23 @@
         {
             "path": "packages/dopaminejs/dist/dopamine.js",
             "import": "*",
-            "limit": "16 KB",
+            "limit": "16.75 KB",
             "name": "dopaminejs (ESM)"
         },
         {
             "path": "packages/dopaminejs/dist/dopamine.cjs",
-            "limit": "16 KB",
+            "limit": "16.75 KB",
             "name": "dopaminejs (CJS)"
         },
         {
             "path": "packages/dopaminejs/dist/dopamine.global.js",
-            "limit": "16.5 KB",
+            "limit": "16.75 KB",
             "name": "dopaminejs (script tag)"
         },
         {
             "path": "packages/dopaminejs/dist/core.js",
             "import": "*",
-            "limit": "6.5 KB",
+            "limit": "7.25 KB",
             "name": "dopaminejs/core (ESM)"
         },
         {
