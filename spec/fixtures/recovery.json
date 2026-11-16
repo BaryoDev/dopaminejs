@@ -1222,6 +1222,557 @@
                     }
                 }
             ]
+        },
+        {
+            "name": "a failed re-init after a good one does not count the loaded player as progress",
+            "clock": "2026-08-07T09:00:00",
+            "config": {
+                "builtinAchievements": false
+            },
+            "note": "The first init read this device's 100 XP and 2 games from storage and addXP(10) saved. The re-init cannot read, then storage heals. The recovery adds only the 1 XP earned since, not the loaded player again.",
+            "device": "dev-a",
+            "savedJson": {
+                "v": 3,
+                "name": "Ana",
+                "createdAt": 1000000,
+                "lastPlayedAt": 1000000,
+                "level": 1,
+                "longest": 0,
+                "playDates": [],
+                "xpBy": {
+                    "dev-a": 100
+                },
+                "xpSpentBy": {},
+                "gamesBy": {
+                    "dev-a": 2
+                },
+                "playsBy": {},
+                "best": {},
+                "sumsBy": {},
+                "achievements": {}
+            },
+            "steps": [
+                {
+                    "op": "addXP",
+                    "amount": 10,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 110
+                        }
+                    }
+                },
+                {
+                    "op": "failReads",
+                    "count": 1
+                },
+                {
+                    "op": "init",
+                    "expect": {
+                        "player": {
+                            "xp": 110
+                        },
+                        "events": [
+                            {
+                                "event": "load_failed",
+                                "key": "player",
+                                "reason": "read"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "op": "setClock",
+                    "at": "2026-08-07T09:01:00"
+                },
+                {
+                    "op": "addXP",
+                    "amount": 1,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 111,
+                            "gamesBy.dev-a": 2
+                        },
+                        "events": [
+                            {
+                                "event": "load_recovered",
+                                "key": "player"
+                            },
+                            {
+                                "event": "xp_gained",
+                                "amount": 1
+                            }
+                        ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 111
+                        },
+                        "docExact": {
+                            "xpBy.dev-a": 111,
+                            "gamesBy.dev-a": 2
+                        },
+                        "events": []
+                    }
+                }
+            ]
+        },
+        {
+            "name": "an empty import and an import of another device while the device id is unknown still recover",
+            "clock": "2026-08-07T09:00:00",
+            "config": {
+                "builtinAchievements": false
+            },
+            "note": "The device id cannot be read at init, so the session has a temporary one. The retry finds the stored id and moves the session under it. An import that carries nothing of that id does not block it.",
+            "afterInit": {
+                "player": {
+                    "xp": 0
+                }
+            },
+            "steps": [
+                {
+                    "op": "addXP",
+                    "amount": 45,
+                    "expect": {
+                        "player": {
+                            "xp": 45
+                        }
+                    }
+                },
+                {
+                    "op": "import",
+                    "doc": {
+                        "v": 3
+                    },
+                    "silent": true,
+                    "expect": {
+                        "player": {
+                            "xp": 45
+                        }
+                    }
+                },
+                {
+                    "op": "import",
+                    "doc": {
+                        "v": 3,
+                        "name": "Ana",
+                        "createdAt": 1000000,
+                        "lastPlayedAt": 1000000,
+                        "level": 1,
+                        "longest": 0,
+                        "playDates": [],
+                        "xpBy": {
+                            "dev-other": 7
+                        },
+                        "xpSpentBy": {},
+                        "gamesBy": {},
+                        "playsBy": {},
+                        "best": {},
+                        "sumsBy": {},
+                        "achievements": {}
+                    },
+                    "silent": true,
+                    "expect": {
+                        "player": {
+                            "xp": 52
+                        }
+                    }
+                },
+                {
+                    "op": "setClock",
+                    "at": "2026-08-07T09:01:00"
+                },
+                {
+                    "op": "addXP",
+                    "amount": 1,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-real": 146,
+                            "xpBy.dev-other": 7
+                        },
+                        "events": [
+                            {
+                                "event": "load_recovered",
+                                "key": "player"
+                            },
+                            {
+                                "event": "xp_gained",
+                                "amount": 1
+                            }
+                        ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 153
+                        },
+                        "docExact": {
+                            "xpBy.dev-real": 146,
+                            "xpBy.dev-other": 7
+                        },
+                        "events": []
+                    }
+                }
+            ],
+            "device": "dev-real",
+            "storage": {
+                "failReads": 1,
+                "failDeviceReads": 1
+            },
+            "savedJson": {
+                "v": 3,
+                "name": "Ana",
+                "createdAt": 1000000,
+                "lastPlayedAt": 1000000,
+                "level": 1,
+                "longest": 0,
+                "playDates": [],
+                "xpBy": {
+                    "dev-real": 100
+                },
+                "xpSpentBy": {},
+                "gamesBy": {},
+                "playsBy": {},
+                "best": {},
+                "sumsBy": {},
+                "achievements": {}
+            }
+        },
+        {
+            "name": "an import of the stored device id while the id is unknown keeps saves blocked",
+            "clock": "2026-08-07T09:00:00",
+            "config": {
+                "builtinAchievements": false
+            },
+            "note": "The import carries entries under the id that the retry finds, and they cannot be told from progress made here. The retry fails closed: nothing is saved and no event fires. init() or reset() ends it, and the session is lost.",
+            "afterInit": {
+                "player": {
+                    "xp": 0
+                }
+            },
+            "steps": [
+                {
+                    "op": "addXP",
+                    "amount": 45,
+                    "expect": {
+                        "player": {
+                            "xp": 45
+                        }
+                    }
+                },
+                {
+                    "op": "import",
+                    "doc": {
+                        "v": 3,
+                        "name": "Ana",
+                        "createdAt": 1000000,
+                        "lastPlayedAt": 1000000,
+                        "level": 1,
+                        "longest": 0,
+                        "playDates": [],
+                        "xpBy": {
+                            "dev-real": 100
+                        },
+                        "xpSpentBy": {},
+                        "gamesBy": {},
+                        "playsBy": {},
+                        "best": {},
+                        "sumsBy": {},
+                        "achievements": {}
+                    },
+                    "silent": true,
+                    "expect": {
+                        "player": {
+                            "xp": 145
+                        }
+                    }
+                },
+                {
+                    "op": "setClock",
+                    "at": "2026-08-07T09:01:00"
+                },
+                {
+                    "op": "addXP",
+                    "amount": 1,
+                    "expect": {
+                        "player": {
+                            "xp": 146
+                        },
+                        "events": [
+                            {
+                                "event": "xp_gained",
+                                "amount": 1
+                            }
+                        ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 100
+                        },
+                        "docExact": {
+                            "xpBy.dev-real": 100
+                        },
+                        "events": []
+                    }
+                }
+            ],
+            "device": "dev-real",
+            "storage": {
+                "failReads": 1,
+                "failDeviceReads": 1
+            },
+            "savedJson": {
+                "v": 3,
+                "name": "Ana",
+                "createdAt": 1000000,
+                "lastPlayedAt": 1000000,
+                "level": 1,
+                "longest": 0,
+                "playDates": [],
+                "xpBy": {
+                    "dev-real": 100
+                },
+                "xpSpentBy": {},
+                "gamesBy": {},
+                "playsBy": {},
+                "best": {},
+                "sumsBy": {},
+                "achievements": {}
+            }
+        },
+        {
+            "name": "importing the session's own export while blocked does not count it twice",
+            "clock": "2026-08-07T09:00:00",
+            "config": {
+                "builtinAchievements": false
+            },
+            "note": "The export holds the 50 XP earned this session. Importing it again adds nothing, so the recovery stores 100 + 50 + 1.",
+            "device": "dev-a",
+            "storage": {
+                "failReads": 1
+            },
+            "savedJson": {
+                "v": 3,
+                "name": "Ana",
+                "createdAt": 1000000,
+                "lastPlayedAt": 1000000,
+                "level": 1,
+                "longest": 0,
+                "playDates": [],
+                "xpBy": {
+                    "dev-a": 100
+                },
+                "xpSpentBy": {},
+                "gamesBy": {},
+                "playsBy": {},
+                "best": {},
+                "sumsBy": {},
+                "achievements": {}
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 0
+                }
+            },
+            "steps": [
+                {
+                    "op": "addXP",
+                    "amount": 50,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 50
+                        }
+                    }
+                },
+                {
+                    "op": "export",
+                    "as": "mine",
+                    "expect": {
+                        "player": {
+                            "xp": 50
+                        }
+                    }
+                },
+                {
+                    "op": "import",
+                    "from": "mine",
+                    "silent": true,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 50
+                        }
+                    }
+                },
+                {
+                    "op": "setClock",
+                    "at": "2026-08-07T09:01:00"
+                },
+                {
+                    "op": "addXP",
+                    "amount": 1,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 151
+                        },
+                        "events": [
+                            {
+                                "event": "load_recovered",
+                                "key": "player"
+                            },
+                            {
+                                "event": "xp_gained",
+                                "amount": 1
+                            }
+                        ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 151
+                        },
+                        "docExact": {
+                            "xpBy.dev-a": 151
+                        },
+                        "events": []
+                    }
+                }
+            ]
+        },
+        {
+            "name": "importing an export taken after a backup import and a gain does not count either twice",
+            "clock": "2026-08-07T09:00:00",
+            "config": {
+                "builtinAchievements": false
+            },
+            "note": "A backup of 100 is imported, 10 XP is earned, and the export (110) is imported back. The recovery stores 100 + 10 + 1.",
+            "device": "dev-a",
+            "storage": {
+                "failReads": 1
+            },
+            "savedJson": {
+                "v": 3,
+                "name": "Ana",
+                "createdAt": 1000000,
+                "lastPlayedAt": 1000000,
+                "level": 1,
+                "longest": 0,
+                "playDates": [],
+                "xpBy": {
+                    "dev-a": 100
+                },
+                "xpSpentBy": {},
+                "gamesBy": {},
+                "playsBy": {},
+                "best": {},
+                "sumsBy": {},
+                "achievements": {}
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 0
+                }
+            },
+            "steps": [
+                {
+                    "op": "import",
+                    "doc": {
+                        "v": 3,
+                        "name": "Ana",
+                        "createdAt": 1000000,
+                        "lastPlayedAt": 1000000,
+                        "level": 1,
+                        "longest": 0,
+                        "playDates": [],
+                        "xpBy": {
+                            "dev-a": 100
+                        },
+                        "xpSpentBy": {},
+                        "gamesBy": {},
+                        "playsBy": {},
+                        "best": {},
+                        "sumsBy": {},
+                        "achievements": {}
+                    },
+                    "silent": true,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 100
+                        }
+                    }
+                },
+                {
+                    "op": "addXP",
+                    "amount": 10,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 110
+                        }
+                    }
+                },
+                {
+                    "op": "export",
+                    "as": "later",
+                    "expect": {
+                        "player": {
+                            "xp": 110
+                        }
+                    }
+                },
+                {
+                    "op": "import",
+                    "from": "later",
+                    "silent": true,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 110
+                        }
+                    }
+                },
+                {
+                    "op": "setClock",
+                    "at": "2026-08-07T09:01:00"
+                },
+                {
+                    "op": "addXP",
+                    "amount": 1,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 111
+                        },
+                        "events": [
+                            {
+                                "event": "load_recovered",
+                                "key": "player"
+                            },
+                            {
+                                "event": "xp_gained",
+                                "amount": 1
+                            }
+                        ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 111
+                        },
+                        "docExact": {
+                            "xpBy.dev-a": 111
+                        },
+                        "events": []
+                    }
+                }
+            ]
         }
     ]
 }

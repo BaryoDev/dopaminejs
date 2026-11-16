@@ -450,6 +450,195 @@ describe('RewardSystem after a failed read, once storage reads again', () => {
         expect(result).toEqual({ leveledUp: true, newLevel: 2, xpGained: 10 });
     });
 
+    const hiddenDevice = () => {
+        const storage = flakyStorage();
+        storage.setItem(DEVICE, JSON.stringify('dev-real'));
+        storage.setItem(KEY, JSON.stringify({ v: 3, xpBy: { 'dev-real': 100 } }));
+        const read = storage.getItem;
+        const state = { failDevice: true };
+        storage.getItem = (key) => {
+            if (key === DEVICE && state.failDevice) throw new Error('offline');
+            return read(key);
+        };
+        return { storage, state };
+    };
+
+    it('does not count a player loaded by a good init as new progress after a failed re-init', async () => {
+        const storage = createMemoryStorage();
+        storage.setItem(DEVICE, JSON.stringify('dev-a'));
+        storage.setItem(KEY, JSON.stringify(ownBackup()));
+        const read = storage.getItem.bind(storage);
+        let broken = false;
+        storage.getItem = (key) => {
+            if (key === KEY && broken) throw new Error('offline');
+            return read(key);
+        };
+        const { rewards, clock } = make(storage);
+        await rewards.init();
+        await rewards.addXP(10);
+        broken = true;
+        await rewards.init();
+        expect(rewards.loadFailed).toBe(true);
+        broken = false;
+
+        clock.advance(30000);
+        await rewards.addXP(1);
+
+        const doc = JSON.parse(storage.getItem(KEY));
+        expect(doc.xpBy['dev-a']).toBe(111);
+        expect(doc.gamesBy['dev-a']).toBe(2);
+    });
+
+    it('forgets an import when init() reads the saved player, so a later failed re-init starts clean', async () => {
+        const { storage } = withOwnSave();
+        const { rewards, clock } = make(storage);
+        await rewards.init();
+        const big = ownBackup();
+        big.xpBy['dev-a'] = 500;
+        await rewards.import(big, { silent: true });
+        await rewards.init();
+        expect(rewards.loadFailed).toBe(false);
+
+        const read = storage.getItem;
+        storage.getItem = (key) => {
+            if (key === KEY) throw new Error('offline');
+            return read(key);
+        };
+        await rewards.init();
+        await rewards.addXP(5);
+        storage.getItem = read;
+        const other = ownBackup();
+        other.xpBy['dev-a'] = 150;
+        storage.setItem(KEY, JSON.stringify(other));
+
+        clock.advance(30000);
+        await rewards.addXP(1);
+
+        expect(JSON.parse(storage.getItem(KEY)).xpBy['dev-a']).toBe(156);
+    });
+
+    it('recovers when an empty import or an import of another device was made while the device id was unknown', async () => {
+        const { storage, state } = hiddenDevice();
+        const { rewards, clock } = make(storage);
+        await rewards.init();
+        await rewards.addXP(45);
+        await rewards.import({ v: 3 }, { silent: true });
+        await rewards.import({ v: 3, xpBy: { 'dev-other': 7 } }, { silent: true });
+        state.failDevice = false;
+
+        clock.advance(30000);
+        await rewards.addXP(1);
+
+        expect(rewards.loadFailed).toBe(false);
+        const doc = JSON.parse(storage.getItem(KEY));
+        expect(doc.xpBy['dev-real']).toBe(146);
+        expect(doc.xpBy['dev-other']).toBe(7);
+    });
+
+    it('does not count the session twice when its own export is imported while blocked', async () => {
+        const { storage } = withOwnSave();
+        const { rewards, clock } = make(storage);
+        await rewards.init();
+        await rewards.addXP(50);
+        await rewards.import(rewards.export(), { silent: true });
+
+        clock.advance(30000);
+        await rewards.addXP(1);
+
+        expect(JSON.parse(storage.getItem(KEY)).xpBy['dev-a']).toBe(151);
+    });
+
+    it('does not count a re-imported export taken after a backup import and a gain', async () => {
+        const { storage } = withOwnSave();
+        const { rewards, clock } = make(storage);
+        await rewards.init();
+        await rewards.import(ownBackup(), { silent: true });
+        await rewards.addXP(10);
+        await rewards.import(rewards.export(), { silent: true });
+
+        clock.advance(30000);
+        await rewards.addXP(1);
+
+        expect(JSON.parse(storage.getItem(KEY)).xpBy['dev-a']).toBe(111);
+    });
+
+    it('forgets an import on reset({ overwrite: false }), so what is earned after it is added', async () => {
+        const { storage } = withOwnSave();
+        const { rewards, clock } = make(storage);
+        await rewards.init();
+        await rewards.import(ownBackup(), { silent: true });
+        await rewards.reset({ overwrite: false });
+
+        clock.advance(30000);
+        await rewards.addXP(6);
+
+        expect(JSON.parse(storage.getItem(KEY)).xpBy['dev-a']).toBe(106);
+    });
+
+    it('forgets an import on a full reset, so a later failed init does not drop what is earned after it', async () => {
+        const { storage } = withOwnSave();
+        try { storage.getItem(KEY); } catch { /* use up the one failed read */ }
+        const { rewards, clock } = make(storage);
+        const read = storage.getItem;
+        storage.getItem = (key) => {
+            if (key === KEY) throw new Error('offline');
+            return read(key);
+        };
+        await rewards.init();
+        await rewards.import(ownBackup(), { silent: true });
+        await rewards.reset();
+        const other = ownBackup();
+        other.xpBy['dev-a'] = 50;
+        storage.setItem(KEY, JSON.stringify(other));
+        await rewards.init();
+        await rewards.addXP(5);
+        storage.getItem = read;
+
+        clock.advance(30000);
+        await rewards.addXP(1);
+
+        expect(JSON.parse(storage.getItem(KEY)).xpBy['dev-a']).toBe(56);
+    });
+
+    it('does not announce a level the saved player already had, even above its XP curve', async () => {
+        const storage = flakyStorage();
+        storage.setItem(KEY, JSON.stringify({ name: 'Ana', xp: 100, level: 10 }));
+        const { rewards, clock } = make(storage);
+        const events = [];
+        rewards.on('level_up', (payload) => events.push(payload));
+        await rewards.init();
+
+        clock.advance(30000);
+        const result = await rewards.addXP(5);
+
+        expect(result.leveledUp).toBe(false);
+        expect(events).toEqual([]);
+    });
+
+    it('recovers after init() took over a retry that never settled', async () => {
+        const storage = flakyStorage();
+        const { rewards, clock } = make(storage);
+        await rewards.init();
+        const read = storage.getItem;
+        let mode = 'hang';
+        storage.getItem = (key) => {
+            if (key !== KEY || mode === 'ok') return read(key);
+            if (mode === 'hang') { mode = 'throw'; return new Promise(() => {}); }
+            throw new Error('offline');
+        };
+        clock.advance(30000);
+        rewards.addXP(1);
+        await settle();
+        await rewards.init();
+        expect(rewards.loadFailed).toBe(true);
+        mode = 'ok';
+
+        clock.advance(30000);
+        await rewards.addXP(2);
+
+        expect(rewards.loadFailed).toBe(false);
+    });
+
     it('does not make other callers wait on a retry that never settles', async () => {
         const storage = flakyStorage();
         const setItem = vi.spyOn(storage, 'setItem');

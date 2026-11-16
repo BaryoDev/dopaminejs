@@ -21,13 +21,15 @@ const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key
 const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const CASE_KEYS = ['name', 'note', 'config', 'clock', 'device', 'savedJson', 'savedRaw', 'afterInit', 'steps', 'storage'];
-const STORAGE_OPTION_KEYS = ['failWrites', 'failReads'];
+const STORAGE_OPTION_KEYS = ['failWrites', 'failReads', 'failDeviceReads'];
 const CONFIG_KEYS = ['builtinAchievements', 'achievements', 'streakDays', 'loadRetryMs'];
 const ACHIEVEMENT_KEYS = ['name', 'description', 'icon', 'xp', 'when'];
 const EXPECT_KEYS = ['player', 'playerExact', 'doc', 'docExact', 'docAbsent', 'absent', 'achievements', 'events', 'returns', 'returnsExact', 'same', 'throws', 'code'];
 const OPS = {
     setClock: ['at'],
     reload: ['device'],
+    init: [],
+    failReads: ['count'],
     addXP: ['amount', 'reason'],
     record: ['activity', 'result'],
     unlockAchievement: ['id'],
@@ -142,6 +144,10 @@ function runCase(testCase) {
         if (failReads !== undefined && !(Number.isInteger(failReads) && failReads > 0)) {
             throw new Error('storage.failReads must be a whole number above 0');
         }
+        const failDeviceReads = testCase.storage?.failDeviceReads;
+        if (failDeviceReads !== undefined && !(Number.isInteger(failDeviceReads) && failDeviceReads > 0)) {
+            throw new Error('storage.failDeviceReads must be a whole number above 0');
+        }
         const loadRetryMs = testCase.config?.loadRetryMs;
         if (loadRetryMs !== undefined && !(typeof loadRetryMs === 'number' && loadRetryMs >= 0)) {
             throw new Error('config.loadRetryMs must be a number of 0 or more');
@@ -180,16 +186,19 @@ function runCase(testCase) {
             }
             // The first N reads of the player throw. The counter lives as long as the
             // case, so a reload reads normally once it is used up.
-            let failedReads = 0;
-            if (failReads) {
-                storage.getItem = (key) => {
-                    if (key === STORAGE_KEY && failedReads < failReads) {
-                        failedReads++;
-                        throw new Error('storage read blocked');
-                    }
-                    return memory.getItem(key);
-                };
-            }
+            let playerFails = failReads || 0;
+            let deviceFails = failDeviceReads || 0;
+            storage.getItem = (key) => {
+                if (key === STORAGE_KEY && playerFails > 0) {
+                    playerFails--;
+                    throw new Error('storage read blocked');
+                }
+                if (key === DEVICE_KEY && deviceFails > 0) {
+                    deviceFails--;
+                    throw new Error('storage read blocked');
+                }
+                return memory.getItem(key);
+            };
 
             let events = [];
             let rewards;
@@ -287,7 +296,7 @@ function runCase(testCase) {
                     const given = step.op === 'merge' ? ['a', 'b'] : [step.op === 'import' && hasOwn(step, 'from') ? 'from' : 'doc'];
                     for (const key of given) if (!hasOwn(step, key)) throw new Error(`${label}: ${key} is required`);
                 }
-                if (step.op !== 'setClock' && !step.expect) throw new Error(`${label}: expect is required`);
+                if (step.op !== 'setClock' && step.op !== 'failReads' && !step.expect) throw new Error(`${label}: expect is required`);
 
                 if (step.op === 'setClock' && !CLOCK.test(step.at || '')) throw new Error(`${label}: at must be YYYY-MM-DDTHH:MM:SS local time`);
 
@@ -303,6 +312,13 @@ function runCase(testCase) {
                         case 'reload':
                             if (step.device !== undefined) memory.setItem(DEVICE_KEY, JSON.stringify(step.device));
                             await start();
+                            break;
+                        case 'init':
+                            await rewards.init();
+                            break;
+                        case 'failReads':
+                            if (!(Number.isInteger(step.count) && step.count > 0)) throw new Error(`${label}: count must be a whole number above 0`);
+                            playerFails = step.count;
                             break;
                         case 'addXP':
                             returned = await rewards.addXP(step.amount, step.reason);

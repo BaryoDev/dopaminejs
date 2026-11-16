@@ -12,7 +12,7 @@ import { systemClock } from './clock.js';
 import { levelFor, thresholdFor } from './levels.js';
 import { BUILTIN_REWARDS, builtinAchievements, rewardsOf } from './achievements.js';
 import { Middleware } from './middleware.js';
-import { merge, mergeSession, rekey, ownCounters, raiseOwn } from './merge.js';
+import { merge, mergeSession, rekey, ownCounters, raiseOwn, countedDevices } from './merge.js';
 import { currentStreak, longestRun, trimDays } from './streaks.js';
 import {
     LEGACY, MAX_DEVICES, cap, checkDevices, deviceIds, emptyDoc, validate, view, xpOf, levelOf, clone, freeze, isSafeKey, hasOwn, isRecord
@@ -86,8 +86,7 @@ export class RewardSystem extends EventEmitter {
 
         // What imports put into this device's counters while the read is
         // blocked. It is not progress made here, so a recovery does not add it.
-        this._imported = false;
-        this._base = new Map();
+        this._forgetImports();
         this._recoveries = 0;
     }
 
@@ -135,11 +134,15 @@ export class RewardSystem extends EventEmitter {
      * @returns {Promise<Object>} Frozen snapshot of the player
      */
     async init() {
+        const synced = this._doc && !this._loadFailed;
         const saved = await this._readSaved();
         // A failed retry keeps the progress made since the first init.
         if (!(this._loadFailed && this._doc)) {
             this._doc = this._load(saved);
             this._forgetImports();
+        } else if (synced) {
+            // That player came from storage, so what it holds is not new progress.
+            ownCounters(this._doc, this._deviceId).forEach((value, path) => this._base.set(path, Math.max(this._base.get(path) ?? 0, value)));
         }
         await this._readDevice();
         await this.save();
@@ -217,8 +220,9 @@ export class RewardSystem extends EventEmitter {
         // init() or reset() ran meanwhile and owns the state now.
         if (epoch !== this._epoch || !this._loadFailed) return false;
         // An import may have put entries under the stored device id before it
-        // was known, and they cannot be told from progress made here.
-        if (adopt && this._imported) return false;
+        // was known, and they cannot be told from progress made here. Imports
+        // of nothing, or of other devices, do not matter.
+        if (this._imported.has(adopt)) return false;
 
         // No await from here to the assignment, so the session player is
         // merged as it stands, including any XP added while the read was out.
@@ -249,7 +253,7 @@ export class RewardSystem extends EventEmitter {
     }
 
     _forgetImports() {
-        this._imported = false;
+        this._imported = new Set();
         this._base = new Map();
     }
 
@@ -361,13 +365,14 @@ export class RewardSystem extends EventEmitter {
             // as a baseline so a recovery adds only what the session earned on top.
             base = new Map(this._base);
             const raise = new Map();
-            for (const [path, value] of ownCounters(incoming, this._deviceId)) {
-                const known = base.get(path) ?? 0;
-                if (value > known) {
-                    raise.set(path, value - known);
+            const have = ownCounters(this._doc, this._deviceId);
+            ownCounters(incoming, this._deviceId).forEach((value, path) => {
+                // At or below what the session holds, it is the session's own export or older.
+                if (value > (have.get(path) ?? 0)) {
+                    raise.set(path, value - (base.get(path) ?? 0));
                     base.set(path, value);
                 }
-            }
+            });
             session = clone(this._doc);
             raiseOwn(session, this._deviceId, raise);
         }
@@ -376,7 +381,7 @@ export class RewardSystem extends EventEmitter {
         this._doc = merged;
         if (base) {
             this._base = base;
-            this._imported = true;
+            countedDevices(incoming).forEach((id) => this._imported.add(id));
         }
 
         const after = this.snapshot();

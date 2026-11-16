@@ -29,7 +29,7 @@ caught up goes red.
 | `clock` | Required. Start time, local `YYYY-MM-DDTHH:MM:SS`. No offset. |
 | `config` | Optional. See below. |
 | `device` | Optional. A device id stored before `init`, so the document has known keys. Without it a random id is made. |
-| `storage` | Optional. `{ "failWrites": true }` makes every storage write throw, to exercise `save_failed`. `{ "failReads": N }` makes the first N reads of the player throw, to exercise `load_failed` with reason `read` and the retry. The count lasts for the whole case, so a `reload` reads normally once it is used up. Writes and other reads work, and `savedJson`/`savedRaw` are seeded first. |
+| `storage` | Optional. `{ "failWrites": true }` makes every storage write throw, to exercise `save_failed`. `{ "failReads": N }` makes the first N reads of the player throw, to exercise `load_failed` with reason `read` and the retry. `{ "failDeviceReads": N }` does the same for the first N reads of the device id. The count lasts for the whole case, so a `reload` reads normally once it is used up. Writes and other reads work, and `savedJson`/`savedRaw` are seeded first. |
 | `savedJson` | Optional. Any JSON value, stored as `JSON.stringify(value)`. |
 | `savedRaw` | Optional. A string stored as is, for corrupt data. |
 | `afterInit` | Optional. Expectation checked after the first `init`. |
@@ -95,6 +95,8 @@ except for `setClock`, where it is accepted and checked if present.
 | op | args | Does |
 |---|---|---|
 | `setClock` | `at` | Moves the clock. |
+| `init` | none | Calls `init` again on the same reward system, like a retry after a failed read. |
+| `failReads` | `count` | The next `count` reads of the player throw. No `expect`. |
 | `reload` | `device?` | Builds a new reward system on the same storage and runs `init`, like a page load. `device` stores a new device id first, as a second device sharing the save. |
 | `addXP` | `amount`, `reason?` | `addXP(amount, reason)`. |
 | `record` | `activity`, `result?` | `record(activity, result)`. A missing `result` means the default. `null` is passed as `null`. Returns `true`. |
@@ -243,17 +245,23 @@ that lands while the read is in flight returns at once, writes nothing and
 starts no other read. A read that never settles therefore stalls only the call
 that started it. The session is merged as it stands when the read returns.
 
-An `import` of this device's own backup while the read is failed counts as
-known progress, not a gain. The core remembers the imported counters as a
-baseline, so after a retry each of this device's counters is
+An `import` while the read is failed counts as known progress, not a gain, for
+this device's counters. The core remembers the imported counters as a baseline,
+so after a retry each of this device's counters is
 `max(saved, imported) + (session - imported)`. A backup of this device that is
-ahead of the saved player is kept, and the backup is never added twice. If the
-device id is only found at the retry and an import happened while blocked, the
-core cannot tell the imported entries from new gains, so the retry fails closed:
-nothing is saved and the session stays blocked until `init()` or `reset()`.
+ahead of the saved player is kept, and the backup is never added twice. An
+import at or below what the session already holds for a counter changes nothing,
+so importing the session's own `export()` does not count it twice. An `init()`
+that fails after one that worked treats the player it loaded as the baseline,
+because that progress is already stored. If the device id is only found at the
+retry and an import carried entries under that stored id, the core cannot tell
+them from new gains, so the retry fails closed: nothing is saved and the
+session stays blocked until `init()` or `reset()` (which drop the session's
+gains). An import of nothing, or of other devices only, does not block it.
+`init()` that reads, `reset()` and a recovery forget the baseline.
 
 The `xp_gained` event and the return value of the `addXP` that recovers describe
-the merged player: `total`, `newLevel` and `leveledUp` come from it, and
+the merged player when the call is a direct `addXP` (`record` reports its batch total as before): `total`, `newLevel` and `leveledUp` come from it, and
 `level_up` fires only when this gain raises the merged level, compared with the merged player before the gain. A player who was already at that level gets no `level_up`.
 
 `init()` called again behaves as before: it reads, and on success replaces the

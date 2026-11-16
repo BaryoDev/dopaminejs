@@ -102,6 +102,15 @@ function counterMaps(doc) {
     return maps;
 }
 
+/** The device ids that hold a counter above zero. */
+export function countedDevices(doc) {
+    const ids = new Set();
+    for (const map of counterMaps(doc).values()) {
+        for (const id in map) if (map[id] > 0) ids.add(id);
+    }
+    return ids;
+}
+
 /** This device's counters in a document, by path. */
 export function ownCounters(doc, device) {
     const out = new Map();
