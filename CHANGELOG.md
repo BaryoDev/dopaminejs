@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ## [3.5.0] - 2026-11-16
 
-Published with this release: `dopaminejs` 3.5.0. The wrappers and plugins did not change.
+Published with this release: `dopaminejs` 3.5.0 and `dopaminejs-react` 2.2.0, which clears `loadFailed` on `load_recovered`. The Vue binding gets the same change and stays private. The plugins did not change.
 
 ### Added
 
