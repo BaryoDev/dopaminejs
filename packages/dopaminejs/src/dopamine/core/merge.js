@@ -41,12 +41,14 @@ const stable = (value) => {
 };
 
 // A field the core does not know has no rule to join by. One side only: kept.
-// Both: the one with the larger text, the same in any order.
+// Both: the larger number, else the larger text, the same in any order.
+const larger = (a, b) => (Number.isFinite(a) && Number.isFinite(b) && a !== b ? a > b : stable(a) >= stable(b)) ? a : b;
+
 function joinExtras(x, y, doc) {
     for (const key of new Set([...extraKeys(x), ...extraKeys(y)])) {
         const a = hasOwn(x, key) ? x[key] : undefined;
         const b = hasOwn(y, key) ? y[key] : undefined;
-        doc[key] = a === undefined ? b : b === undefined ? a : stable(a) >= stable(b) ? a : b;
+        doc[key] = a === undefined ? b : b === undefined ? a : larger(a, b);
     }
 }
 
