@@ -1773,6 +1773,89 @@
                     }
                 }
             ]
+        },
+        {
+            "name": "a stored id found at the retry stays blocked when the session already holds its entries",
+            "clock": "2026-08-07T09:00:00",
+            "config": {
+                "builtinAchievements": false
+            },
+            "note": "The player reads at init but the device id does not, and the device id cannot be saved, so the session uses a temp id while its player already holds the real id's 100 XP. A failed re-init and 5 XP follow. The retry finds the real id. Moving the session under it would count the 100 twice (200), so the retry fails closed: nothing is saved, no event, and the stored 100 stays.",
+            "device": "dev-real",
+            "storage": {
+                "failDeviceReads": 1,
+                "failDeviceWrites": true
+            },
+            "savedJson": {
+                "v": 3,
+                "name": "Ana",
+                "createdAt": 1000000,
+                "lastPlayedAt": 1000000,
+                "level": 1,
+                "longest": 0,
+                "playDates": [],
+                "xpBy": {
+                    "dev-real": 100
+                },
+                "xpSpentBy": {},
+                "gamesBy": {
+                    "dev-real": 2
+                },
+                "playsBy": {},
+                "best": {},
+                "sumsBy": {},
+                "achievements": {}
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 100
+                }
+            },
+            "steps": [
+                {
+                    "op": "failReads",
+                    "count": 1
+                },
+                {
+                    "op": "init",
+                    "expect": {
+                        "player": {
+                            "xp": 100
+                        }
+                    }
+                },
+                {
+                    "op": "addXP",
+                    "amount": 5,
+                    "expect": {
+                        "player": {
+                            "xp": 105
+                        }
+                    }
+                },
+                {
+                    "op": "setClock",
+                    "at": "2026-08-07T09:01:00"
+                },
+                {
+                    "op": "addXP",
+                    "amount": 1,
+                    "expect": {
+                        "player": {
+                            "xp": 106
+                        },
+                        "docExact": {
+                            "xpBy.dev-real": 100
+                        },
+                        "events": [
+                            {
+                                "event": "xp_gained",
+                                "amount": 1
+                            }
+                        ]
+                    }
+                }
+            ]
         }
     ]
 }

@@ -524,6 +524,7 @@ describe('RewardSystem after a failed read, once storage reads again', () => {
         await rewards.addXP(45);
         await rewards.import({ v: 3 }, { silent: true });
         await rewards.import({ v: 3, xpBy: { 'dev-other': 7 } }, { silent: true });
+        await rewards.import({ v: 3, xpBy: { 'dev-real': 0 } }, { silent: true });
         state.failDevice = false;
 
         clock.advance(30000);
@@ -598,6 +599,120 @@ describe('RewardSystem after a failed read, once storage reads again', () => {
         await rewards.addXP(1);
 
         expect(JSON.parse(storage.getItem(KEY)).xpBy['dev-a']).toBe(56);
+    });
+
+    // A store whose player reads throw while `state.down` is set.
+    const breakable = (storage) => {
+        const read = storage.getItem;
+        const state = { down: false };
+        storage.getItem = (key) => {
+            if (key === KEY && state.down) throw new Error('offline');
+            return read(key);
+        };
+        return state;
+    };
+    const healthy = () => {
+        const storage = createMemoryStorage();
+        storage.setItem(DEVICE, JSON.stringify('dev-a'));
+        storage.setItem(KEY, JSON.stringify(ownBackup()));
+        return storage;
+    };
+
+    it('stays blocked when the stored id found at the retry already has entries in the session', async () => {
+        const storage = healthy();
+        const state = breakable(storage);
+        const getItem = storage.getItem;
+        const setItem = storage.setItem;
+        let deviceUp = false;
+        storage.getItem = (key) => {
+            if (key === DEVICE && !deviceUp) throw new Error('offline');
+            return getItem(key);
+        };
+        storage.setItem = (key, value) => {
+            if (key === DEVICE && !deviceUp) throw new Error('quota');
+            return setItem(key, value);
+        };
+        const { rewards, clock } = make(storage);
+        await rewards.init();
+        state.down = true;
+        await rewards.init();
+        await rewards.addXP(5);
+        state.down = false;
+        deviceUp = true;
+
+        clock.advance(30000);
+        await rewards.addXP(1);
+
+        expect(rewards.loadFailed).toBe(true);
+        expect(JSON.parse(storage.getItem(KEY)).xpBy['dev-a']).toBe(100);
+    });
+
+    it('adds an own backup imported after a re-init baseline on top of the baseline, not on top of the session', async () => {
+        const storage = healthy();
+        const state = breakable(storage);
+        const { rewards, clock } = make(storage);
+        await rewards.init();
+        state.down = true;
+        await rewards.init();
+        await rewards.addXP(5);
+        const backup = ownBackup();
+        backup.xpBy['dev-a'] = 130;
+        await rewards.import(backup, { silent: true });
+        state.down = false;
+
+        clock.advance(30000);
+        await rewards.addXP(1);
+
+        expect(JSON.parse(storage.getItem(KEY)).xpBy['dev-a']).toBe(136);
+    });
+
+    it('does not take a new baseline on a second failed re-init', async () => {
+        const storage = healthy();
+        const state = breakable(storage);
+        const { rewards, clock } = make(storage);
+        await rewards.init();
+        state.down = true;
+        await rewards.init();
+        await rewards.addXP(5);
+        await rewards.init();
+        state.down = false;
+        const other = ownBackup();
+        other.xpBy['dev-a'] = 120;
+        storage.setItem(KEY, JSON.stringify(other));
+
+        clock.advance(30000);
+        await rewards.addXP(1);
+
+        expect(JSON.parse(storage.getItem(KEY)).xpBy['dev-a']).toBe(126);
+    });
+
+    it('keeps what is earned while a re-init read is in flight when another tab saved meanwhile', async () => {
+        const storage = healthy();
+        const read = storage.getItem;
+        let mode = 'ok';
+        let fail;
+        storage.getItem = (key) => {
+            if (key === KEY && mode === 'hang') return new Promise((_, reject) => { fail = reject; });
+            if (key === KEY && mode === 'down') throw new Error('offline');
+            return read(key);
+        };
+        const { rewards, clock } = make(storage);
+        await rewards.init();
+        mode = 'hang';
+        const again = rewards.init();
+        await settle();
+        await rewards.addXP(10);
+        const other = ownBackup();
+        other.xpBy['dev-a'] = 120;
+        storage.setItem(KEY, JSON.stringify(other));
+        fail(new Error('offline'));
+        await again;
+        mode = 'ok';
+
+        clock.advance(30000);
+        await rewards.addXP(1);
+
+        expect(JSON.parse(storage.getItem(KEY)).xpBy['dev-a']).toBe(131);
     });
 
     it('does not announce a level the saved player already had, even above its XP curve', async () => {

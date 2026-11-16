@@ -29,7 +29,7 @@ caught up goes red.
 | `clock` | Required. Start time, local `YYYY-MM-DDTHH:MM:SS`. No offset. |
 | `config` | Optional. See below. |
 | `device` | Optional. A device id stored before `init`, so the document has known keys. Without it a random id is made. |
-| `storage` | Optional. `{ "failWrites": true }` makes every storage write throw, to exercise `save_failed`. `{ "failReads": N }` makes the first N reads of the player throw, to exercise `load_failed` with reason `read` and the retry. `{ "failDeviceReads": N }` does the same for the first N reads of the device id. The count lasts for the whole case, so a `reload` reads normally once it is used up. Writes and other reads work, and `savedJson`/`savedRaw` are seeded first. |
+| `storage` | Optional. `{ "failWrites": true }` makes every storage write throw, to exercise `save_failed`. `{ "failReads": N }` makes the first N reads of the player throw, to exercise `load_failed` with reason `read` and the retry. `{ "failDeviceReads": N }` does the same for the first N reads of the device id, and `{ "failDeviceWrites": true }` makes every write of the device id throw. The count lasts for the whole case, so a `reload` reads normally once it is used up. Writes and other reads work, and `savedJson`/`savedRaw` are seeded first. |
 | `savedJson` | Optional. Any JSON value, stored as `JSON.stringify(value)`. |
 | `savedRaw` | Optional. A string stored as is, for corrupt data. |
 | `afterInit` | Optional. Expectation checked after the first `init`. |
@@ -254,10 +254,15 @@ import at or below what the session already holds for a counter changes nothing,
 so importing the session's own `export()` does not count it twice. An `init()`
 that fails after one that worked treats the player it loaded as the baseline,
 because that progress is already stored. If the device id is only found at the
-retry and an import carried entries under that stored id, the core cannot tell
-them from new gains, so the retry fails closed: nothing is saved and the
-session stays blocked until `init()` or `reset()` (which drop the session's
-gains). An import of nothing, or of other devices only, does not block it.
+retry and the session already holds entries under that stored id (from an
+import, or from a player the session read), the core cannot tell them from new
+gains and moving them would count them twice, so the retry fails closed:
+nothing is saved and the session stays blocked. A session holding no entries
+under the stored id, including one that only imported nothing, zeros or other
+devices, recovers. The way out of a blocked session is `reset({ overwrite: false })`,
+which drops the session and keeps the stored player. `init()` is the other
+way, and it stays blocked if its read fails again. `reset()` with no option
+replaces the stored player with an empty one and keeps no backup.
 `init()` that reads, `reset()` and a recovery forget the baseline.
 
 The `xp_gained` event and the return value of the `addXP` that recovers describe

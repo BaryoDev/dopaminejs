@@ -21,7 +21,7 @@ const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key
 const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const CASE_KEYS = ['name', 'note', 'config', 'clock', 'device', 'savedJson', 'savedRaw', 'afterInit', 'steps', 'storage'];
-const STORAGE_OPTION_KEYS = ['failWrites', 'failReads', 'failDeviceReads'];
+const STORAGE_OPTION_KEYS = ['failWrites', 'failReads', 'failDeviceReads', 'failDeviceWrites'];
 const CONFIG_KEYS = ['builtinAchievements', 'achievements', 'streakDays', 'loadRetryMs'];
 const ACHIEVEMENT_KEYS = ['name', 'description', 'icon', 'xp', 'when'];
 const EXPECT_KEYS = ['player', 'playerExact', 'doc', 'docExact', 'docAbsent', 'absent', 'achievements', 'events', 'returns', 'returnsExact', 'same', 'throws', 'code'];
@@ -183,6 +183,13 @@ function runCase(testCase) {
             const storage = { ...memory };
             if (testCase.storage?.failWrites === true) {
                 storage.setItem = () => { throw new Error('storage write blocked'); };
+            }
+            if (testCase.storage?.failDeviceWrites === true) {
+                const write = storage.setItem;
+                storage.setItem = (key, value) => {
+                    if (key === DEVICE_KEY) throw new Error('storage write blocked');
+                    return write(key, value);
+                };
             }
             // The first N reads of the player throw. The counter lives as long as the
             // case, so a reload reads normally once it is used up.
