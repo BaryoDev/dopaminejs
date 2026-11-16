@@ -204,8 +204,10 @@ describe('provideRewards and useRewards', () => {
         await flush();
         expect(seen.rewards.loadFailed.value).toBe(true);
         storage.getItem = real;
+        expect(on.mock.calls.map(call => call[0])).toContain('load_recovered');
 
-        await on.mock.contexts[0].addXP(5);
+        // save() fires load_recovered only. There is no xp_gained to sync on.
+        await on.mock.contexts[0].save();
         await flush();
 
         expect(seen.rewards.loadFailed.value).toBe(false);

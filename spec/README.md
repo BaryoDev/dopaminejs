@@ -100,7 +100,7 @@ except for `setClock`, where it is accepted and checked if present.
 | `record` | `activity`, `result?` | `record(activity, result)`. A missing `result` means the default. `null` is passed as `null`. Returns `true`. |
 | `unlockAchievement` | `id` | `unlockAchievement(id)`. |
 | `markAchievementsSeen` | `ids` | `markAchievementsSeen(ids)`. |
-| `reset` | `overwrite?` | `reset({ overwrite })`, or `reset()` when `overwrite` is missing. Replaces the player with an empty document, keeps the device id, saves, and returns the new snapshot. Fires `player_reset` after the save. With `overwrite` false and a failed load, nothing is saved: the stored document stays as it was and later writes stay blocked. After a load that worked, `overwrite` false saves like a plain reset. |
+| `reset` | `overwrite?` | `reset({ overwrite })`, or `reset()` when `overwrite` is missing. Replaces the player with an empty document, keeps the device id, saves, and returns the new snapshot. Fires `player_reset` after the save. With `overwrite` false and a failed load, nothing is saved: the stored document stays as it was and a later write may retry the read and merge the new session into whatever it returns. After a load that worked, `overwrite` false saves like a plain reset. |
 | `getXPForNextLevel` | none | Reads `{ total, needed, progress }`. |
 | `export` | `as` | `export()`. Keeps the document under the name `as`. |
 | `import` | `doc` or `from`, `silent?` | `import(doc, { silent })`. `from` names a kept document. Returns the snapshot. Achievement ids with no definition are kept but fire no event. |
@@ -213,7 +213,7 @@ never replaced. Progress made in that session is kept for the real player:
   the last read. Nothing is read on a save that is not blocked.
 - The retry only succeeds when the read works and the value is a player that
   `validate` accepts, or nothing is saved. A value that is not an object, a
-  `v` other than 3, a document that would hold more than 20 devices once merged,
+  `v` other than 3, a value that is not valid JSON, a document that would hold more than 20 devices once merged,
   and a read that fails again all leave saving off and the session as it is. They
   fire no event.
 - On success the session player is merged into the saved one, saved, `loadFailed`
@@ -238,9 +238,23 @@ property. If the device id could not be read at `init`, the retry reads it again
 and moves the session's entries under the stored id, so no second device is made.
 `fixtures/recovery.json` pins these rules.
 
-A retry in flight is shared: a second `addXP` or `record` that lands while it
-reads waits for it and does not start another. The session is merged as it
-stands when the read returns, so both gains are in the one write.
+Only the write that starts a retry waits for it. A second `addXP` or `record`
+that lands while the read is in flight returns at once, writes nothing and
+starts no other read. A read that never settles therefore stalls only the call
+that started it. The session is merged as it stands when the read returns.
+
+An `import` of this device's own backup while the read is failed counts as
+known progress, not a gain. The core remembers the imported counters as a
+baseline, so after a retry each of this device's counters is
+`max(saved, imported) + (session - imported)`. A backup of this device that is
+ahead of the saved player is kept, and the backup is never added twice. If the
+device id is only found at the retry and an import happened while blocked, the
+core cannot tell the imported entries from new gains, so the retry fails closed:
+nothing is saved and the session stays blocked until `init()` or `reset()`.
+
+The `xp_gained` event and the return value of the `addXP` that recovers describe
+the merged player: `total`, `newLevel` and `leveledUp` come from it, and
+`level_up` fires when the merged level is above the level the session had.
 
 `init()` called again behaves as before: it reads, and on success replaces the
 session player with the saved one.

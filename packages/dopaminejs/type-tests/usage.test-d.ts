@@ -68,7 +68,10 @@ const achievements: Record<string, AchievementDefinition> = {
 // Parts, a factory that falls back, and injected storage.
 async function wiredUp(): Promise<void> {
     const data = new DataService({ storage: createMemoryStorage(), prefix: 'game_' });
-    const rewards = new RewardSystem(data, { achievements });
+    const rewards = new RewardSystem(data, { achievements, loadRetryMs: 1000 });
+    const retryMs: number = rewards.loadRetryMs;
+    rewards.on('load_recovered', () => { });
+    void retryMs;
     const host = createDopamine({
         progress: rewards,
         particles: () => null,

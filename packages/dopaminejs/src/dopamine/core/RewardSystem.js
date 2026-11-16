@@ -12,7 +12,7 @@ import { systemClock } from './clock.js';
 import { levelFor, thresholdFor } from './levels.js';
 import { BUILTIN_REWARDS, builtinAchievements, rewardsOf } from './achievements.js';
 import { Middleware } from './middleware.js';
-import { merge, mergeSession, rekey } from './merge.js';
+import { merge, mergeSession, rekey, ownCounters, raiseOwn } from './merge.js';
 import { currentStreak, longestRun, trimDays } from './streaks.js';
 import {
     LEGACY, MAX_DEVICES, cap, checkDevices, deviceIds, emptyDoc, validate, view, xpOf, levelOf, clone, freeze, isSafeKey, hasOwn, isRecord
@@ -83,6 +83,12 @@ export class RewardSystem extends EventEmitter {
         this._reading = false;
         this._recovering = null;
         this._epoch = 0;
+
+        // What imports put into this device's counters while the read is
+        // blocked. It is not progress made here, so a recovery does not add it.
+        this._imported = false;
+        this._base = new Map();
+        this._recoveries = 0;
     }
 
     /**
@@ -131,7 +137,10 @@ export class RewardSystem extends EventEmitter {
     async init() {
         const saved = await this._readSaved();
         // A failed retry keeps the progress made since the first init.
-        if (!(this._loadFailed && this._doc)) this._doc = this._load(saved);
+        if (!(this._loadFailed && this._doc)) {
+            this._doc = this._load(saved);
+            this._forgetImports();
+        }
         await this._readDevice();
         await this.save();
         return this.snapshot();
@@ -149,6 +158,7 @@ export class RewardSystem extends EventEmitter {
         this._loadFailed = true;
         this._reading = true;
         this._epoch++;
+        this._recovering = null;
         this._lastRead = this.clock.now();
         try {
             const saved = await this.dataService.load('player', null, { strict: true });
@@ -177,15 +187,18 @@ export class RewardSystem extends EventEmitter {
      * @private
      */
     _recover() {
-        if (this._recovering) return this._recovering;
-        if (!this._readFailed || this._reading || this.clock.now() - this._lastRead < this.loadRetryMs) {
-            return Promise.resolve(false);
-        }
+        // A retry in flight belongs to the call that started it. Others return
+        // at once, as a blocked save always did, so a read that never settles
+        // stalls only that one call.
+        if (this._recovering || !this._readFailed || this._reading) return Promise.resolve(false);
+        const since = this.clock.now() - this._lastRead;
+        if (since >= 0 && since < this.loadRetryMs) return Promise.resolve(false);
         this._lastRead = this.clock.now();
-        this._recovering = this._retryRead(this._epoch).finally(() => {
-            this._recovering = null;
+        const retry = this._retryRead(this._epoch).finally(() => {
+            if (this._recovering === retry) this._recovering = null;
         });
-        return this._recovering;
+        this._recovering = retry;
+        return retry;
     }
 
     async _retryRead(epoch) {
@@ -203,6 +216,9 @@ export class RewardSystem extends EventEmitter {
         }
         // init() or reset() ran meanwhile and owns the state now.
         if (epoch !== this._epoch || !this._loadFailed) return false;
+        // An import may have put entries under the stored device id before it
+        // was known, and they cannot be told from progress made here.
+        if (adopt && this._imported) return false;
 
         // No await from here to the assignment, so the session player is
         // merged as it stands, including any XP added while the read was out.
@@ -211,7 +227,7 @@ export class RewardSystem extends EventEmitter {
             const options = this._options();
             const device = adopt ?? this._deviceId;
             const session = adopt ? rekey(this._doc, this._deviceId, adopt) : this._doc;
-            merged = saved === null ? clone(session) : mergeSession(saved, session, device, options);
+            merged = saved === null ? clone(session) : mergeSession(saved, session, device, options, this._base);
             checkDevices(merged);
             merged.level = levelOf(merged);
         } catch {
@@ -222,11 +238,18 @@ export class RewardSystem extends EventEmitter {
             this._deviceSaved = true;
         }
         this._doc = merged;
+        this._recoveries++;
         this._loadFailed = false;
         this._readFailed = false;
+        this._forgetImports();
         await this._write();
         this._publish('load_recovered', { key: 'player' });
         return true;
+    }
+
+    _forgetImports() {
+        this._imported = false;
+        this._base = new Map();
     }
 
     /**
@@ -330,9 +353,30 @@ export class RewardSystem extends EventEmitter {
         this._requirePlayer();
         const before = this.snapshot();
         const incoming = validate(doc, this._options());
-        const merged = merge(this._doc, incoming, this._options());
+        let session = this._doc;
+        let base = null;
+        if (this._readFailed) {
+            // This device's counters in the import are not new progress. Count them
+            // as a baseline so a recovery adds only what the session earned on top.
+            base = new Map(this._base);
+            const raise = new Map();
+            for (const [path, value] of ownCounters(incoming, this._deviceId)) {
+                const known = base.get(path) ?? 0;
+                if (value > known) {
+                    raise.set(path, value - known);
+                    base.set(path, value);
+                }
+            }
+            session = clone(this._doc);
+            raiseOwn(session, this._deviceId, raise);
+        }
+        const merged = merge(session, incoming, this._options());
         merged.level = levelOf(merged);
         this._doc = merged;
+        if (base) {
+            this._base = base;
+            this._imported = true;
+        }
 
         const after = this.snapshot();
         await this.save();
@@ -369,8 +413,9 @@ export class RewardSystem extends EventEmitter {
      * Pass `{ overwrite: false }` to keep the stored player when the last
      * init() could not read it (an unsupported newer version, or a read that
      * keeps failing). The player in memory is replaced by a new empty one,
-     * nothing is written, `loadFailed` stays true so later writes stay
-     * blocked, and `player_reset` is still emitted. When the last init() did
+     * nothing is written, `loadFailed` stays true and `player_reset` is still
+     * emitted. A later write may retry the read and, when it returns a
+     * player, merges the new session into it (see `loadRetryMs`). When the last init() did
      * read the saved player, `overwrite: false` changes nothing: it saves
      * like a plain reset(). A corrupt save that init() backed up to `player_corrupt` counts as loaded, so `overwrite: false` saves like a plain reset().
      * If the backup failed, it counts as a failed load and nothing is written.
@@ -393,6 +438,7 @@ export class RewardSystem extends EventEmitter {
         this._requirePlayer();
         if (overwrite === false && this._readFailed) {
             this._doc = emptyDoc(this.clock.now());
+            this._forgetImports();
             this._publish('player_reset', {});
             return this.snapshot();
         }
@@ -400,6 +446,7 @@ export class RewardSystem extends EventEmitter {
             this._doc = emptyDoc(this.clock.now());
             this._loadFailed = false;
             this._readFailed = false;
+            this._forgetImports();
             await this.save();
         });
         this._publish('player_reset', {});
@@ -529,12 +576,20 @@ export class RewardSystem extends EventEmitter {
 
     async _announceXP(oldLevel, amount, reason) {
         const doc = this._doc;
-        const total = xpOf(doc);
-        const newLevel = Math.max(oldLevel, levelFor(total));
-        const leveledUp = newLevel > oldLevel;
+        let total = xpOf(doc);
+        let newLevel = Math.max(oldLevel, levelFor(total));
         if (newLevel > doc.level) doc.level = newLevel;
 
+        const recoveries = this._recoveries;
         await this.save();
+
+        // A save that recovered a failed read replaced the document with the
+        // merged one, so report that, not the session's numbers.
+        if (this._recoveries !== recoveries) {
+            total = xpOf(this._doc);
+            newLevel = Math.max(newLevel, levelOf(this._doc));
+        }
+        const leveledUp = newLevel > oldLevel;
 
         this._publish('xp_gained', { amount, reason, leveledUp, newLevel, total });
         if (leveledUp) {

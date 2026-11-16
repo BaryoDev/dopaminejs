@@ -90,38 +90,69 @@ export function merge(a, b, options) {
     return doc;
 }
 
+// Every counter map of a document by path, as a JSON array of keys.
+function counterMaps(doc) {
+    const maps = new Map([[JSON.stringify(['xpBy']), doc.xpBy], [JSON.stringify(['xpSpentBy']), doc.xpSpentBy], [JSON.stringify(['gamesBy']), doc.gamesBy]]);
+    for (const activity of Object.keys(doc.playsBy)) maps.set(JSON.stringify(['playsBy', activity]), doc.playsBy[activity]);
+    for (const activity of Object.keys(doc.sumsBy)) {
+        for (const key of Object.keys(doc.sumsBy[activity])) {
+            maps.set(JSON.stringify(['sumsBy', activity, key]), doc.sumsBy[activity][key]);
+        }
+    }
+    return maps;
+}
+
+/** This device's counters in a document, by path. */
+export function ownCounters(doc, device) {
+    const out = new Map();
+    for (const [path, map] of counterMaps(doc)) {
+        if (hasOwn(map, device)) out.set(path, map[device]);
+    }
+    return out;
+}
+
+/** Add `by` (a path to amount map) to this device's counters in `doc`, in place. */
+export function raiseOwn(doc, device, by) {
+    for (const [path, amount] of by) {
+        let node = doc;
+        for (const key of JSON.parse(path)) {
+            if (!hasOwn(node, key)) node[key] = {};
+            node = node[key];
+        }
+        node[device] = cap((hasOwn(node, device) ? node[device] : 0) + amount);
+    }
+}
+
 /**
  * Fold a session player into the saved one it could not read earlier. The
  * session started empty, so its counters for this device are new progress and
  * are added, not joined by max. Everything else joins like `merge`. The saved
  * player keeps its name and its unknown fields. Pure.
  *
+ * `base` holds what an import put into this device's session counters (path to
+ * amount, see `ownCounters`). That is not new progress, so it is joined by max
+ * with the saved counter, and only what the session added on top is added.
+ *
  * @param {*} saved the player read from storage
  * @param {*} session the player made since the failed read
  * @param {string} device this device's id
  * @param {{ today?: string, rewards?: Object }} [options] see validate
+ * @param {Map<string, number>} [base]
  */
-export function mergeSession(saved, session, device, options) {
+export function mergeSession(saved, session, device, options, base = new Map()) {
     const x = validate(saved, options);
     const y = validate(session, options);
     const doc = merge(x, y, options);
     doc.name = x.name;
     for (const key of extraKeys(x)) doc[key] = x[key];
 
-    const add = (into, a, b) => {
-        if (hasOwn(b, device)) into[device] = cap((hasOwn(a, device) ? a[device] : 0) + b[device]);
-    };
-    const at = (map, key) => (hasOwn(map, key) ? map[key] : {});
-    add(doc.xpBy, x.xpBy, y.xpBy);
-    add(doc.xpSpentBy, x.xpSpentBy, y.xpSpentBy);
-    add(doc.gamesBy, x.gamesBy, y.gamesBy);
-    for (const activity of Object.keys(y.playsBy)) {
-        add(doc.playsBy[activity], at(x.playsBy, activity), y.playsBy[activity]);
-    }
-    for (const activity of Object.keys(y.sumsBy)) {
-        for (const key of Object.keys(y.sumsBy[activity])) {
-            add(doc.sumsBy[activity][key], at(at(x.sumsBy, activity), key), y.sumsBy[activity][key]);
-        }
+    const mine = counterMaps(doc);
+    const was = counterMaps(x);
+    for (const [path, map] of counterMaps(y)) {
+        if (!hasOwn(map, device)) continue;
+        const imported = Math.min(base.get(path) ?? 0, map[device]);
+        const stored = was.has(path) && hasOwn(was.get(path), device) ? was.get(path)[device] : 0;
+        mine.get(path)[device] = cap(Math.max(stored, imported) + (map[device] - imported));
     }
     return doc;
 }

@@ -208,6 +208,8 @@ export class RewardSystem extends EventEmitter {
      * into the saved player, saves it and fires `load_recovered`.
      */
     readonly loadFailed: boolean;
+    /** Minimum clock time between read retries after a failed read. Default 30000. */
+    readonly loadRetryMs: number;
 
     init(): Promise<Player>;
     /** A frozen copy of the player with the derived values. */
@@ -229,7 +231,9 @@ export class RewardSystem extends EventEmitter {
      *
      * With `{ overwrite: false }` and a failed load, the stored player is kept:
      * the player in memory is replaced by a new empty one, nothing is written,
-     * `loadFailed` stays true and `player_reset` is still emitted. After a load
+     * `loadFailed` stays true and `player_reset` is still emitted. A later write
+     * may retry the read and, when it returns a player, merges the new session
+     * into it (see `loadRetryMs`). After a load
      * that worked, `overwrite: false` behaves like a plain `reset()` and saves.
      * A corrupt save that init() backed up to `player_corrupt` counts as loaded, so `overwrite: false` saves like a plain reset(). If the backup failed, it counts as a failed load and nothing is written.
      * A non-object `options` or a non-boolean `overwrite` throws a `TypeError`.

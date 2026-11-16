@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Progress earned after a failed read is saved once storage reads again. A blocked save retries the read, at most once per `loadRetryMs` (new option, default 30000). When it returns a player, the session is merged into it (this device's XP, games, plays and counters added, achievements and play dates joined, streak from the real last play date), saved, and the new `load_recovered` event fires with `{ key: 'player' }`. `loadFailed` goes back to `false`, and the React and Vue bindings clear it on that event. A read that fails again, or a value that is not a player, saves nothing. Two tabs that both recover each merge their own session once. The rules are in `spec/README.md` and `spec/fixtures/recovery.json`; the fixture format gains `storage.failReads` and the `loadRetryMs` config key. The size-limit budget rises to 16.5 kB for the ESM and CJS bundles and 7 kB for `dopaminejs/core`.
+- Progress earned after a failed read is saved once storage reads again. A blocked save retries the read, at most once per `loadRetryMs` (new option, default 30000). When it returns a player, the session is merged into it (this device's XP, games, plays and counters added, achievements and play dates joined, streak from the real last play date), saved, and the new `load_recovered` event fires with `{ key: 'player' }`. `loadFailed` goes back to `false`, and the React and Vue bindings clear it on that event. A read that fails again, or a value that is not a player, saves nothing. Two tabs that both recover each merge their own session once. The rules are in `spec/README.md` and `spec/fixtures/recovery.json`; the fixture format gains `storage.failReads` and the `loadRetryMs` config key. An `import` of this device's own backup while the read is failed is tracked as a baseline, so recovery does not count it twice. The `xp_gained` event and the return of the `addXP` that recovers report the merged player, and `level_up` fires when the merged level is higher. Only the write that starts a retry waits for it, so a read that never settles does not stall other writes. A clock that moved back no longer blocks retries. The size-limit budget rises to 16.5 kB for the ESM and CJS bundles and 7.25 kB for `dopaminejs/core`.
 
 ### Changed
 
@@ -70,7 +70,7 @@ Published with this release: `dopaminejs` 3.2.0. The wrappers did not change.
 ### Added
 
 - `reset({ overwrite: false })` replaces the player in memory without writing when the last load failed,
-  so the stored player is kept and `loadFailed` stays true. After a load that worked it saves like `reset()`.
+  so the stored player is kept and `loadFailed` stays true. A later write may retry the read and merge the new session into the stored player. After a load that worked it saves like `reset()`.
   A corrupt save that init() backed up to `player_corrupt` counts as loaded, so `overwrite: false` saves like a plain reset(). If the backup failed, it counts as a failed load and nothing is written.
   The `spec/` `reset` op takes `overwrite`.
 - `reset()` now throws a `TypeError` for an argument that is not an options object (before, any argument was ignored),

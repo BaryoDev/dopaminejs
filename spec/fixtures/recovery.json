@@ -12,7 +12,7 @@
             "config": {
                 "builtinAchievements": false
             },
-            "note": "Progress made after the failed read is added to the saved player. This device's counters add, other devices stay, best is the larger, unknown fields stay, the name stays. The reload proves it was saved.",
+            "note": "Progress made after the failed read is added to the saved player. This device's counters add, other devices stay, best is the larger, unknown fields stay, the name stays. The event reports the merged total and the level it crossed. The reload proves it was saved.",
             "savedJson": {
                 "v": 3,
                 "name": "Ana",
@@ -125,7 +125,14 @@
                             },
                             {
                                 "event": "xp_gained",
-                                "amount": 5
+                                "amount": 5,
+                                "total": 151
+                            },
+                            {
+                                "event": "level_up",
+                                "oldLevel": 1,
+                                "newLevel": 2,
+                                "totalXP": 151
                             }
                         ]
                     }
@@ -230,7 +237,7 @@
             "config": {
                 "builtinAchievements": false
             },
-            "note": "The failed read at init counts as the last read. 29 seconds later no retry happens, at 30 seconds one does.",
+            "note": "The failed read at init counts as the last read. 29 seconds later no retry happens, at 30 seconds one does. The reload proves it was saved.",
             "savedJson": {
                 "v": 3,
                 "name": "Ana",
@@ -290,6 +297,15 @@
                                 "amount": 1
                             }
                         ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 12
+                        },
+                        "events": []
                     }
                 }
             ]
@@ -365,6 +381,15 @@
                             }
                         ]
                     }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 12
+                        },
+                        "events": []
+                    }
                 }
             ]
         },
@@ -394,7 +419,7 @@
                     }
                 }
             },
-            "note": "The session unlocks a1 again and a2 for the first time. a1 keeps the saved unlockedAt and reward, seen is true, and its reward is not added a second time.",
+            "note": "The session unlocks a1 again and a2 for the first time. a1 keeps the saved unlockedAt and reward, seen is true, and its reward is not added a second time. The reload proves it was saved.",
             "savedJson": {
                 "v": 3,
                 "name": "Ana",
@@ -455,6 +480,26 @@
                             "xpBy.dev-a": 85
                         }
                     }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 100
+                        },
+                        "docExact": {
+                            "achievements.a1.unlockedAt": 1000000,
+                            "achievements.a1.seen": true,
+                            "achievements.a1.reward": 10,
+                            "achievements.a2.reward": 5,
+                            "xpBy.dev-a": 85
+                        },
+                        "achievements": [
+                            "a1",
+                            "a2"
+                        ],
+                        "events": []
+                    }
                 }
             ]
         },
@@ -468,7 +513,7 @@
             "config": {
                 "builtinAchievements": false
             },
-            "note": "The saved days are 5 and 6 August. Today's visit adds one day.",
+            "note": "The saved days are 5 and 6 August. Today's visit adds one day. The reload proves it was saved.",
             "savedJson": {
                 "v": 3,
                 "name": "Ana",
@@ -517,6 +562,19 @@
                             }
                         ]
                     }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "streak": {
+                                "current": 3,
+                                "longest": 3,
+                                "lastPlayDate": "2026-08-07"
+                            }
+                        },
+                        "events": []
+                    }
                 }
             ]
         },
@@ -530,7 +588,7 @@
             "config": {
                 "builtinAchievements": false
             },
-            "note": "The saved days already include today, so the visit adds nothing.",
+            "note": "The saved days already include today, so the visit adds nothing. The reload proves it was saved.",
             "savedJson": {
                 "v": 3,
                 "name": "Ana",
@@ -579,6 +637,19 @@
                             }
                         ]
                     }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "streak": {
+                                "current": 2,
+                                "longest": 2,
+                                "lastPlayDate": "2026-08-07"
+                            }
+                        },
+                        "events": []
+                    }
                 }
             ]
         },
@@ -592,7 +663,7 @@
             "config": {
                 "builtinAchievements": false
             },
-            "note": "The saved last day is a week ago. The current streak is 1, the stored longest of 5 stays.",
+            "note": "The saved last day is a week ago. The current streak is 1, the stored longest of 5 stays. The reload proves it was saved.",
             "savedJson": {
                 "v": 3,
                 "name": "Ana",
@@ -639,6 +710,19 @@
                                 "amount": 1
                             }
                         ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "streak": {
+                                "current": 1,
+                                "longest": 5,
+                                "lastPlayDate": "2026-08-07"
+                            }
+                        },
+                        "events": []
                     }
                 }
             ]
@@ -690,6 +774,375 @@
                             "xpBy.dev-b": 40,
                             "xpSpentBy.dev-b": 10
                         }
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 37
+                        },
+                        "docExact": {
+                            "xpBy.dev-a": 7,
+                            "xpBy.dev-b": 40,
+                            "xpSpentBy.dev-b": 10
+                        },
+                        "events": []
+                    }
+                }
+            ]
+        },
+        {
+            "name": "an own backup imported while blocked is not counted twice",
+            "clock": "2026-08-07T09:00:00",
+            "device": "dev-a",
+            "storage": {
+                "failReads": 1
+            },
+            "config": {
+                "builtinAchievements": false
+            },
+            "note": "The import joins this device's counters by max into the session, but they are not progress made here. The retry takes the larger of saved and imported, then adds only what the session earned on top. Without that, this device's 100 XP and 2 games would count twice.",
+            "savedJson": {
+                "v": 3,
+                "name": "Ana",
+                "createdAt": 1000000,
+                "lastPlayedAt": 1000000,
+                "level": 1,
+                "longest": 0,
+                "playDates": [],
+                "xpBy": {
+                    "dev-a": 100
+                },
+                "xpSpentBy": {},
+                "gamesBy": {
+                    "dev-a": 2
+                },
+                "playsBy": {
+                    "g": {
+                        "dev-a": 2
+                    }
+                },
+                "best": {},
+                "sumsBy": {
+                    "g": {
+                        "wins": {
+                            "dev-a": 1
+                        }
+                    }
+                },
+                "achievements": {}
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 0
+                },
+                "events": [
+                    {
+                        "event": "load_failed",
+                        "key": "player",
+                        "reason": "read"
+                    }
+                ]
+            },
+            "steps": [
+                {
+                    "op": "import",
+                    "doc": {
+                        "v": 3,
+                        "name": "Ana",
+                        "createdAt": 1000000,
+                        "lastPlayedAt": 1000000,
+                        "level": 1,
+                        "longest": 0,
+                        "playDates": [],
+                        "xpBy": {
+                            "dev-a": 100
+                        },
+                        "xpSpentBy": {},
+                        "gamesBy": {
+                            "dev-a": 2
+                        },
+                        "playsBy": {
+                            "g": {
+                                "dev-a": 2
+                            }
+                        },
+                        "best": {},
+                        "sumsBy": {
+                            "g": {
+                                "wins": {
+                                    "dev-a": 1
+                                }
+                            }
+                        },
+                        "achievements": {}
+                    },
+                    "silent": true,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 100,
+                            "gamesBy.dev-a": 2
+                        }
+                    }
+                },
+                {
+                    "op": "setClock",
+                    "at": "2026-08-07T09:01:00"
+                },
+                {
+                    "op": "addXP",
+                    "amount": 1,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 101,
+                            "gamesBy.dev-a": 2,
+                            "playsBy.g.dev-a": 2,
+                            "sumsBy.g.wins.dev-a": 1
+                        },
+                        "events": [
+                            {
+                                "event": "load_recovered",
+                                "key": "player"
+                            },
+                            {
+                                "event": "xp_gained",
+                                "amount": 1
+                            }
+                        ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 101
+                        },
+                        "docExact": {
+                            "xpBy.dev-a": 101,
+                            "gamesBy.dev-a": 2,
+                            "playsBy.g.dev-a": 2,
+                            "sumsBy.g.wins.dev-a": 1
+                        },
+                        "events": []
+                    }
+                }
+            ]
+        },
+        {
+            "name": "an own backup ahead of the saved player is kept, and the session adds on top",
+            "clock": "2026-08-07T09:00:00",
+            "device": "dev-a",
+            "storage": {
+                "failReads": 1
+            },
+            "config": {
+                "builtinAchievements": false
+            },
+            "note": "Saved holds 100 for this device, the import holds 150. The retry keeps 150 and adds the session's own gain of 1.",
+            "savedJson": {
+                "v": 3,
+                "name": "Ana",
+                "createdAt": 1000000,
+                "lastPlayedAt": 1000000,
+                "level": 1,
+                "longest": 0,
+                "playDates": [],
+                "xpBy": {
+                    "dev-a": 100
+                },
+                "xpSpentBy": {},
+                "gamesBy": {
+                    "dev-a": 2
+                },
+                "playsBy": {
+                    "g": {
+                        "dev-a": 2
+                    }
+                },
+                "best": {},
+                "sumsBy": {
+                    "g": {
+                        "wins": {
+                            "dev-a": 1
+                        }
+                    }
+                },
+                "achievements": {}
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 0
+                },
+                "events": [
+                    {
+                        "event": "load_failed",
+                        "key": "player",
+                        "reason": "read"
+                    }
+                ]
+            },
+            "steps": [
+                {
+                    "op": "import",
+                    "doc": {
+                        "v": 3,
+                        "name": "Ana",
+                        "createdAt": 1000000,
+                        "lastPlayedAt": 1000000,
+                        "level": 1,
+                        "longest": 0,
+                        "playDates": [],
+                        "xpBy": {
+                            "dev-a": 150
+                        },
+                        "xpSpentBy": {},
+                        "gamesBy": {
+                            "dev-a": 2
+                        },
+                        "playsBy": {
+                            "g": {
+                                "dev-a": 2
+                            }
+                        },
+                        "best": {},
+                        "sumsBy": {
+                            "g": {
+                                "wins": {
+                                    "dev-a": 1
+                                }
+                            }
+                        },
+                        "achievements": {}
+                    },
+                    "silent": true,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 150
+                        }
+                    }
+                },
+                {
+                    "op": "setClock",
+                    "at": "2026-08-07T09:01:00"
+                },
+                {
+                    "op": "addXP",
+                    "amount": 1,
+                    "expect": {
+                        "docExact": {
+                            "xpBy.dev-a": 151
+                        },
+                        "events": [
+                            {
+                                "event": "load_recovered",
+                                "key": "player"
+                            },
+                            {
+                                "event": "xp_gained",
+                                "amount": 1
+                            }
+                        ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 151
+                        },
+                        "docExact": {
+                            "xpBy.dev-a": 151
+                        },
+                        "events": []
+                    }
+                }
+            ]
+        },
+        {
+            "name": "the event and the return of the recovering addXP report the merged player",
+            "clock": "2026-08-07T09:00:00",
+            "device": "dev-a",
+            "storage": {
+                "failReads": 1
+            },
+            "config": {
+                "builtinAchievements": false
+            },
+            "note": "Saved holds 5000 XP at level 10. The session earned 5. xp_gained carries the merged total and level, level_up fires because the level went from 1 to 10, and the return says the same.",
+            "savedJson": {
+                "v": 3,
+                "name": "Ana",
+                "createdAt": 1000000,
+                "lastPlayedAt": 1000000,
+                "level": 10,
+                "longest": 0,
+                "playDates": [],
+                "xpBy": {
+                    "dev-a": 5000
+                },
+                "xpSpentBy": {},
+                "gamesBy": {},
+                "playsBy": {},
+                "best": {},
+                "sumsBy": {},
+                "achievements": {}
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 0
+                },
+                "events": [
+                    {
+                        "event": "load_failed",
+                        "key": "player",
+                        "reason": "read"
+                    }
+                ]
+            },
+            "steps": [
+                {
+                    "op": "setClock",
+                    "at": "2026-08-07T09:01:00"
+                },
+                {
+                    "op": "addXP",
+                    "amount": 5,
+                    "expect": {
+                        "returns": {
+                            "leveledUp": true,
+                            "newLevel": 10,
+                            "xpGained": 5
+                        },
+                        "events": [
+                            {
+                                "event": "load_recovered",
+                                "key": "player"
+                            },
+                            {
+                                "event": "xp_gained",
+                                "amount": 5,
+                                "total": 5005,
+                                "newLevel": 10,
+                                "leveledUp": true
+                            },
+                            {
+                                "event": "level_up",
+                                "oldLevel": 1,
+                                "newLevel": 10,
+                                "totalXP": 5005
+                            }
+                        ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 5005,
+                            "level": 10
+                        },
+                        "events": []
                     }
                 }
             ]

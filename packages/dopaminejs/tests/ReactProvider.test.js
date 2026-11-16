@@ -139,7 +139,8 @@ describe('RewardsProvider', () => {
         expect(on.mock.calls.map(call => call[0])).toContain('load_recovered');
         storage.getItem = real;
 
-        await on.mock.contexts[0].addXP(5);
+        // save() fires load_recovered only. There is no xp_gained to sync on.
+        await on.mock.contexts[0].save();
         await settle();
 
         expect(dispatched.at(-1).payload.loadFailed).toBe(false);
