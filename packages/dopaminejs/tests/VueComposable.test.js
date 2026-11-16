@@ -9,7 +9,7 @@ import { createMemoryStorage } from '../src/dopamine/utils/storage.js';
 import { provideRewards, useRewards } from '../../dopaminejs-vue/src/useRewards.js';
 import { buildState } from '../../dopaminejs-vue/src/state.js';
 
-const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated', 'player_reset'];
+const EVENTS = ['xp_gained', 'level_up', 'achievement_unlocked', 'personal_best', 'streak_updated', 'player_reset', 'load_recovered'];
 
 // Mounts a root that provides rewards and a child that consumes them.
 function mount({ storage = createMemoryStorage(), config, dopamine } = {}) {
@@ -192,6 +192,23 @@ describe('provideRewards and useRewards', () => {
 
         expect(seen.rewards.ready.value).toBe(true);
         expect(seen.rewards.loadFailed.value).toBe(true);
+        app.unmount();
+    });
+
+    it('should clear loadFailed on load_recovered', async () => {
+        const on = vi.spyOn(RewardSystem.prototype, 'on');
+        const storage = createMemoryStorage();
+        const real = storage.getItem.bind(storage);
+        storage.getItem = () => { throw new Error('offline'); };
+        const { app, seen } = mount({ storage, config: { loadRetryMs: 0 } });
+        await flush();
+        expect(seen.rewards.loadFailed.value).toBe(true);
+        storage.getItem = real;
+
+        await on.mock.contexts[0].addXP(5);
+        await flush();
+
+        expect(seen.rewards.loadFailed.value).toBe(false);
         app.unmount();
     });
 

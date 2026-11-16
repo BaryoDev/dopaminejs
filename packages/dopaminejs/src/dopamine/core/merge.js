@@ -1,4 +1,4 @@
-import { validate, checkDevices, hasOwn, extraKeys, VERSION } from './store.js';
+import { validate, checkDevices, hasOwn, extraKeys, cap, clone, VERSION } from './store.js';
 import { isDay, trimDays } from './streaks.js';
 
 // Join two maps that are `depth` levels deep, taking the larger number at the
@@ -88,4 +88,56 @@ export function merge(a, b, options) {
     joinExtras(x, y, doc);
     checkDevices(doc);
     return doc;
+}
+
+/**
+ * Fold a session player into the saved one it could not read earlier. The
+ * session started empty, so its counters for this device are new progress and
+ * are added, not joined by max. Everything else joins like `merge`. The saved
+ * player keeps its name and its unknown fields. Pure.
+ *
+ * @param {*} saved the player read from storage
+ * @param {*} session the player made since the failed read
+ * @param {string} device this device's id
+ * @param {{ today?: string, rewards?: Object }} [options] see validate
+ */
+export function mergeSession(saved, session, device, options) {
+    const x = validate(saved, options);
+    const y = validate(session, options);
+    const doc = merge(x, y, options);
+    doc.name = x.name;
+    for (const key of extraKeys(x)) doc[key] = x[key];
+
+    const add = (into, a, b) => {
+        if (hasOwn(b, device)) into[device] = cap((hasOwn(a, device) ? a[device] : 0) + b[device]);
+    };
+    const at = (map, key) => (hasOwn(map, key) ? map[key] : {});
+    add(doc.xpBy, x.xpBy, y.xpBy);
+    add(doc.xpSpentBy, x.xpSpentBy, y.xpSpentBy);
+    add(doc.gamesBy, x.gamesBy, y.gamesBy);
+    for (const activity of Object.keys(y.playsBy)) {
+        add(doc.playsBy[activity], at(x.playsBy, activity), y.playsBy[activity]);
+    }
+    for (const activity of Object.keys(y.sumsBy)) {
+        for (const key of Object.keys(y.sumsBy[activity])) {
+            add(doc.sumsBy[activity][key], at(at(x.sumsBy, activity), key), y.sumsBy[activity][key]);
+        }
+    }
+    return doc;
+}
+
+/** A copy of a document with one device's entries moved under another id. */
+export function rekey(doc, from, to) {
+    const out = clone(doc);
+    const move = (map) => {
+        if (!hasOwn(map, from)) return;
+        map[to] = hasOwn(map, to) ? Math.max(map[to], map[from]) : map[from];
+        delete map[from];
+    };
+    for (const map of [out.xpBy, out.xpSpentBy, out.gamesBy]) move(map);
+    for (const activity of Object.keys(out.playsBy)) move(out.playsBy[activity]);
+    for (const activity of Object.keys(out.sumsBy)) {
+        for (const key of Object.keys(out.sumsBy[activity])) move(out.sumsBy[activity][key]);
+    }
+    return out;
 }

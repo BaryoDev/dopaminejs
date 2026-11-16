@@ -63,6 +63,7 @@ function namespacedStorage(storage, name) {
  * @param {{ now(): number, localDate(ms?: number): string }} [options.clock]
  * @param {'any'|'record'} [options.streakDays] - For the default progress object
  * @param {boolean} [options.builtinAchievements] - For the default progress object, false defines no built-ins
+ * @param {number} [options.loadRetryMs] - For the default progress object, see RewardSystem
  * @param {Object[]} [options.plugins]
  * @param {{ debug?: Function, info?: Function, warn?: Function, error?: Function }} [options.log]
  */
@@ -90,7 +91,7 @@ export function createDopamine(options = {}) {
 
     const factoryEnv = { ...env, parts, storage, clock };
 
-    const progress = resolvePart(opts.progress, factoryEnv, () => new RewardSystem(new DataService({ storage }), { clock, streakDays: opts.streakDays, builtinAchievements: opts.builtinAchievements }));
+    const progress = resolvePart(opts.progress, factoryEnv, () => new RewardSystem(new DataService({ storage }), { clock, streakDays: opts.streakDays, builtinAchievements: opts.builtinAchievements, loadRetryMs: opts.loadRetryMs }));
     if (typeof progress?.on !== 'function' || typeof progress?.off !== 'function') {
         throw new DopamineError('invalid_progress', 'progress needs on() and off()');
     }

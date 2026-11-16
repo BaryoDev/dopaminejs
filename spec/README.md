@@ -29,7 +29,7 @@ caught up goes red.
 | `clock` | Required. Start time, local `YYYY-MM-DDTHH:MM:SS`. No offset. |
 | `config` | Optional. See below. |
 | `device` | Optional. A device id stored before `init`, so the document has known keys. Without it a random id is made. |
-| `storage` | Optional. `{ "failWrites": true }` makes every storage write throw, to exercise `save_failed`. Reads still work and `savedJson`/`savedRaw` are seeded first. |
+| `storage` | Optional. `{ "failWrites": true }` makes every storage write throw, to exercise `save_failed`. `{ "failReads": N }` makes the first N reads of the player throw, to exercise `load_failed` with reason `read` and the retry. The count lasts for the whole case, so a `reload` reads normally once it is used up. Writes and other reads work, and `savedJson`/`savedRaw` are seeded first. |
 | `savedJson` | Optional. Any JSON value, stored as `JSON.stringify(value)`. |
 | `savedRaw` | Optional. A string stored as is, for corrupt data. |
 | `afterInit` | Optional. Expectation checked after the first `init`. |
@@ -64,6 +64,7 @@ UTC.
   takes it as `RewardSystem` config. A save that already holds a built-in keeps
   it and its reward XP when the option is off.
 - `streakDays`: `"any"` (default) or `"record"`. With `any`, `record` and `addXP` mark today as a play day. With `record`, only `record` does. XP from an achievement reward never marks a day.
+- `loadRetryMs`: a number of 0 or more. After a failed read, a blocked save retries the read at most this often, measured on the case clock. Default 30000. See "After a failed read".
 - `achievements`: extra achievements by id, `{ name, description?, icon?, xp?, when }`.
 
 `when` replaces the check function. One of:
@@ -145,11 +146,11 @@ CI also runs the conformance file once in `America/Los_Angeles`
 (`DOPAMINE_TEST_TZ`), so the daylight saving case can fail.
 
 Event names: `xp_gained`, `level_up`, `achievement_unlocked`, `personal_best`
-(payload `{ activity, score }`), `streak_updated`, `player_reset` (empty payload), `save_failed` and
-`load_failed`. `load_failed` is covered for a corrupt value and for a document
+(payload `{ activity, score }`), `streak_updated`, `player_reset` (empty payload), `save_failed`,
+`load_failed` and `load_recovered` (payload `{ key }`). `load_failed` is covered for a corrupt value, for a document
 the core refuses (`reason` is `corrupt`, `unsupported_version` or
-`too_many_devices`). A saved value that is valid JSON but not an object counts as corrupt, and is kept
-under `player_corrupt`. A read that fails in storage cannot be made by a fixture.
+`too_many_devices`) and for a read that fails in storage (`reason: 'read'`, made with `storage.failReads`). A saved value that is valid JSON but not an object counts as corrupt, and is kept
+under `player_corrupt`.
 
 Payloads are frozen copies, and `snapshot()` is a frozen deep copy.
 
@@ -160,7 +161,7 @@ Fixture paths use `.` as the separator, so keys in fixtures contain no dots.
 
 1. Load every `spec/fixtures/*.json`.
 2. For each case, build a clock at the local time given, seed storage,
-   construct the system with the config and the clock, subscribe to the seven
+   construct the system with the config and the clock, subscribe to the nine
    events, run `init`.
 3. Check `afterInit`, then run each step and check its `expect`.
 4. Fail on any unknown op, step key, expectation key or condition. A fixture
@@ -200,6 +201,53 @@ write: `addXP` and `record` leave the stored save alone and publish `load_failed
 with reason `too_many_devices`. A document with a `v` other than 3 is refused
 with `unsupported_version`. A value that is not an object is `invalid_document`. Counters and sums stop at
 `Number.MAX_SAFE_INTEGER`. A negative or non-finite value in a map (`xpBy`, `sumsBy` and the rest) is dropped.
+
+### After a failed read
+
+When the read of the saved player fails (`load_failed` with reason `read`), the
+session starts with an empty player and saving is off, so the real player is
+never replaced. Progress made in that session is kept for the real player:
+
+- Before a blocked save, the core retries the read, at most once per
+  `loadRetryMs` (default 30000) of the clock. The failed read at `init` counts as
+  the last read. Nothing is read on a save that is not blocked.
+- The retry only succeeds when the read works and the value is a player that
+  `validate` accepts, or nothing is saved. A value that is not an object, a
+  `v` other than 3, a document that would hold more than 20 devices once merged,
+  and a read that fails again all leave saving off and the session as it is. They
+  fire no event.
+- On success the session player is merged into the saved one, saved, `loadFailed`
+  goes back to false and `load_recovered` fires after the write. The merge is not
+  the plain `merge`, because the session started empty: its counters for this
+  device are new progress.
+
+| Field | Rule after a retry |
+|---|---|
+| `xpBy`, `xpSpentBy`, `gamesBy`, `playsBy`, `sumsBy` | This device's entries are added (saved plus session). Other devices' entries are the max, as in `merge`. |
+| `best` | Max. |
+| `level` | Max, and never below the curve for the merged XP. |
+| `longest` | Max. |
+| `playDates` | Union. The streak is derived from it, so it counts from the saved last play date and today's visit is one day, or none when the saved player already has today. |
+| `achievements` | As in `merge`. The earliest `unlockedAt` and its `reward` win, `seen` is true if either has it, and a reward counts once. |
+| `name` | The saved player's. |
+| Unknown top level fields | The saved player's, as read. |
+| `createdAt`, `lastPlayedAt` | As in `merge`. |
+
+Everything read goes through `validate`, and achievement ids are looked up by own
+property. If the device id could not be read at `init`, the retry reads it again
+and moves the session's entries under the stored id, so no second device is made.
+`fixtures/recovery.json` pins these rules.
+
+A retry in flight is shared: a second `addXP` or `record` that lands while it
+reads waits for it and does not start another. The session is merged as it
+stands when the read returns, so both gains are in the one write.
+
+`init()` called again behaves as before: it reads, and on success replaces the
+session player with the saved one.
+
+Two tabs: each tab merges its own session once. The second tab reads what the
+first saved, so nothing is lost and each session's progress is added once, but
+nothing links the two sessions. This is a known limit.
 
 ### From 2.x
 
@@ -247,5 +295,7 @@ rule change and needs a fixture change.
   newer version may define them, so dropping one loses a real unlock.
 - A 2.x streak of 0 with a real date counts that date as one play day. Intended:
   no play is lost, so the same day gives 1 and the next day gives 2.
+- `load_recovered` fires after the merged player is written. If that write fails,
+  `save_failed` fires too and the merged player stays in memory.
 - Extra numbers in a `record` result add up per device. A value that is not a
   positive finite number adds 0.

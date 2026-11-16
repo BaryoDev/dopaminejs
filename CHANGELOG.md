@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Progress earned after a failed read is saved once storage reads again. A blocked save retries the read, at most once per `loadRetryMs` (new option, default 30000). When it returns a player, the session is merged into it (this device's XP, games, plays and counters added, achievements and play dates joined, streak from the real last play date), saved, and the new `load_recovered` event fires with `{ key: 'player' }`. `loadFailed` goes back to `false`, and the React and Vue bindings clear it on that event. A read that fails again, or a value that is not a player, saves nothing. Two tabs that both recover each merge their own session once. The rules are in `spec/README.md` and `spec/fixtures/recovery.json`; the fixture format gains `storage.failReads` and the `loadRetryMs` config key. The size-limit budget rises to 16.5 kB for the ESM and CJS bundles and 7 kB for `dopaminejs/core`.
+
 ### Changed
 
 Loading a saved player is now the same for odd data. No real progress is dropped. The entries on a bad `lastPlayDate`, a future `lastPlayDate` and unsafe keys change how data already in storage is read.

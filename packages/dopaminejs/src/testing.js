@@ -20,7 +20,8 @@ const CORE_EVENTS = {
     streak_updated: { current: 1, longest: 1 },
     player_reset: {},
     save_failed: { error: new Error('save failed') },
-    load_failed: { reason: 'corrupt' }
+    load_failed: { reason: 'corrupt' },
+    load_recovered: { key: 'player' }
 };
 const BURST_KINDS = ['confetti', 'sparkle', 'fire', 'stars', 'coins'];
 const SOUND_KEYS = ['xp', 'level_up', 'achievement', 'personal_best', 'click', 'error'];

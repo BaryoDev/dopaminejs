@@ -153,6 +153,12 @@ export interface RewardSystemConfig {
      * never marks a day.
      */
     streakDays?: 'any' | 'record';
+    /**
+     * After a failed read of the saved player, a blocked save retries the read
+     * at most this often, in milliseconds of `clock`. Default 30000. 0 retries
+     * on every blocked save.
+     */
+    loadRetryMs?: number;
 }
 
 export type RewardEvent =
@@ -176,7 +182,13 @@ export type RewardEvent =
      * A `load()` override must pass its third argument on, or a failed read
      * looks like an empty one.
      */
-    | 'load_failed';
+    | 'load_failed'
+    /**
+     * Payload `{ key }`. After a `load_failed` with `reason: 'read'`, a retry read
+     * the saved player, merged the progress made since into it and saved it.
+     * `loadFailed` is false again.
+     */
+    | 'load_recovered';
 
 export class EventEmitter {
     on(event: string, callback: (data?: unknown) => void): () => void;
@@ -191,7 +203,9 @@ export class RewardSystem extends EventEmitter {
     achievements: Record<string, AchievementDefinition>;
     /**
      * True when the last `init()` could not read the saved player, so nothing
-     * is saved until `init()` is called again and the read works, or `reset()` is called.
+     * is saved until a retry or `init()` reads it, or `reset()` is called. A blocked
+     * save retries the read (see `loadRetryMs`); on success it merges the session
+     * into the saved player, saves it and fires `load_recovered`.
      */
     readonly loadFailed: boolean;
 
@@ -623,6 +637,8 @@ export interface DopamineOptions {
     streakDays?: 'any' | 'record';
     /** Passed to the default progress object. See `RewardSystemConfig`. */
     builtinAchievements?: boolean;
+    /** Passed to the default progress object. See `RewardSystemConfig`. */
+    loadRetryMs?: number;
     plugins?: DopaminePlugin[];
     log?: Partial<Logger>;
 }
