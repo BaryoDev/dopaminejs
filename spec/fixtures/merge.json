@@ -1773,6 +1773,351 @@
                     }
                 }
             ]
+        },
+        {
+            "name": "the string 0x10 is not a number",
+            "clock": "2026-08-07T09:00:00",
+            "device": "me",
+            "note": "Only plain decimal strings are read. Hex, binary, octal, exponent, a sign of + and a trailing dot fall back to the default.",
+            "steps": [
+                {
+                    "op": "validate",
+                    "doc": {
+                        "v": 3,
+                        "level": "0x10"
+                    },
+                    "as": "v",
+                    "expect": {
+                        "returnsExact": {
+                            "level": 1
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "the string 0b11 is not a number",
+            "clock": "2026-08-07T09:00:00",
+            "device": "me",
+            "note": "Only plain decimal strings are read. Hex, binary, octal, exponent, a sign of + and a trailing dot fall back to the default.",
+            "steps": [
+                {
+                    "op": "validate",
+                    "doc": {
+                        "v": 3,
+                        "level": "0b11"
+                    },
+                    "as": "v",
+                    "expect": {
+                        "returnsExact": {
+                            "level": 1
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "the string 0o7 is not a number",
+            "clock": "2026-08-07T09:00:00",
+            "device": "me",
+            "note": "Only plain decimal strings are read. Hex, binary, octal, exponent, a sign of + and a trailing dot fall back to the default.",
+            "steps": [
+                {
+                    "op": "validate",
+                    "doc": {
+                        "v": 3,
+                        "level": "0o7"
+                    },
+                    "as": "v",
+                    "expect": {
+                        "returnsExact": {
+                            "level": 1
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "the string 1e3 is not a number",
+            "clock": "2026-08-07T09:00:00",
+            "device": "me",
+            "note": "Only plain decimal strings are read. Hex, binary, octal, exponent, a sign of + and a trailing dot fall back to the default.",
+            "steps": [
+                {
+                    "op": "validate",
+                    "doc": {
+                        "v": 3,
+                        "level": "1e3"
+                    },
+                    "as": "v",
+                    "expect": {
+                        "returnsExact": {
+                            "level": 1
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "the string +5 is not a number",
+            "clock": "2026-08-07T09:00:00",
+            "device": "me",
+            "note": "Only plain decimal strings are read. Hex, binary, octal, exponent, a sign of + and a trailing dot fall back to the default.",
+            "steps": [
+                {
+                    "op": "validate",
+                    "doc": {
+                        "v": 3,
+                        "level": "+5"
+                    },
+                    "as": "v",
+                    "expect": {
+                        "returnsExact": {
+                            "level": 1
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "the string 5. is not a number",
+            "clock": "2026-08-07T09:00:00",
+            "device": "me",
+            "note": "Only plain decimal strings are read. Hex, binary, octal, exponent, a sign of + and a trailing dot fall back to the default.",
+            "steps": [
+                {
+                    "op": "validate",
+                    "doc": {
+                        "v": 3,
+                        "level": "5."
+                    },
+                    "as": "v",
+                    "expect": {
+                        "returnsExact": {
+                            "level": 1
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "the string 1e21 is not a number",
+            "clock": "2026-08-07T09:00:00",
+            "device": "me",
+            "note": "Only plain decimal strings are read. Hex, binary, octal, exponent, a sign of + and a trailing dot fall back to the default.",
+            "steps": [
+                {
+                    "op": "validate",
+                    "doc": {
+                        "v": 3,
+                        "level": "1e21"
+                    },
+                    "as": "v",
+                    "expect": {
+                        "returnsExact": {
+                            "level": 1
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "plain decimal strings are read",
+            "clock": "2026-08-07T09:00:00",
+            "device": "me",
+            "note": "Whitespace around a plain decimal is fine. A negative amount is dropped as before.",
+            "steps": [
+                {
+                    "op": "validate",
+                    "doc": {
+                        "v": 3,
+                        "level": " 12 ",
+                        "xpBy": {
+                            "a": "1.5",
+                            "b": "-3"
+                        }
+                    },
+                    "as": "v",
+                    "expect": {
+                        "returnsExact": {
+                            "level": 12,
+                            "xpBy": {
+                                "a": 1.5
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "an unknown field on one side is kept",
+            "clock": "2026-08-07T09:00:00",
+            "device": "me",
+            "note": "No rule joins a field the core does not know, so a field on one side stays.",
+            "steps": [
+                {
+                    "op": "merge",
+                    "a": {
+                        "v": 3,
+                        "theme": "dark"
+                    },
+                    "b": {
+                        "v": 3
+                    },
+                    "as": "m",
+                    "expect": {
+                        "returns": {
+                            "theme": "dark"
+                        }
+                    }
+                },
+                {
+                    "op": "merge",
+                    "a": {
+                        "v": 3
+                    },
+                    "b": {
+                        "v": 3,
+                        "theme": "dark"
+                    },
+                    "as": "n",
+                    "expect": {
+                        "returns": {
+                            "theme": "dark"
+                        },
+                        "same": [
+                            [
+                                "m",
+                                "n"
+                            ]
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "unknown numbers join by value",
+            "clock": "2026-08-07T09:00:00",
+            "device": "me",
+            "note": "99 against 100 gives 100, not the larger text. The order of the sides does not matter.",
+            "steps": [
+                {
+                    "op": "merge",
+                    "a": {
+                        "v": 3,
+                        "coins": 99
+                    },
+                    "b": {
+                        "v": 3,
+                        "coins": 100
+                    },
+                    "as": "ab",
+                    "expect": {
+                        "returns": {
+                            "coins": 100
+                        }
+                    }
+                },
+                {
+                    "op": "merge",
+                    "a": {
+                        "v": 3,
+                        "coins": 100
+                    },
+                    "b": {
+                        "v": 3,
+                        "coins": 99
+                    },
+                    "as": "ba",
+                    "expect": {
+                        "returns": {
+                            "coins": 100
+                        },
+                        "same": [
+                            [
+                                "ab",
+                                "ba"
+                            ]
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "unknown strings and objects join by larger text, newer save does not win",
+            "clock": "2026-08-07T09:00:00",
+            "device": "me",
+            "note": "No field has its own time, so recency is not used. The larger canonical JSON text wins whichever side is newer, and the order of the sides does not matter.",
+            "steps": [
+                {
+                    "op": "merge",
+                    "a": {
+                        "v": 3,
+                        "lastPlayedAt": 2,
+                        "theme": "dark",
+                        "opts": {
+                            "b": 1,
+                            "a": 2
+                        }
+                    },
+                    "b": {
+                        "v": 3,
+                        "lastPlayedAt": 1,
+                        "theme": "light",
+                        "opts": {
+                            "a": 2,
+                            "b": 3
+                        }
+                    },
+                    "as": "ab",
+                    "expect": {
+                        "returns": {
+                            "theme": "light",
+                            "opts": {
+                                "a": 2,
+                                "b": 3
+                            }
+                        }
+                    }
+                },
+                {
+                    "op": "merge",
+                    "a": {
+                        "v": 3,
+                        "lastPlayedAt": 1,
+                        "theme": "light",
+                        "opts": {
+                            "a": 2,
+                            "b": 3
+                        }
+                    },
+                    "b": {
+                        "v": 3,
+                        "lastPlayedAt": 2,
+                        "theme": "dark",
+                        "opts": {
+                            "b": 1,
+                            "a": 2
+                        }
+                    },
+                    "as": "ba",
+                    "expect": {
+                        "returns": {
+                            "theme": "light",
+                            "opts": {
+                                "a": 2,
+                                "b": 3
+                            }
+                        },
+                        "same": [
+                            [
+                                "ab",
+                                "ba"
+                            ]
+                        ]
+                    }
+                }
+            ]
         }
     ]
 }

@@ -24,7 +24,7 @@ const CASE_KEYS = ['name', 'note', 'config', 'clock', 'device', 'savedJson', 'sa
 const STORAGE_OPTION_KEYS = ['failWrites'];
 const CONFIG_KEYS = ['builtinAchievements', 'achievements', 'streakDays'];
 const ACHIEVEMENT_KEYS = ['name', 'description', 'icon', 'xp', 'when'];
-const EXPECT_KEYS = ['player', 'playerExact', 'doc', 'docExact', 'absent', 'achievements', 'events', 'returns', 'returnsExact', 'same', 'throws', 'code'];
+const EXPECT_KEYS = ['player', 'playerExact', 'doc', 'docExact', 'docAbsent', 'absent', 'achievements', 'events', 'returns', 'returnsExact', 'same', 'throws', 'code'];
 const OPS = {
     setClock: ['at'],
     reload: ['device'],
@@ -194,11 +194,11 @@ function runCase(testCase) {
                 if (hasOwn(expectation, 'returns') && isRecord(expectation.returns)) {
                     nonEmpty(expectation.returns, `${label} returns`);
                 }
-                for (const key of ['absent', 'achievements', 'events']) {
+                for (const key of ['absent', 'docAbsent', 'achievements', 'events']) {
                     if (hasOwn(expectation, key)) {
                         if (!Array.isArray(expectation[key])) throw new Error(`${label} ${key}: expected an array`);
                         // Empty events or achievements lists are real checks (nothing fired, nothing unlocked).
-                        if (key === 'absent') nonEmpty(expectation[key], `${label} ${key}`);
+                        if (key === 'absent' || key === 'docAbsent') nonEmpty(expectation[key], `${label} ${key}`);
                     }
                 }
                 const player = rewards.snapshot();
@@ -235,6 +235,9 @@ function runCase(testCase) {
                         }
                         expect(registry[pair[0]], `${label} same ${pair[0]} and ${pair[1]}`).toStrictEqual(registry[pair[1]]);
                     }
+                }
+                for (const path of expectation.docAbsent || []) {
+                    if (getPath(rewards.export(), path).found) throw new Error(`${label} docAbsent.${path}: present`);
                 }
                 for (const path of expectation.absent || []) {
                     if (getPath(player, path).found) throw new Error(`${label} absent.${path}: present`);

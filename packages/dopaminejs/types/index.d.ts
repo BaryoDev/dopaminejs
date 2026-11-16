@@ -40,7 +40,8 @@ export interface Player {
 
 /**
  * The saved document. It merges: see `merge`. Treat it as opaque and pass it
- * to `merge`, `validate` and `import`.
+ * to `merge`, `validate` and `import`. A save can also hold top level fields
+ * this version does not know. They are kept as read.
  */
 export interface PlayerDocument {
     v: 3;

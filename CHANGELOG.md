@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+Loading a saved player is now the same for odd data. No real progress is dropped. The entries on a bad `lastPlayDate`, a future `lastPlayDate` and unsafe keys change how data already in storage is read.
+
+- A plain decimal string (`"250"`, `"1.5"`) is read as that number in every field that expects one. Before, it was dropped to the default. Hex, binary, octal, exponent, `+5`, `5.`, negative (for amounts), fractional (for counts), blank and non-numeric strings fall back.
+- A 2.x `lastPlayDate` that is not a real day counts as no date. The larger of `streak.current` and `streak.longest` is kept as `longest`, where before `current` was lost.
+- A 2.x `lastPlayDate` after today counts as today and keeps the streak. Before, the days after today were dropped and the streak shrank.
+- Top level fields the core does not know are kept in the saved document and survive a load and save, and `merge` keeps them. Before, they were dropped on the first save. They count toward the size of the save, which is not capped, so a very large unknown field fills storage like any other data. `merge` joins an unknown field by value: the larger number, else the larger canonical JSON text, with no recency. `spec/schema.json` now allows them (`additionalProperties` is `true`, was `false`), so a sync server that validates with the old schema or strips unknown fields should be updated. `docAbsent` is a new conformance expectation key.
+- A top level `__proto__`, `constructor` or `prototype` key is never kept, at the top or inside a kept value.
+- Unknown achievement ids are kept, and a 2.x streak of 0 with a real date counts as one play day. Both were already the behaviour, and the fixtures now say they are intended.
+
 ## [3.4.0] - 2026-11-14
 
 Published with this release: `dopaminejs` 3.4.0. The wrappers and plugins did not change.

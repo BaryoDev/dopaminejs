@@ -72,8 +72,8 @@ describe('spec/schema.json', () => {
         expect(valid({ v: 2 }).length).toBeGreaterThan(0);
     });
 
-    it('should refuse fields it does not know', () => {
-        expect(valid({ v: 3, extra: 1 })).toEqual(['$: unexpected extra']);
+    it('should accept fields it does not know', () => {
+        expect(valid({ v: 3, extra: 1 })).toEqual([]);
     });
 
     it('should refuse a bad play date and a negative amount', () => {
