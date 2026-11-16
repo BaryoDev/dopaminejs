@@ -34,16 +34,36 @@
             "note": "The default player has no play dates, so the streak is 0 and has no last play date."
         },
         {
-            "name": "a numeric string xp is dropped to 0",
+            "name": "a numeric string xp is read as a number",
             "clock": "2026-08-07T09:00:00",
             "savedJson": {
                 "xp": "250"
             },
-            "note": "Finite numbers only. A string is not coerced.",
+            "note": "A string that holds a finite number is coerced in every field that expects a number, so the player keeps the progress.",
+            "afterInit": {
+                "player": {
+                    "xp": 250,
+                    "level": 2
+                },
+                "events": []
+            }
+        },
+        {
+            "name": "blank and non-finite strings fall back to the default",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "xp": "  ",
+                "totalGamesPlayed": "Infinity",
+                "level": "",
+                "name": "Sam"
+            },
+            "note": "An empty or blank string is not 0, and Infinity is not finite, so both fall back.",
             "afterInit": {
                 "player": {
                     "xp": 0,
-                    "level": 1
+                    "level": 1,
+                    "totalGamesPlayed": 0,
+                    "name": "Sam"
                 },
                 "events": []
             }
@@ -156,7 +176,38 @@
                     ]
                 },
                 "events": []
-            }
+            },
+            "note": "Intended. A streak of 0 with a real date still counts that date as one play day, so no play is lost. The same day gives 1 and the next day gives 2.",
+            "steps": [
+                {
+                    "op": "record",
+                    "activity": "g",
+                    "expect": {
+                        "player": {
+                            "streak": {
+                                "current": 1,
+                                "longest": 3
+                            }
+                        }
+                    }
+                },
+                {
+                    "op": "setClock",
+                    "at": "2026-08-08T09:00:00"
+                },
+                {
+                    "op": "record",
+                    "activity": "g",
+                    "expect": {
+                        "player": {
+                            "streak": {
+                                "current": 2,
+                                "longest": 3
+                            }
+                        }
+                    }
+                }
+            ]
         },
         {
             "name": "streak longest below current is raised",
@@ -182,7 +233,7 @@
         {
             "name": "a lastPlayDate that is not a real calendar day is dropped",
             "clock": "2026-08-07T09:00:00",
-            "note": "9999-99-99 has the date shape but is no day. The play dates are empty and longest stays.",
+            "note": "9999-99-99 has the date shape but is no day, so it counts as no date. The play dates are empty and longest stays.",
             "savedJson": {
                 "streak": {
                     "current": 5,
@@ -205,6 +256,53 @@
                 },
                 "events": []
             }
+        },
+        {
+            "name": "an invalid lastPlayDate keeps the best run and the next play starts the date",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "streak": {
+                    "current": 7,
+                    "longest": 3,
+                    "lastPlayDate": "2026-13-45"
+                }
+            },
+            "note": "The count is not thrown away: the larger of current and longest stays as longest. With no date there is no current run, so the next record starts it at 1.",
+            "afterInit": {
+                "player": {
+                    "streak": {
+                        "current": 0,
+                        "longest": 7
+                    }
+                },
+                "absent": [
+                    "streak.lastPlayDate"
+                ],
+                "doc": {
+                    "playDates": []
+                },
+                "events": []
+            },
+            "steps": [
+                {
+                    "op": "record",
+                    "activity": "g",
+                    "expect": {
+                        "player": {
+                            "streak": {
+                                "current": 1,
+                                "longest": 7,
+                                "lastPlayDate": "2026-08-07"
+                            }
+                        },
+                        "doc": {
+                            "playDates": [
+                                "2026-08-07"
+                            ]
+                        }
+                    }
+                }
+            ]
         },
         {
             "name": "a February 30th lastPlayDate is dropped",
@@ -255,12 +353,12 @@
                     "str": "x"
                 }
             },
-            "note": "totalPlays \"3\" is a string, so it is dropped to 0. Unsafe keys never reach the document.",
+            "note": "totalPlays \"3\" holds a number, so it is read as 3. \"x\" is not a number and is dropped. Unsafe keys never reach the document.",
             "afterInit": {
                 "playerExact": {
                     "stats": {
                         "good": {
-                            "plays": 0,
+                            "plays": 3,
                             "best": 12,
                             "kills": 4
                         }
@@ -289,7 +387,7 @@
                     "stats": {
                         "g": {
                             "plays": 0,
-                            "best": 0,
+                            "best": 99,
                             "x": 1.5
                         },
                         "h": {
@@ -300,7 +398,8 @@
                     }
                 },
                 "events": []
-            }
+            },
+            "note": "highScore \"99\" is read as 99. totalPlays -2 is negative and falls back to 0."
         },
         {
             "name": "hostile achievement entries are dropped",
@@ -362,9 +461,9 @@
             }
         },
         {
-            "name": "unknown top level fields are not carried",
+            "name": "unknown top level fields in a 2.x save are kept",
             "clock": "2026-08-07T09:00:00",
-            "note": "Only the known fields are read, so a field the core does not know is gone after a load.",
+            "note": "Intended. A newer version or a mod wrote them, so dropping them would lose data. They stay in the saved document and never reach the player view.",
             "savedJson": {
                 "xp": 30,
                 "custom": {
@@ -383,8 +482,166 @@
                     "custom",
                     "flags"
                 ],
+                "doc": {
+                    "custom": {
+                        "a": 1
+                    },
+                    "flags": [
+                        1,
+                        2
+                    ]
+                },
                 "events": []
             }
+        },
+        {
+            "name": "unknown top level fields in a version 3 save survive a save and a reload",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "v": 3,
+                "xpBy": {
+                    "a": 10
+                },
+                "from_newer": {
+                    "theme": "dark",
+                    "list": [
+                        1,
+                        {
+                            "x": 2
+                        }
+                    ]
+                },
+                "extra_flag": true
+            },
+            "note": "Intended. The fields come back after the core writes and a new page load reads.",
+            "afterInit": {
+                "doc": {
+                    "from_newer": {
+                        "theme": "dark",
+                        "list": [
+                            1,
+                            {
+                                "x": 2
+                            }
+                        ]
+                    },
+                    "extra_flag": true
+                },
+                "events": []
+            },
+            "steps": [
+                {
+                    "op": "addXP",
+                    "amount": 5,
+                    "expect": {
+                        "player": {
+                            "xp": 15
+                        },
+                        "doc": {
+                            "from_newer": {
+                                "theme": "dark"
+                            },
+                            "extra_flag": true
+                        }
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 15
+                        },
+                        "doc": {
+                            "from_newer": {
+                                "theme": "dark",
+                                "list": [
+                                    1,
+                                    {
+                                        "x": 2
+                                    }
+                                ]
+                            },
+                            "extra_flag": true
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "unsafe top level keys are dropped on load and stay gone after a save",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "v": 3,
+                "xpBy": {
+                    "a": 10
+                },
+                "__proto__": {
+                    "polluted": true
+                },
+                "constructor": {
+                    "x": 1
+                },
+                "prototype": {
+                    "y": 2
+                },
+                "kept": {
+                    "__proto__": {
+                        "z": 1
+                    },
+                    "ok": 2
+                }
+            },
+            "note": "Never copied onto a plain object, at the top or inside a kept value. The ordinary field next to them stays.",
+            "afterInit": {
+                "player": {
+                    "xp": 10
+                },
+                "docAbsent": [
+                    "__proto__",
+                    "constructor",
+                    "prototype"
+                ],
+                "docExact": {
+                    "kept": {
+                        "ok": 2
+                    }
+                },
+                "events": []
+            },
+            "steps": [
+                {
+                    "op": "addXP",
+                    "amount": 5,
+                    "expect": {
+                        "player": {
+                            "xp": 15
+                        },
+                        "docAbsent": [
+                            "__proto__",
+                            "constructor",
+                            "prototype"
+                        ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 15
+                        },
+                        "docAbsent": [
+                            "__proto__",
+                            "constructor",
+                            "prototype"
+                        ],
+                        "docExact": {
+                            "kept": {
+                                "ok": 2
+                            }
+                        }
+                    }
+                }
+            ]
         },
         {
             "name": "an xp that overflows to infinity becomes 0",
@@ -631,9 +888,9 @@
             }
         },
         {
-            "name": "a 2.x lastPlayDate in the future resets nothing",
+            "name": "a 2.x lastPlayDate in the future counts as today and keeps the streak",
             "clock": "2026-08-07T09:00:00",
-            "note": "Days more than 1 day after today are dropped. The day after today stays, it can be today in another zone.",
+            "note": "A clock change must not wipe a streak. The date is read as today, and the run of 5 ends today. A later real day continues from there.",
             "savedJson": {
                 "streak": {
                     "current": 5,
@@ -644,18 +901,59 @@
             "afterInit": {
                 "player": {
                     "streak": {
-                        "current": 3,
+                        "current": 5,
                         "longest": 5,
                         "lastPlayDate": "2026-08-07"
                     }
                 },
                 "docExact": {
                     "playDates": [
+                        "2026-08-03",
+                        "2026-08-04",
                         "2026-08-05",
                         "2026-08-06",
-                        "2026-08-07",
-                        "2026-08-08"
+                        "2026-08-07"
                     ]
+                },
+                "events": []
+            },
+            "steps": [
+                {
+                    "op": "setClock",
+                    "at": "2026-08-08T09:00:00"
+                },
+                {
+                    "op": "record",
+                    "activity": "g",
+                    "expect": {
+                        "player": {
+                            "streak": {
+                                "current": 6,
+                                "longest": 6,
+                                "lastPlayDate": "2026-08-08"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "a 2.x lastPlayDate far in the future counts as today",
+            "clock": "2026-08-07T09:00:00",
+            "savedJson": {
+                "streak": {
+                    "current": 4,
+                    "longest": 4,
+                    "lastPlayDate": "2099-01-01"
+                }
+            },
+            "afterInit": {
+                "player": {
+                    "streak": {
+                        "current": 4,
+                        "longest": 4,
+                        "lastPlayDate": "2026-08-07"
+                    }
                 },
                 "events": []
             }
@@ -725,31 +1023,55 @@
             }
         },
         {
-            "name": "numeric strings and negatives in a version 3 document are dropped",
+            "name": "numeric strings in a version 3 document are read, negatives and words are dropped",
             "clock": "2026-08-07T09:00:00",
             "savedJson": {
                 "v": 3,
+                "level": "4",
                 "xpBy": {
                     "a": "100",
                     "b": 20,
-                    "c": -5
+                    "c": -5,
+                    "d": "-5",
+                    "e": "abc"
                 },
                 "xpSpentBy": {
                     "a": true
+                },
+                "gamesBy": {
+                    "a": "2",
+                    "b": "2.5"
+                },
+                "playsBy": {
+                    "g": {
+                        "a": " 3 "
+                    }
                 }
             },
             "afterInit": {
                 "player": {
-                    "xp": 20
+                    "xp": 120,
+                    "level": 4,
+                    "totalGamesPlayed": 2
                 },
                 "docExact": {
                     "xpBy": {
+                        "a": 100,
                         "b": 20
                     },
-                    "xpSpentBy": {}
+                    "xpSpentBy": {},
+                    "gamesBy": {
+                        "a": 2
+                    },
+                    "playsBy": {
+                        "g": {
+                            "a": 3
+                        }
+                    }
                 },
                 "events": []
-            }
+            },
+            "note": "Every map takes numbers or strings that hold them. Counts must be whole, so \"2.5\" is dropped. A negative string is dropped like a negative number."
         },
         {
             "name": "__proto__ is never an own property",
@@ -809,7 +1131,8 @@
                     "from_a_mod"
                 ],
                 "events": []
-            }
+            },
+            "note": "Intended. A mod or a newer version may define the id, so dropping it would lose a real unlock. Lookups by id use own properties."
         },
         {
             "name": "a document from a newer version is refused",

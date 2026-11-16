@@ -1,4 +1,4 @@
-import { validate, checkDevices, hasOwn, VERSION } from './store.js';
+import { validate, checkDevices, hasOwn, extraKeys, VERSION } from './store.js';
 import { isDay, trimDays } from './streaks.js';
 
 // Join two maps that are `depth` levels deep, taking the larger number at the
@@ -28,6 +28,26 @@ function joinAchievements(a, b) {
         out[id] = { unlockedAt: first.unlockedAt, seen: x.seen || y.seen, reward: first.reward };
     }
     return out;
+}
+
+// Same text for the same value whatever the key order, so the choice below does
+// not depend on which side a value came from.
+const stable = (value) => {
+    if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
+    if (value !== null && typeof value === 'object') {
+        return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(',')}}`;
+    }
+    return JSON.stringify(value);
+};
+
+// A field the core does not know has no rule to join by. One side only: kept.
+// Both: the one with the larger text, the same in any order.
+function joinExtras(x, y, doc) {
+    for (const key of new Set([...extraKeys(x), ...extraKeys(y)])) {
+        const a = hasOwn(x, key) ? x[key] : undefined;
+        const b = hasOwn(y, key) ? y[key] : undefined;
+        doc[key] = a === undefined ? b : b === undefined ? a : stable(a) >= stable(b) ? a : b;
+    }
 }
 
 const positive = (a, b) => (a > 0 && b > 0 ? Math.min(a, b) : Math.max(a, b));
@@ -63,6 +83,7 @@ export function merge(a, b, options) {
         sumsBy: join(x.sumsBy, y.sumsBy, 2),
         achievements: joinAchievements(x.achievements, y.achievements)
     };
+    joinExtras(x, y, doc);
     checkDevices(doc);
     return doc;
 }

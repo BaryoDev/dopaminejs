@@ -123,6 +123,7 @@ Events are collected from the start of each step (and from construction for
 | `doc` | Subset match against `export()`, the saved document. |
 | `docExact` | Like `playerExact`, against `export()`. |
 | `absent` | Dotted paths under the snapshot that must not exist as own keys. |
+| `docAbsent` | Dotted paths under `export()` that must not exist as own keys. |
 | `achievements` | Ids in `player.achievements`, as a set. |
 | `events` | The complete ordered list of events since the step began. Each is `{ "event": name, ...payload fields }`, matched as a subset. The list length must match. |
 | `returns` | Subset match against the operation's return value. |
@@ -131,7 +132,7 @@ Events are collected from the start of each step (and from construction for
 | `throws` | An error with this name (`TypeError`, `DopamineError`) is raised. State checks still run afterwards. |
 | `code` | With `throws`: the `code` of the `DopamineError`. |
 
-An empty `player`, `playerExact`, `doc`, `docExact`, `returns`, `returnsExact` or `absent`, or an empty `expect`,
+An empty `player`, `playerExact`, `doc`, `docExact`, `returns`, `returnsExact`, `absent` or `docAbsent`, or an empty `expect`,
 is an error because it checks nothing. An empty `events` or `achievements`
 list is a real check (nothing fired, nothing unlocked).
 
@@ -207,7 +208,10 @@ unlocked, so the legacy entry is the old `xp` minus those rewards, not below 0.
 Two devices that read the same 2.x save get the same entries and merge without
 doubling. 2.x progress made separately on two devices before migration merges
 by max, not by sum. `playDates` is rebuilt from `streak.current` and
-`streak.lastPlayDate`. A level above the curve is kept.
+`streak.lastPlayDate`. A level above the curve is kept. A `lastPlayDate` after
+today counts as today, so a clock change keeps the streak. One that is not a
+real day counts as no date: there is no current run, and the larger of
+`current` and `longest` stays as `longest`.
 
 ## Quirks pinned on purpose
 
@@ -219,11 +223,22 @@ rule change and needs a fixture change.
   `streak_updated` for a player with no earlier play. Loading a save counts no
   day.
 - Only `record` marks a day as played. `addXP` does not.
-- Numbers must be finite numbers. A numeric string is dropped to the default.
+- A number is a finite number, or a string that holds one (`"250"`, `" 12 "`),
+  in every field that expects a number. Counts must also be whole and none may
+  be negative. A blank string, `"Infinity"` and any other text fall back to the
+  default.
 - Dates must be real calendar days. `9999-99-99` and `2026-02-30` are dropped.
-- A play date after today is kept and ignored for the current streak.
-- Fields the core does not know are not carried.
-- `__proto__`, `constructor` and `prototype` are never kept as a key.
-- Achievement ids the core does not define are kept.
+- A play date after today is kept and ignored for the current streak. In a 2.x
+  save, `streak.lastPlayDate` after today counts as today.
+- Fields the core does not know are kept as read, at the top level of the
+  document, and are not part of the player view. Two saves with the same
+  unknown field keep the one with the larger canonical JSON text. Intended: a
+  newer version wrote them, and dropping them loses data.
+- `__proto__`, `constructor` and `prototype` are never kept as a key, at the
+  top level or inside a kept value.
+- Achievement ids the core does not define are kept. Intended: a mod or a
+  newer version may define them, so dropping one loses a real unlock.
+- A 2.x streak of 0 with a real date counts that date as one play day. Intended:
+  no play is lost, so the same day gives 1 and the next day gives 2.
 - Extra numbers in a `record` result add up per device. A value that is not a
   positive finite number adds 0.

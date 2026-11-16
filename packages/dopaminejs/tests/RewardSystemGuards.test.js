@@ -138,7 +138,7 @@ describe('RewardSystem saved state', () => {
     it('should drop tampered values back to the defaults', async () => {
         const storage = createMemoryStorage();
         seed(storage, {
-            xp: '100',
+            xp: 'lots',
             level: 'nine',
             totalGamesPlayed: -3,
             streak: { current: 'x', longest: null, lastPlayDate: 42 },
