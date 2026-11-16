@@ -15,10 +15,12 @@ export const isSafeKey = (key) => typeof key === 'string' && key.length > 0 && !
 export const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 export const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-// A number read from storage: a finite number, or a string that holds one
-// ("250", " 12 "). Anything else is undefined and falls back to the default.
+// A number read from storage: a finite number, or a plain decimal string
+// ("250", " -12 ", "1.5"). Hex, exponents, signs and the like are not read.
+// Anything else is undefined and falls back to the default.
+const DECIMAL = /^\s*-?\d+(\.\d+)?\s*$/;
 export function toNumber(value) {
-    if (typeof value === 'string' && value.trim() !== '') value = Number(value);
+    if (typeof value === 'string') value = DECIMAL.test(value) ? Number(value) : undefined;
     return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
