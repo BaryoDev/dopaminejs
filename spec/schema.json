@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://github.com/BaryoDev/dopaminejs/spec/schema.json",
     "title": "DopamineJS player document, contract 3",
-    "description": "What export() returns and what validate() and merge() accept. Only v is required on input; validate fills in the rest. Any other top level field is kept as read (never __proto__, constructor or prototype). Keys inside the per-device maps are device ids, which are never __proto__, constructor or prototype, and a document holds at most 20 of them across xpBy, xpSpentBy, gamesBy, playsBy and sumsBy.",
+    "description": "What export() returns and what validate() and merge() accept. Only v is required on input; validate fills in the rest. Any other top level field is kept as read (never __proto__, constructor or prototype). merge joins such a field by value: the larger number if both sides hold a finite number, otherwise the larger canonical JSON text. Recency is not used, since no field has its own timestamp and merge must not depend on order. Keys inside the per-device maps are device ids, which are never __proto__, constructor or prototype, and a document holds at most 20 of them across xpBy, xpSpentBy, gamesBy, playsBy and sumsBy.",
     "type": "object",
     "required": ["v"],
     "additionalProperties": true,

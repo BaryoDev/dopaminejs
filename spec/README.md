@@ -185,6 +185,7 @@ a save join by taking the larger number per key. That is what `merge` does.
 | `achievements` | Union. The earliest `unlockedAt` decides the entry and its stored `reward`. `seen` is true if either side has it true. |
 | `name` | From the side with the later `lastPlayedAt`, ties take the larger string. |
 | `createdAt`, `lastPlayedAt` | Min of the set values, max. |
+| Any other top level field | One side only: kept. Both: the larger number if both are finite numbers, else the larger canonical JSON text. No recency. |
 
 XP is derived: the sum of `xpBy`, plus the stored `reward` of every unlocked
 achievement, minus the sum of `xpSpentBy`, and not below 0. An achievement's
@@ -223,17 +224,23 @@ rule change and needs a fixture change.
   `streak_updated` for a player with no earlier play. Loading a save counts no
   day.
 - Only `record` marks a day as played. `addXP` does not.
-- A number is a finite number, or a string that holds one (`"250"`, `" 12 "`),
-  in every field that expects a number. Counts must also be whole and none may
-  be negative. A blank string, `"Infinity"` and any other text fall back to the
-  default.
+- A number is a finite number, or a plain decimal string (`"250"`, `" 12 "`,
+  `"-1.5"`) in every field that expects a number. Counts must also be whole and
+  none may be negative. Anything else falls back to the default: a blank
+  string, `"Infinity"`, `"0x10"`, `"0b11"`, `"0o7"`, `"1e3"`, `"+5"`, `"5."`
+  and any other text.
 - Dates must be real calendar days. `9999-99-99` and `2026-02-30` are dropped.
 - A play date after today is kept and ignored for the current streak. In a 2.x
   save, `streak.lastPlayDate` after today counts as today.
 - Fields the core does not know are kept as read, at the top level of the
-  document, and are not part of the player view. Two saves with the same
-  unknown field keep the one with the larger canonical JSON text. Intended: a
-  newer version wrote them, and dropping them loses data.
+  document, and are not part of the player view. Intended: a newer version
+  wrote them, and dropping them loses data. `merge` joins them by a fixed
+  rule. A field on one side only is kept. On both sides, two finite numbers
+  keep the larger value, and anything else keeps the one with the larger
+  canonical JSON text (keys sorted). Recency is not used: no field has its own
+  timestamp, and a rule based on `lastPlayedAt` gives a different result
+  depending on how three saves are grouped. The rule above is the same in any
+  order, any grouping and when repeated.
 - `__proto__`, `constructor` and `prototype` are never kept as a key, at the
   top level or inside a kept value.
 - Achievement ids the core does not define are kept. Intended: a mod or a
