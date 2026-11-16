@@ -12,7 +12,7 @@
             "config": {
                 "builtinAchievements": false
             },
-            "note": "Progress made after the failed read is added to the saved player. This device's counters add, other devices stay, best is the larger, unknown fields stay, the name stays. The event reports the merged total and the level it crossed. The reload proves it was saved.",
+            "note": "Progress made after the failed read is added to the saved player. This device's counters add, other devices stay, best is the larger, unknown fields stay, the name stays. The event reports the merged total. The reload proves it was saved.",
             "savedJson": {
                 "v": 3,
                 "name": "Ana",
@@ -127,12 +127,6 @@
                                 "event": "xp_gained",
                                 "amount": 5,
                                 "total": 151
-                            },
-                            {
-                                "event": "level_up",
-                                "oldLevel": 1,
-                                "newLevel": 2,
-                                "totalXP": 151
                             }
                         ]
                     }
@@ -1069,7 +1063,7 @@
             "config": {
                 "builtinAchievements": false
             },
-            "note": "Saved holds 5000 XP at level 10. The session earned 5. xp_gained carries the merged total and level, level_up fires because the level went from 1 to 10, and the return says the same.",
+            "note": "Saved holds 5000 XP at level 10. The session earned 5. xp_gained carries the merged total and level. The player was already level 10, so leveledUp is false and level_up does not fire.",
             "savedJson": {
                 "v": 3,
                 "name": "Ana",
@@ -1110,7 +1104,7 @@
                     "amount": 5,
                     "expect": {
                         "returns": {
-                            "leveledUp": true,
+                            "leveledUp": false,
                             "newLevel": 10,
                             "xpGained": 5
                         },
@@ -1124,13 +1118,7 @@
                                 "amount": 5,
                                 "total": 5005,
                                 "newLevel": 10,
-                                "leveledUp": true
-                            },
-                            {
-                                "event": "level_up",
-                                "oldLevel": 1,
-                                "newLevel": 10,
-                                "totalXP": 5005
+                                "leveledUp": false
                             }
                         ]
                     }
@@ -1141,6 +1129,94 @@
                         "player": {
                             "xp": 5005,
                             "level": 10
+                        },
+                        "events": []
+                    }
+                }
+            ]
+        },
+        {
+            "name": "a recovering addXP that crosses a level on the merged total fires level_up from the saved level",
+            "clock": "2026-08-07T09:00:00",
+            "device": "dev-a",
+            "storage": {
+                "failReads": 1
+            },
+            "config": {
+                "builtinAchievements": false
+            },
+            "note": "Saved holds 95 XP at level 1. The session earned 10. The merged total is 105, which crosses level 2, so leveledUp is true and level_up goes from 1 to 2.",
+            "savedJson": {
+                "v": 3,
+                "name": "Ana",
+                "createdAt": 1000000,
+                "lastPlayedAt": 1000000,
+                "level": 1,
+                "longest": 0,
+                "playDates": [],
+                "xpBy": {
+                    "dev-a": 95
+                },
+                "xpSpentBy": {},
+                "gamesBy": {},
+                "playsBy": {},
+                "best": {},
+                "sumsBy": {},
+                "achievements": {}
+            },
+            "afterInit": {
+                "player": {
+                    "xp": 0
+                },
+                "events": [
+                    {
+                        "event": "load_failed",
+                        "key": "player",
+                        "reason": "read"
+                    }
+                ]
+            },
+            "steps": [
+                {
+                    "op": "setClock",
+                    "at": "2026-08-07T09:01:00"
+                },
+                {
+                    "op": "addXP",
+                    "amount": 10,
+                    "expect": {
+                        "returns": {
+                            "leveledUp": true,
+                            "newLevel": 2,
+                            "xpGained": 10
+                        },
+                        "events": [
+                            {
+                                "event": "load_recovered",
+                                "key": "player"
+                            },
+                            {
+                                "event": "xp_gained",
+                                "amount": 10,
+                                "total": 105,
+                                "newLevel": 2,
+                                "leveledUp": true
+                            },
+                            {
+                                "event": "level_up",
+                                "oldLevel": 1,
+                                "newLevel": 2,
+                                "totalXP": 105
+                            }
+                        ]
+                    }
+                },
+                {
+                    "op": "reload",
+                    "expect": {
+                        "player": {
+                            "xp": 105,
+                            "level": 2
                         },
                         "events": []
                     }

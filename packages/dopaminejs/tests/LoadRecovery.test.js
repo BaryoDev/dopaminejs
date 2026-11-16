@@ -426,12 +426,28 @@ describe('RewardSystem after a failed read, once storage reads again', () => {
         const result = await rewards.addXP(5);
 
         expect(rewards.snapshot().xp).toBe(5005);
-        expect(events.map(([name]) => name)).toEqual(['xp_gained', 'level_up']);
-        expect(events[0][1]).toMatchObject({ amount: 5, total: 5005, newLevel: 10, leveledUp: true });
-        expect(events[1][1]).toEqual({ oldLevel: 1, newLevel: 10, totalXP: 5005 });
-        expect(result).toEqual({ leveledUp: true, newLevel: 10, xpGained: 5 });
+        expect(events.map(([name]) => name)).toEqual(['xp_gained']);
+        expect(events[0][1]).toMatchObject({ amount: 5, total: 5005, newLevel: 10, leveledUp: false });
+        expect(result).toEqual({ leveledUp: false, newLevel: 10, xpGained: 5 });
         expect(afterXP.total).toBe(5005);
         expect(afterXP.level).toBe(10);
+    });
+
+    it('fires level_up from the saved level when the gain crosses a level on the merged total', async () => {
+        const storage = flakyStorage();
+        storage.setItem(KEY, JSON.stringify({ name: 'Ana', xp: 95, level: 1 }));
+        const { rewards, clock } = make(storage);
+        const events = [];
+        rewards.on('xp_gained', (payload) => events.push(['xp_gained', payload]));
+        rewards.on('level_up', (payload) => events.push(['level_up', payload]));
+        await rewards.init();
+
+        clock.advance(30000);
+        const result = await rewards.addXP(10);
+
+        expect(events.map(([name]) => name)).toEqual(['xp_gained', 'level_up']);
+        expect(events[1][1]).toEqual({ oldLevel: 1, newLevel: 2, totalXP: 105 });
+        expect(result).toEqual({ leveledUp: true, newLevel: 2, xpGained: 10 });
     });
 
     it('does not make other callers wait on a retry that never settles', async () => {

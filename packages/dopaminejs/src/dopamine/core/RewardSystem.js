@@ -239,6 +239,7 @@ export class RewardSystem extends EventEmitter {
         }
         this._doc = merged;
         this._recoveries++;
+        this._savedLevel = Number(saved?.level) || 0;
         this._loadFailed = false;
         this._readFailed = false;
         this._forgetImports();
@@ -584,10 +585,12 @@ export class RewardSystem extends EventEmitter {
         await this.save();
 
         // A save that recovered a failed read replaced the document with the
-        // merged one, so report that, not the session's numbers.
+        // merged one. Report that, and compare with the merged level before
+        // this gain, so a level the saved player already had is not announced.
         if (this._recoveries !== recoveries) {
             total = xpOf(this._doc);
             newLevel = Math.max(newLevel, levelOf(this._doc));
+            oldLevel = Math.max(oldLevel, this._savedLevel, levelFor(total - amount));
         }
         const leveledUp = newLevel > oldLevel;
 

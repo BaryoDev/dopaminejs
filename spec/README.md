@@ -254,7 +254,7 @@ nothing is saved and the session stays blocked until `init()` or `reset()`.
 
 The `xp_gained` event and the return value of the `addXP` that recovers describe
 the merged player: `total`, `newLevel` and `leveledUp` come from it, and
-`level_up` fires when the merged level is above the level the session had.
+`level_up` fires only when this gain raises the merged level, compared with the merged player before the gain. A player who was already at that level gets no `level_up`.
 
 `init()` called again behaves as before: it reads, and on success replaces the
 session player with the saved one.
