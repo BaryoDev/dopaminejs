@@ -628,14 +628,29 @@ describe('showCertificate', () => {
         });
 
         it('cuts an emoji string by whole characters, never leaving half a surrogate pair', async () => {
-            showCertificate({ ...FIELDS, recipient: '\u{1F600}'.repeat(5000) });
-            await download();
-            const recipient = linesOf(contexts[0], 44);
+            // A unit slice leaves half a pair only when the room left for the text is odd, which
+            // depends on the ellipsis width. Measure it as 1 unit and as 2 so one run always hits that.
+            for (const ellipsis of [1, 2]) {
+                const getContext = HTMLCanvasElement.prototype.getContext;
+                HTMLCanvasElement.prototype.getContext = function () {
+                    const ctx = getContext.call(this);
+                    ctx.measureText = (text) => {
+                        const cut = String(text).endsWith('\u2026');
+                        return { width: (String(text).length - (cut ? 1 : 0) + (cut ? ellipsis : 0)) * 10 };
+                    };
+                    return ctx;
+                };
+                saved.length = 0;
+                showCertificate({ ...FIELDS, recipient: '\u{1F600}'.repeat(5000) });
+                await download();
+                const drawn = contexts[contexts.length - 1];
+                const recipient = linesOf(drawn, 44);
 
-            expect(recipient).toHaveLength(3);
-            expect(recipient[2].text.endsWith('\u2026')).toBe(true);
-            for (const line of contexts[0].texts) {
-                expect(line.text).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/);
+                expect(recipient, `ellipsis ${ellipsis}`).toHaveLength(3);
+                expect(recipient[2].text.endsWith('\u2026'), `ellipsis ${ellipsis}`).toBe(true);
+                for (const line of drawn.texts) {
+                    expect(line.text, `ellipsis ${ellipsis}`).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/);
+                }
             }
         });
 
