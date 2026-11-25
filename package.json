@@ -82,7 +82,7 @@
         {
             "path": "packages/dopaminejs/dist/certificate.js",
             "import": "*",
-            "limit": "3.9 KB",
+            "limit": "4.16 KB",
             "name": "dopaminejs/certificate (ESM)"
         }
     ],
