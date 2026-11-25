@@ -122,7 +122,9 @@ function paint(ctx, state, logo) {
             const w = logo.naturalWidth || logo.width || LOGO_SIZE;
             const h = logo.naturalHeight || logo.height || LOGO_SIZE;
             const scale = Math.min(TEXT_WIDTH / w, LOGO_SIZE / h);
-            ctx.drawImage(logo, x - (w * scale) / 2, y, w * scale, h * scale);
+            const dw = Math.min(TEXT_WIDTH, w * scale);
+            const dh = Math.min(LOGO_SIZE, h * scale);
+            ctx.drawImage(logo, x - dw / 2, y, dw, dh);
         }
         y += LOGO_SIZE + 30;
     }
