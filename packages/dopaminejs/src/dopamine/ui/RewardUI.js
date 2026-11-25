@@ -401,8 +401,11 @@ export class RewardUI {
      *   the colour and the burst.
      * - `custom` (and any other kind): the achievement layout without the heading.
      *
+     * - `burst`: on a card, `false` skips the confetti it fires after 300 ms.
+     *   Any other value keeps it.
+     *
      * @param {{ kind: string, title?: string, body?: string, icon?: string|Node,
-     *   meta?: string, tier?: 'common'|'rare'|'legendary' }} popup
+     *   meta?: string, tier?: 'common'|'rare'|'legendary', burst?: boolean }} popup
      */
     popup(popup) {
         if (!this.container || !popup || typeof popup !== 'object') return;
@@ -425,7 +428,7 @@ export class RewardUI {
         // Copy the fields now, so a caller that reuses its object cannot change
         // a card that is still waiting.
         const { title, body, meta, icon } = popup;
-        this._cardQueue.push([{ title, body, meta, icon }, withHeading]);
+        this._cardQueue.push([{ title, body, meta, icon, burst: ownValue(popup, 'burst') }, withHeading]);
         this._nextCard();
     }
 
@@ -473,10 +476,12 @@ export class RewardUI {
         this._mount(card);
         this._announce(withHeading ? `${this.strings.achievementUnlocked}: ${title}` : title);
 
-        this._defer(() => {
-            const rect = card.getBoundingClientRect();
-            this._burst('confetti', { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }, { count: 40 });
-        }, 300);
+        if (popup.burst !== false) {
+            this._defer(() => {
+                const rect = card.getBoundingClientRect();
+                this._burst('confetti', { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }, { count: 40 });
+            }, 300);
+        }
 
         this._defer(() => {
             card.style.animation = 'slideOut 0.3s ease-in forwards';

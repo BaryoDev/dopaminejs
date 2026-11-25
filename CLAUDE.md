@@ -94,6 +94,7 @@ throwing one does not stop the others.
 - There are three extension shapes (`docs/PLUGIN_GUIDE.md`): a subscriber plugin
   `{ name, version, api: 3, after?, requires?, install(ctx) }` (`install` returns a
   disposer, a wrong `api` throws `plugin_api`), a part, and middleware (`progress.use`).
+- `host.celebrate(preset, options?)` (`dopamine/celebrate.js`, internal) shows a `custom` card with `burst: false`, one confetti burst and a sound. Reduced motion is read at call time and skips the burst. Unknown presets and calls after `dispose()` do nothing.
 - `webglParticles()` and `howlerSound()` are parts, not plugins. `debugOverlay()`,
   `webhooks()`, `soundPack()` and `theme()` are plugins.
 - Plugins install in array order and dispose in reverse. `ctx.events.on`

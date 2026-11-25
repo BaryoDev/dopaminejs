@@ -124,6 +124,14 @@ To put the card on the left, set `--dopamine-toast-right: auto` as well. With bo
 
 Cards show one at a time. A second unlock waits until the first has left, so its announcement and confetti come later too.
 
+## Celebrate a moment
+
+```javascript
+dopamine.celebrate('complete', { title: 'Lesson 3 done', target: button });
+```
+
+Shows a toast, fires confetti and plays a sound. Presets: `complete`, `milestone`, `streak`, `certificate`. Options: `title`, `body`, `icon`, `target` (confetti starts at its centre) and `sound` (a key, or `false`). With reduced motion on there is no confetti.
+
 ## Cleanup
 
 Everything that touches the DOM can be torn down:

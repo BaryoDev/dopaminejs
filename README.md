@@ -95,6 +95,22 @@ To have the browser refuse a changed file, add `integrity="sha384-..."` and
 `crossorigin="anonymous"` to the script tag. The publish job prints the sha384 value for each
 release. `unpkg.com` serves the same file.
 
+## Celebrate a moment
+
+One call shows a toast, fires confetti and plays a sound:
+
+```javascript
+dopamine.celebrate('complete', { title: 'Lesson 3 done', target: button });
+```
+
+The presets are `complete`, `milestone`, `streak` and `certificate`. An unknown preset does nothing. Options are all optional:
+
+- `title`, `body` and `icon` replace the preset text and icon. The text is set as text, and a string icon follows `safeIcons`.
+- `target` is an element. The confetti starts at its centre. Without one, or if it has no size, it starts at the middle of the viewport.
+- `sound` is a sound key, or `false` for none. The default is the preset sound.
+
+With reduced motion on, there is no confetti. The toast and sound still happen. The setting is read on each call. The toast queues behind other cards, and `dispose()` removes it.
+
 ## Why streaks are the hard part
 
 A daily streak is a calendar question, not a clock question. "Did they come back yesterday"
