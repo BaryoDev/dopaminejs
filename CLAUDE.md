@@ -58,6 +58,8 @@ packages/dopaminejs/src/
   games.js            the `dopaminejs/games` subpath: gameFeedback() plugin
   celebrate.js        the `dopaminejs/celebrate` subpath: celebrate(), destroyCelebrations()
   certificate.js      the `dopaminejs/certificate` subpath: showCertificate(), destroyCertificate()
+  auto.js             the `dopaminejs/auto` subpath: auto(), destroyAuto(), rewards from data attributes
+  all.js              entry of the all-in-one script tag file `dist/dopamine.all.global.js`, not an export
   testing.js          the `dopaminejs/testing` subpath: createTestHost, conformance, loadFixtures
   dopamine/
     host.js           createDopamine, HOST_API, the plugin contract
@@ -68,7 +70,7 @@ packages/dopaminejs/src/
     feel/             haptics, reduced motion
 ```
 
-`dist/dopamine.global.js` is the script tag build (`vite.config.iife.js`, run after the main build, which owns `dist/`). It exposes `window.Dopamine`. `tests/ScriptTag.test.js` builds it into a temp folder.
+`dist/dopamine.global.js` is the script tag build (`vite.config.iife.js`, run after the main build, which owns `dist/`). It exposes `window.Dopamine`. `dist/dopamine.all.global.js` is the all-in-one script tag file (`vite.config.all.js`, entry `src/all.js`, run after the iife build): the main entry, celebrate, the certificate and auto in one file, with the dynamic imports inlined. With `data-dopamine-auto` on its own script tag it calls `auto({ host: createDopamine() })`, and does nothing at load otherwise. It is not in `exports`. `tests/ScriptTag.test.js` builds both into temp folders.
 
 `dopaminejs/style.css` is emitted by the build from `ui/dopamine.css`. Nothing
 imports it. `RewardUI` takes `injectCss: true` to add it from code.
@@ -110,8 +112,9 @@ throwing one does not stop the others.
   Call `combo`, `nearMiss`, `luckyMoment` and `summary` on the object it returns.
   They do nothing before install and after dispose. Nothing in the main entry
   imports it (a test walks the import graph).
-- `dopaminejs/celebrate`: `celebrate(preset, options?)` works standalone (its own toast, `ParticleSystem` canvas `dopamine-celebrate-canvas` and `SoundManager`, and a hidden live region, removed by `destroyCelebrations()`) or through `options.parts`, which uses the card with `burst: false`. Nothing in the main entry imports it (a test walks the import graph), and the script tag build does not include it.
-- `dopaminejs/certificate`: `showCertificate(fields, options?)` opens a modal card (`role="dialog"`, focus trapped, one at a time) with Download (PNG from a canvas), Print and Close, and `destroyCertificate()` removes it. Fields are text; a string `logo` follows `safeIcons` through `ui/icon.js`. Its styles are inline plus one print `<style>` that it removes on close. `celebrate` opens it with `import('./certificate.js')`, so it stays out of the celebrate entry (size-limit ignores that import). Nothing in the main entry imports it (a test walks the import graph), and the script tag build does not include it.
+- `dopaminejs/celebrate`: `celebrate(preset, options?)` works standalone (its own toast, `ParticleSystem` canvas `dopamine-celebrate-canvas` and `SoundManager`, and a hidden live region, removed by `destroyCelebrations()`) or through `options.parts`, which uses the card with `burst: false`. Nothing in the main entry imports it (a test walks the import graph). `dopamine.global.js` does not include it and `dopamine.all.global.js` does.
+- `dopaminejs/certificate`: `showCertificate(fields, options?)` opens a modal card (`role="dialog"`, focus trapped, one at a time) with Download (PNG from a canvas), Print and Close, and `destroyCertificate()` removes it. Fields are text; a string `logo` follows `safeIcons` through `ui/icon.js`. Its styles are inline plus one print `<style>` that it removes on close. `celebrate` opens it with `import('./certificate.js')`, so it stays out of the celebrate entry (size-limit ignores that import). Nothing in the main entry imports it (a test walks the import graph). `dopamine.global.js` does not include it and `dopamine.all.global.js` does.
+- `dopaminejs/auto`: `auto({ host, root?, maxXP? })` reads `data-dopamine-on` (`click`, `submit`, `ended`, `read`, `visible`), `-xp`, `-achievement`, `-celebrate`, `-certificate-*` and `-repeat`. It has no static imports: it loads `./celebrate.js` and `./certificate.js` with `import()` and must not import `host.js` or core (a shared chunk would grow the main bundles). Three delegated listeners, one `IntersectionObserver` and one `MutationObserver` whatever the element count. XP must match `/^\d+$/` and be at most `maxXP`; an achievement id must be an own key of `host.progress.achievements`. A module-level `WeakSet` makes each element fire once per page load across `destroyAuto()`. `destroyAuto()` never disposes the host. The size-limit entry ignores the two dynamic imports.
 - `dopaminejs/testing` imports `vitest`, an optional peer dependency, so no
   other entry may import it. `conformance.particles|sound|ui|storage|plugin(make)`
   are `describe` blocks; `conformanceFailures(name, make)` returns the failed titles
@@ -182,7 +185,7 @@ Bump the versions, update `CHANGELOG.md`, tag `v<core version>`, push the tag.
 Only packages whose version is not on npm get published. Never run
 `npm publish` by hand. Details are in the README.
 
-After a release that ships `dist/dopamine.global.js`, take the hash the publish job printed ("Print SRI hash of the script tag build", also in the job summary) and put it and the version into the README "No build step" section.
+After a release that ships `dist/dopamine.global.js` and `dist/dopamine.all.global.js`, take both hashes the publish job printed ("Print SRI hash of the script tag build", also in the job summary). Put the first and the version into the README "No build step" section, and the second into the "Rewards from HTML attributes" snippet as its `integrity` attribute.
 
 ## Commits
 

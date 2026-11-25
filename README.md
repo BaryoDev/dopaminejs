@@ -123,7 +123,7 @@ The presets are `complete`, `milestone`, `streak` and `certificate`. An unknown 
 - `sound` is a sound key, or `false` for none. The default is the preset sound.
 - `parts` is the host's `parts`. A part the host does not have (`parts: {}`, or a host built with `ui: false`) is skipped, with no standalone fallback. Without `parts`, `celebrate` makes its own toast on the first call, a canvas when confetti runs (not under reduced motion) and a sound manager when a sound plays (not with `sound: false`).
 
-With reduced motion on, there is no confetti. The toast and sound still happen. The setting is read on each call. The standalone toast lasts 3 seconds, and a new call replaces it. Call `destroyCelebrations()` to remove the toast, its screen reader region, the canvas and the sound manager. `celebrate` never throws, and errors go to `console.error`. The script tag build does not include it.
+With reduced motion on, there is no confetti. The toast and sound still happen. The setting is read on each call. The standalone toast lasts 3 seconds, and a new call replaces it. Call `destroyCelebrations()` to remove the toast, its screen reader region, the canvas and the sound manager. `celebrate` never throws, and errors go to `console.error`. `dopamine.global.js` does not include it. `dopamine.all.global.js` does.
 
 ## Completion certificate
 
@@ -162,7 +162,78 @@ celebrate('certificate', { certificate: { title: 'Intro to Gardening', recipient
 - Print calls `window.print()` with a print style that shows only the certificate.
 - It is a dialog (`role="dialog"`, `aria-modal`, labelled by the title) with focus kept inside. Escape, Close or a click outside closes it and focus goes back to where it was. One certificate is open at a time. `destroyCertificate()` closes it and removes its DOM, print style and listeners. `destroyCelebrations()` does not.
 - Colours come from the `--dopamine-toast-*` variables (`bg`, `text`, `muted`, `accent`, `radius`, `shadow`). The PNG reads them too; a gradient `bg` is drawn as the default purple gradient.
-- Not in the script tag build.
+- Not in `dopamine.global.js`. `dopamine.all.global.js` has it.
+
+## Rewards from HTML attributes
+
+`dopaminejs/auto` reads `data-dopamine-*` attributes and awards XP, unlocks achievements,
+celebrates and shows a certificate when something happens on the page. A writer who can
+edit HTML can wire a reward with no JavaScript of their own.
+
+```html
+<video src="lesson.mp4" controls
+       data-dopamine-on="ended" data-dopamine-xp="50" data-dopamine-celebrate="complete"></video>
+
+<button data-dopamine-on="click" data-dopamine-xp="5">Mark as done</button>
+
+<article data-dopamine-on="read" data-dopamine-achievement="first_game"
+         data-dopamine-certificate-title="Intro to Gardening"
+         data-dopamine-certificate-recipient="Ana Reyes">...</article>
+```
+
+With a bundler, build a host and pass it in:
+
+```js
+import { createDopamine } from 'dopaminejs';
+import { auto } from 'dopaminejs/auto';
+
+const host = createDopamine();
+auto({ host });
+```
+
+With no build step, load `dopamine.all.global.js` and add `data-dopamine-auto` to the script tag.
+It holds the main entry, `celebrate`, the certificate and `auto`, and `window.Dopamine` has all of them.
+This is 3.8.0:
+
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@3.8.0/dist/style.css">
+<script src="https://cdn.jsdelivr.net/npm/dopaminejs@3.8.0/dist/dopamine.all.global.js"
+        crossorigin="anonymous" data-dopamine-auto></script>
+```
+
+The `integrity` hash for this file comes with the 3.8.0 release (the publish job prints it). The tag
+can go in `<head>` with no `defer`: it waits for the body. Include it once, because each copy builds its
+own host. Without `data-dopamine-auto`, loading the file changes nothing. For achievements your page
+defines or other options, skip the attribute and call `Dopamine.auto({ host })` with your own
+`Dopamine.createDopamine({ ... })`.
+
+`auto({ host, root?, maxXP? })`:
+
+- `host` is a `createDopamine()` result. Without it, `auto` throws a `TypeError`. `destroyAuto()` never disposes it.
+- `root` is a `Document` or `Element`, default `document`. Every listener and observer attaches to it.
+- `maxXP` is the largest XP an attribute may award, default 1000.
+
+Attributes:
+
+- `data-dopamine-on` is one of `click`, `submit`, `ended`, `read` or `visible`. `read` fires when the end of the element scrolls into view, using a one pixel invisible `<span data-dopamine-sentinel>` added as its last child and moved back to the end when the children change. So `read` needs an element that holds children, the old last child no longer matches `:last-child`, and in a flex or grid container the sentinel is an item. `visible` fires when the element does.
+- `data-dopamine-xp` is a whole number written in digits, such as `25`. Anything else (`-5`, `5.5`, `1e3`, `0x10`) or a number over `maxXP` is ignored with one `console.warn`. `0` does nothing.
+- `data-dopamine-achievement` is an achievement id the host has. An unknown id is ignored with a warning.
+- `data-dopamine-celebrate` is a `celebrate` preset: `complete`, `milestone`, `streak` or `certificate`. Any other value is ignored with a warning, and certificate attributes on the same element still open the certificate.
+- `data-dopamine-certificate-title`, `-recipient`, `-date`, `-issuer` and `-logo` open a certificate, after the celebration if there is one.
+- `data-dopamine-repeat` lets the element fire every time.
+
+The XP, achievement and celebrate values are trimmed; `data-dopamine-on` and the certificate fields are
+used as written. Each element warns at most once, for the first bad value it has. Put `click` on the
+control itself, not on a `<label>`: a click on a label also clicks its control, so a label with
+`data-dopamine-repeat` awards twice. Click and submit are heard in the capture phase at the root, so a
+handler on the element or inside it that stops the event does not stop the reward. A capture listener on
+`window` that stops it still does. Elements inside a shadow root are not seen.
+
+Each element fires once per page load, even if `destroyAuto()` and `auto()` run in between. With
+`data-dopamine-repeat` it fires on each click, and each time it enters the viewport again. Elements added to or removed
+from the page later are picked up. A changed attribute is not watched. Where there is no
+`IntersectionObserver`, `read` and `visible` are skipped with one warning and the other triggers still work.
+`destroyAuto()` removes the listeners, observers and sentinels.
 
 ## Why streaks are the hard part
 

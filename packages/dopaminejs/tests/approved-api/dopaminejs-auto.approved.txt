@@ -1,0 +1,2 @@
+auto: function(1)
+destroyAuto: function(0)
