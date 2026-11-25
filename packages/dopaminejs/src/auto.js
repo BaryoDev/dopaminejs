@@ -15,6 +15,9 @@ const ON = 'data-dopamine-on';
 const SELECTOR = `[${ON}]`;
 const SENTINEL = 'data-dopamine-sentinel';
 const CERTIFICATE_FIELDS = ['title', 'recipient', 'date', 'issuer', 'logo'];
+// celebrate() drops any other name without a word, and the certificate with it.
+// A test holds this list to the CelebratePreset type.
+const PRESETS = ['complete', 'milestone', 'streak', 'certificate'];
 const DEFAULT_MAX_XP = 1000;
 
 // Once per page load, so these outlive destroyAuto() and a later auto().
@@ -58,11 +61,12 @@ function act(state, el) {
         }
     }
 
-    const id = el.getAttribute('data-dopamine-achievement');
-    if (id !== null) {
+    const rawId = el.getAttribute('data-dopamine-achievement');
+    if (rawId !== null) {
+        const id = rawId.trim();
         const table = host.progress.achievements;
         if (table === null || typeof table !== 'object' || !hasOwn(table, id)) {
-            warn(el, `data-dopamine-achievement ${quote(id)} is not an achievement of this host`);
+            warn(el, `data-dopamine-achievement ${quote(rawId)} is not an achievement of this host`);
         } else {
             Promise.resolve(host.ready).then(() => host.progress.unlockAchievement(id)).catch(failed('unlockAchievement'));
         }
@@ -74,8 +78,13 @@ function act(state, el) {
         if (value !== null) (certificate ??= {})[field] = value;
     }
 
-    const preset = el.getAttribute('data-dopamine-celebrate');
-    if (preset !== null) {
+    const rawPreset = el.getAttribute('data-dopamine-celebrate');
+    const preset = rawPreset === null ? null : rawPreset.trim();
+    const known = preset !== null && PRESETS.includes(preset);
+    if (preset !== null && !known) {
+        warn(el, `data-dopamine-celebrate ${quote(rawPreset)} is not complete, milestone, streak or certificate`);
+    }
+    if (known) {
         const options = { parts: host.parts, target: el };
         if (certificate) options.certificate = certificate;
         import('./celebrate.js').then((m) => m.celebrate(preset, options)).catch(failed('celebrate'));
@@ -126,7 +135,7 @@ function track(state, el) {
 }
 
 // The element itself, then what it holds. A sentinel matches nothing, so the
-// observer adding or removing one changes nothing.
+// observer moving one back does not loop.
 function matching(node) {
     if (node.nodeType !== 1) return [];
     const found = node.matches(SELECTOR) ? [node] : [];
@@ -146,11 +155,13 @@ function scan(state, node) {
  * `data-dopamine-repeat` lets an element fire every time. Without it each
  * element fires once per page load, even across destroyAuto() and auto().
  *
- * `read` appends an invisible one pixel sentinel as the last child and fires when
- * it scrolls into view. `visible` fires when the element does. Elements added or
- * removed later are picked up, but a changed attribute is not watched. A bad
- * value is ignored with one console warning for that element. Never touches the
- * host's lifetime. Calling it again replaces the earlier call.
+ * `read` appends an invisible one pixel sentinel as the last child, keeps it last
+ * when the children change, and fires when it scrolls into view. `visible` fires
+ * when the element does. Elements added or removed later are picked up, but a
+ * changed attribute is not watched. Values are trimmed. A bad value is ignored
+ * with one console warning for that element. Click and submit are heard in the
+ * capture phase. Never touches the host's lifetime. Calling it again replaces
+ * the earlier call.
  *
  * @param {{ host: Object, root?: Document|Element, maxXP?: number }} options -
  *   `host` is a createDopamine() result. `root` holds every listener and
@@ -196,11 +207,12 @@ export function auto(options) {
         const el = start?.closest(`[${ON}="${type}"]`);
         if (el && root.contains(el)) fire(state, el);
     };
-    // `ended` does not bubble, so it is heard in the capture phase.
-    for (const [type, capture] of [['click', false], ['submit', false], ['ended', true]]) {
+    // Capture phase: `ended` does not bubble, and a page handler that stops a
+    // click or submit from bubbling must not stop the award.
+    for (const type of ['click', 'submit', 'ended']) {
         const handler = delegate(type);
-        state.listeners.push({ type, handler, capture });
-        root.addEventListener(type, handler, capture);
+        state.listeners.push({ type, handler });
+        root.addEventListener(type, handler, true);
     }
 
     if (typeof IntersectionObserver === 'function') {
@@ -218,6 +230,12 @@ export function auto(options) {
                     for (const el of matching(node)) remove(state, el);
                 }
                 for (const node of record.addedNodes) scan(state, node);
+                // Children added after the sentinel, or a re-render that took it
+                // out, would leave read firing early or never.
+                const own = state.own.get(record.target);
+                if (own?.sentinel && record.target.lastChild !== own.sentinel) {
+                    record.target.appendChild(own.sentinel);
+                }
             }
         });
         state.mo.observe(root, { childList: true, subtree: true });
@@ -235,8 +253,8 @@ export function destroyAuto() {
     const state = active;
     active = null;
     if (!state) return;
-    for (const { type, handler, capture } of state.listeners) {
-        state.root.removeEventListener(type, handler, capture);
+    for (const { type, handler } of state.listeners) {
+        state.root.removeEventListener(type, handler, true);
     }
     state.io?.disconnect();
     state.mo?.disconnect();

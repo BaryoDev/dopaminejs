@@ -176,7 +176,7 @@ edit HTML can wire a reward with no JavaScript of their own.
 
 <button data-dopamine-on="click" data-dopamine-xp="5">Mark as done</button>
 
-<article data-dopamine-on="read" data-dopamine-achievement="first"
+<article data-dopamine-on="read" data-dopamine-achievement="first_game"
          data-dopamine-certificate-title="Intro to Gardening"
          data-dopamine-certificate-recipient="Ana Reyes">...</article>
 ```
@@ -201,9 +201,11 @@ This is 3.8.0:
         crossorigin="anonymous" data-dopamine-auto></script>
 ```
 
-The `integrity` hash for this file comes with the 3.8.0 release (the publish job prints it). Without
-`data-dopamine-auto`, loading the file changes nothing. For achievements your page defines or other
-options, skip the attribute and call `Dopamine.auto({ host })` with your own `Dopamine.createDopamine({ ... })`.
+The `integrity` hash for this file comes with the 3.8.0 release (the publish job prints it). The tag
+can go in `<head>` with no `defer`: it waits for the body. Include it once, because each copy builds its
+own host. Without `data-dopamine-auto`, loading the file changes nothing. For achievements your page
+defines or other options, skip the attribute and call `Dopamine.auto({ host })` with your own
+`Dopamine.createDopamine({ ... })`.
 
 `auto({ host, root?, maxXP? })`:
 
@@ -213,12 +215,17 @@ options, skip the attribute and call `Dopamine.auto({ host })` with your own `Do
 
 Attributes:
 
-- `data-dopamine-on` is one of `click`, `submit`, `ended`, `read` or `visible`. `read` fires when the end of the element scrolls into view, using a one pixel invisible `<span data-dopamine-sentinel>` added as its last child. `visible` fires when the element does.
+- `data-dopamine-on` is one of `click`, `submit`, `ended`, `read` or `visible`. `read` fires when the end of the element scrolls into view, using a one pixel invisible `<span data-dopamine-sentinel>` added as its last child and moved back to the end when the children change. So `read` needs an element that holds children, the old last child no longer matches `:last-child`, and in a flex or grid container the sentinel is an item. `visible` fires when the element does.
 - `data-dopamine-xp` is a whole number written in digits, such as `25`. Anything else (`-5`, `5.5`, `1e3`, `0x10`) or a number over `maxXP` is ignored with one `console.warn`. `0` does nothing.
-- `data-dopamine-achievement` is an achievement id the host has. An unknown id is ignored with one warning.
-- `data-dopamine-celebrate` is a `celebrate` preset: `complete`, `milestone`, `streak` or `certificate`.
+- `data-dopamine-achievement` is an achievement id the host has. An unknown id is ignored with a warning.
+- `data-dopamine-celebrate` is a `celebrate` preset: `complete`, `milestone`, `streak` or `certificate`. Any other value is ignored with a warning, and certificate attributes on the same element still open the certificate.
 - `data-dopamine-certificate-title`, `-recipient`, `-date`, `-issuer` and `-logo` open a certificate, after the celebration if there is one.
 - `data-dopamine-repeat` lets the element fire every time.
+
+Values are trimmed. Each element warns at most once, for the first bad value it has. Put `click` on the
+control itself, not on a `<label>`: a click on a label also clicks its control, so a label with
+`data-dopamine-repeat` awards twice. Click and submit are heard in the capture phase, so a page handler
+that stops the event does not stop the reward. Elements inside a shadow root are not seen.
 
 Each element fires once per page load, even if `destroyAuto()` and `auto()` run in between. With
 `data-dopamine-repeat` it fires on each click, and each time it enters the viewport again. Elements added to or removed

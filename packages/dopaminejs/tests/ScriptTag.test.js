@@ -163,6 +163,38 @@ describe('all-in-one script tag build', () => {
         window.Dopamine.destroyAuto();
         window.close();
     });
+
+    it('in <head> with no defer, it waits for the body, then a click awards the XP', async () => {
+        // The tag runs while the parser is still in <head>, so there is no body yet.
+        // The file is evaluated from inside that tag, so currentScript is the tag.
+        let bodyAtLoad;
+        const dom = new JSDOM(
+            '<!doctype html><html><head><script data-dopamine-auto>window.loadAll()</script></head>'
+            + '<body><button data-dopamine-on="click" data-dopamine-xp="5">go</button></body></html>',
+            {
+                url: 'https://example.test/',
+                runScripts: 'dangerously',
+                beforeParse(window) {
+                    stubCanvas(window);
+                    window.loadAll = () => {
+                        bodyAtLoad = window.document.body;
+                        window.eval(allCode);
+                    };
+                }
+            }
+        );
+        const { window } = dom;
+        expect(bodyAtLoad).toBeNull();
+        expect(window.Dopamine).toBeDefined();
+        if (window.document.readyState === 'loading') {
+            await new Promise((done) => window.document.addEventListener('DOMContentLoaded', done, { once: true }));
+        }
+        window.document.querySelector('button').click();
+        await wait();
+        expect(xpOf(window)).toBe(5);
+        window.Dopamine.destroyAuto();
+        window.close();
+    });
 });
 
 describe('check-versions --dist and the unpkg and jsdelivr fields', () => {

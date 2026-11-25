@@ -138,6 +138,44 @@ describe('triggers', () => {
         expect(io.observed.size).toBe(0);
     });
 
+    it('read keeps its sentinel last when children are added later', async () => {
+        const el = html('<article data-dopamine-on="read"><p>one</p></article>');
+        auto({ host });
+        const sentinel = el.lastElementChild;
+        el.appendChild(document.createElement('p'));
+        el.append('more text');
+        await flush();
+        expect(el.lastChild).toBe(sentinel);
+        expect(el.querySelectorAll('[data-dopamine-sentinel]')).toHaveLength(1);
+    });
+
+    it('read gets its sentinel back after a re-render and still fires', async () => {
+        const el = html('<article data-dopamine-on="read" data-dopamine-xp="4"><p>old</p></article>');
+        auto({ host });
+        const [io] = FakeIO.instances;
+        const sentinel = el.lastElementChild;
+        el.textContent = 'new';
+        await flush();
+        expect(el.lastChild).toBe(sentinel);
+        expect(io.observed.has(sentinel)).toBe(true);
+        io.send(sentinel);
+        await flush();
+        expect(host.progress.addXP).toHaveBeenCalledWith(4);
+    });
+
+    it('a page handler that stops click or submit from bubbling does not stop the award', async () => {
+        const button = html('<div><button data-dopamine-on="click" data-dopamine-xp="5"><b>go</b></button>'
+            + '<form data-dopamine-on="submit" data-dopamine-xp="3"></form></div>').firstElementChild;
+        const form = document.querySelector('form');
+        button.firstElementChild.addEventListener('click', (event) => event.stopPropagation());
+        form.addEventListener('submit', (event) => event.stopPropagation());
+        auto({ host });
+        click(button.firstElementChild);
+        form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+        await flush();
+        expect(host.progress.addXP.mock.calls).toEqual([[5], [3]]);
+    });
+
     it('an unknown trigger warns once for that element', () => {
         const el = html('<div data-dopamine-on="hover" data-dopamine-xp="5"></div>');
         auto({ host });
@@ -378,6 +416,15 @@ describe('achievements', () => {
         expect(warn).not.toHaveBeenCalled();
     });
 
+    it('a known id with spaces around it is trimmed', async () => {
+        const button = html('<button data-dopamine-on="click" data-dopamine-achievement=" first "></button>');
+        auto({ host });
+        click(button);
+        await flush();
+        expect(host.progress.unlockAchievement).toHaveBeenCalledWith('first');
+        expect(warn).not.toHaveBeenCalled();
+    });
+
     it('a long value is cut to 40 characters in the warning', () => {
         const button = html('<button data-dopamine-on="click"></button>');
         button.setAttribute('data-dopamine-achievement', 'x'.repeat(200));
@@ -388,12 +435,40 @@ describe('achievements', () => {
 });
 
 describe('celebrate and certificate', () => {
-    it('celebrate __proto__ does not throw', async () => {
-        const button = html('<button data-dopamine-on="click" data-dopamine-celebrate="__proto__"></button>');
+    for (const preset of ['__proto__', 'bogus', '', 'Complete']) {
+        it(`celebrate ${JSON.stringify(preset)} is ignored with one warning`, async () => {
+            const button = html('<button data-dopamine-on="click" data-dopamine-repeat></button>');
+            button.setAttribute('data-dopamine-celebrate', preset);
+            auto({ host });
+            expect(() => { click(button); click(button); }).not.toThrow();
+            await flush();
+            expect(celebrate).not.toHaveBeenCalled();
+            expect(warn).toHaveBeenCalledTimes(1);
+            expect(warn.mock.calls[0][0]).toContain('data-dopamine-celebrate');
+        });
+    }
+
+    it('every CelebratePreset is passed on, trimmed', async () => {
+        const types = readFileSync(resolve(here, '../types/celebrate.d.ts'), 'utf8');
+        const presets = [...types.match(/CelebratePreset = ([^;]+);/)[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+        expect(presets).toHaveLength(4);
+        html('<div>' + presets.map((p) => `<button data-dopamine-on="click" data-dopamine-celebrate=" ${p} "></button>`).join('') + '</div>');
         auto({ host });
-        expect(() => click(button)).not.toThrow();
-        await flush();
-        expect(celebrate).toHaveBeenCalledWith('__proto__', { parts: host.parts, target: button });
+        for (const button of document.querySelectorAll('button')) click(button);
+        await vi.waitFor(() => expect(celebrate).toHaveBeenCalledTimes(presets.length));
+        expect(celebrate.mock.calls.map((call) => call[0]).sort()).toEqual([...presets].sort());
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('an unknown preset with certificate fields warns and still shows the certificate', async () => {
+        const el = html('<button data-dopamine-on="click" data-dopamine-celebrate="bogus" '
+            + 'data-dopamine-certificate-title="Done"></button>');
+        auto({ host });
+        click(el);
+        await vi.waitFor(() => expect(showCertificate).toHaveBeenCalledTimes(1));
+        expect(showCertificate).toHaveBeenCalledWith({ title: 'Done' });
+        expect(celebrate).not.toHaveBeenCalled();
+        expect(warn.mock.calls[0][0]).toContain('"bogus"');
     });
 
     it('celebrate with certificate fields passes parts, target and only the set fields', async () => {
