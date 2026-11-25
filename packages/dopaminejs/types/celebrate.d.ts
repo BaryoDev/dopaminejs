@@ -13,7 +13,10 @@ export interface CelebrateOptions {
     target?: Element;
     /** A sound key to play. `false` plays nothing. Default is the preset sound. */
     sound?: string | false;
-    /** Send the toast, confetti and sound through a host's parts, such as `dopamine.parts`. */
+    /**
+     * Send the toast, confetti and sound through a host's parts, such as `dopamine.parts`.
+     * A part the host does not have is skipped, with no standalone fallback.
+     */
     parts?: Partial<Parts>;
 }
 

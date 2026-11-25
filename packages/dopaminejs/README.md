@@ -133,7 +133,7 @@ celebrate('complete', { title: 'Lesson 3 done', target: button });
 celebrate('certificate', { parts: dopamine.parts });   // through a host
 ```
 
-Shows a toast, fires confetti and plays a sound, with or without `createDopamine()`. Presets: `complete`, `milestone`, `streak`, `certificate`. Options: `title`, `body`, `icon`, `target` (confetti starts at its centre), `sound` (a key, or `false`) and `parts`. With reduced motion on there is no confetti. `destroyCelebrations()` removes what the standalone route made. Not in the script tag build.
+Shows a toast, fires confetti and plays a sound, with or without `createDopamine()`. Presets: `complete`, `milestone`, `streak`, `certificate`. Options: `title`, `body`, `icon`, `target` (confetti starts at its centre), `sound` (a key, or `false`) and `parts`. With reduced motion on there is no confetti. A part the host does not have is skipped, with no standalone fallback. `destroyCelebrations()` removes what the standalone route made. Not in the script tag build.
 
 ## Cleanup
 
