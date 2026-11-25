@@ -1,23 +1,27 @@
 # DopamineJS
 
-> **Progress feedback for any web app.** XP, levels, achievements and daily streaks you can
-> drop into a product, plus the particles and sound that make them land.
+> **Gamification for any website.** XP, levels, achievements, daily streaks and confetti,
+> from one script tag or one import.
 
-Every learning platform, habit tracker and onboarding flow eventually rebuilds the same
-thing: points that accumulate, a level that goes up, a streak that must not be broken, and
-some visual acknowledgement when it happens. There is no library for that, so teams write
-it again each time, usually without the timezone handling that makes streaks correct.
+Course sites, blogs, onboarding flows and community sites all end up building the same
+thing: points that add up, a level that goes up, a streak that must not break, and something
+on screen when it happens. Teams write it again each time, usually without the timezone
+handling that makes streaks correct.
 
-DopamineJS is that library. Progress is the core, and the visual and audio feedback are
+DopamineJS is that piece. Progress is the core, and the visual and audio feedback are
 parts you can keep, swap or leave out.
 
 ## What it is for
 
-- **Learning platforms**: daily streaks, XP per lesson, achievement unlocks
-- **Habit and fitness apps**: streak preservation, milestone celebrations, progress toward a level
-- **Onboarding and adoption**: progress that feels like something rather than a checklist
-- **Internal tools**: the ones nobody opens voluntarily
-- **Games**: they keep working through `dopaminejs/games` (next step of 3.0)
+- **Course and training sites**: XP per lesson, achievement unlocks, a daily streak for coming back
+- **Blogs and docs**: XP when a reader finishes a post, an achievement for finishing a series
+- **Product onboarding**: setup progress that feels like something rather than a checklist
+- **Community and habit sites**: streaks kept in the user's own timezone, milestone celebrations
+- **Web apps**: including the internal tools nobody opens voluntarily
+- **Games**: the game helpers are in `dopaminejs/games`
+
+Your code decides when something happened (a lesson done, a post read to the end) and calls
+`addXP` or `record`. DopamineJS does not watch the page for you.
 
 ## Quick start
 
@@ -32,7 +36,7 @@ const rewards = new RewardSystem(new DataService());
 await rewards.init();
 
 rewards.on('level_up', ({ newLevel }) => showLevelUpToast(newLevel));
-rewards.on('achievement_unlocked', (achievement) => celebrate(achievement));
+rewards.on('achievement_unlocked', (achievement) => showBadge(achievement));
 
 // Somewhere in your app, when the user does the thing you want repeated
 await rewards.addXP(250);

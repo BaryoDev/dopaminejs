@@ -3,7 +3,7 @@
     "version": "3.5.0",
     "private": true,
     "type": "module",
-    "description": "DopamineJS monorepo - Game Feel Engine for the web",
+    "description": "DopamineJS monorepo: gamification for any website",
     "workspaces": [
         "packages/*"
     ],
@@ -24,11 +24,12 @@
         "url": "https://github.com/BaryoDev/dopaminejs.git"
     },
     "keywords": [
-        "game",
-        "gamedev",
-        "game-feel",
-        "juice",
-        "feedback",
+        "gamification",
+        "engagement",
+        "xp",
+        "achievements",
+        "streaks",
+        "confetti",
         "rewards"
     ],
     "author": "BaryoDev",

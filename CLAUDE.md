@@ -5,9 +5,12 @@ against the code. If one is wrong, fix this file in the same change.
 
 ## What this is
 
-DopamineJS adds progression to web apps: XP, levels, achievements and daily
-streaks, plus the particles and sound that go with them. `createDopamine()`
-wires swappable parts and plugins together.
+DopamineJS is gamification for any website: XP, levels, achievements and daily
+streaks, plus the confetti, particles and sound that go with them. It loads
+from one import or one script tag (`dist/dopamine.global.js`, from 3.4.0).
+`createDopamine()` wires swappable parts and plugins together. Course sites,
+blogs, onboarding and community sites come first in the docs; the game
+helpers live in `dopaminejs/games`.
 
 npm workspaces monorepo, nine packages under `packages/`:
 

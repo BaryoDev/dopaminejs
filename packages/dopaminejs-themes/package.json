@@ -1,7 +1,7 @@
 {
     "name": "dopaminejs-themes",
     "version": "2.0.0",
-    "description": "Official themes for DopamineJS - Cyberpunk, Neon, Retro, and more",
+    "description": "CSS variable themes for DopamineJS: modern, dark-cyberpunk, neon, retro and cute presets for the --dopamine-* variables",
     "type": "module",
     "main": "./dist/themes.umd.cjs",
     "module": "./dist/themes.mjs",
@@ -22,11 +22,12 @@
         "dopaminejs": "^3.0.0"
     },
     "keywords": [
+        "dopaminejs",
         "dopaminejs-theme",
-        "game",
-        "ui",
+        "gamification",
         "theme",
-        "css"
+        "css",
+        "css-variables"
     ],
     "author": "BaryoDev",
     "license": "MIT",

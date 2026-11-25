@@ -1,7 +1,7 @@
 {
     "name": "dopaminejs",
     "version": "3.5.0",
-    "description": "Progression mechanics for web apps: XP, levels, achievements and timezone-correct daily streaks, with the particles and sound to make them land. Zero dependencies.",
+    "description": "Gamification for any website: XP, levels, achievements and timezone-correct daily streaks, with confetti, particles and sound. One script tag or one import. Zero dependencies.",
     "type": "module",
     "main": "./dist/dopamine.cjs",
     "module": "./dist/dopamine.js",
@@ -64,7 +64,9 @@
         "juice",
         "particles",
         "confetti",
-        "feedback"
+        "feedback",
+        "no-build",
+        "script-tag"
     ],
     "author": "BaryoDev",
     "license": "MPL-2.0",
