@@ -385,6 +385,8 @@ export interface Popup {
     /** An extra line under an achievement, such as `+50 XP`. */
     meta?: string;
     tier?: 'common' | 'rare' | 'legendary';
+    /** On a card, `false` skips the confetti it fires after 300 ms. Any other value keeps it. */
+    burst?: boolean;
 }
 
 export interface FloatingText {

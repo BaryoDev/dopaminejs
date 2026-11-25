@@ -21,6 +21,12 @@ import {
     type PluginContext
 } from '../types/index.js';
 import {
+    celebrate,
+    destroyCelebrations,
+    type CelebratePreset,
+    type CelebrateOptions
+} from '../types/celebrate.js';
+import {
     RewardSystem as CoreRewardSystem,
     DataService as CoreDataService,
     EventEmitter as CoreEmitter,
@@ -47,6 +53,18 @@ async function quickstart(): Promise<void> {
     dopamine.parts.ui?.hud({ xp: total - needed, level: 1, progress, streak: 1, next: total });
 
     await dopamine.progress.record('breakout', { score: 4200, deaths: 2 });
+    const preset: CelebratePreset = 'complete';
+    const celebrateOptions: CelebrateOptions = { title: 'Done', parts: dopamine.parts };
+    celebrate(preset, celebrateOptions);
+    celebrate('certificate', {
+        title: 'Lesson 3 done',
+        body: 'Nice work',
+        icon: document.createElement('span'),
+        target: document.body,
+        sound: false
+    });
+    celebrate('streak', { sound: 'click' });
+    destroyCelebrations();
     dopamine.dispose();
 }
 
@@ -144,6 +162,7 @@ function effectsAndSound(): void {
     });
     custom.destroy();
     ui.popup({ kind: 'achievement', title: 'First win', body: 'Win once', icon: 'trophy', tier: 'rare' });
+    ui.popup({ kind: 'custom', title: 'Done', burst: false });
     ui.text({ text: '+50 XP', x: 10, y: 20, color: '#fff' });
     const root: HTMLElement | null = ui.root;
     void root;

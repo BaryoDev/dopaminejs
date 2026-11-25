@@ -56,6 +56,7 @@ packages/dopaminejs/src/
   index.js            public exports, no default export, no side effects
   progression.js      the `dopaminejs/core` subpath, no browser globals allowed
   games.js            the `dopaminejs/games` subpath: gameFeedback() plugin
+  celebrate.js        the `dopaminejs/celebrate` subpath: celebrate(), destroyCelebrations()
   testing.js          the `dopaminejs/testing` subpath: createTestHost, conformance, loadFixtures
   dopamine/
     host.js           createDopamine, HOST_API, the plugin contract
@@ -102,12 +103,13 @@ throwing one does not stop the others.
 - Plugins install in array order and dispose in reverse. `ctx.events.on`
   listeners are removed on dispose. `ctx.storage` is namespaced `dopamine_plugin_<plugin>:`.
 
-## Games and testing entries
+## Subpath entries
 
 - `dopaminejs/games`: `gameFeedback({ text? })` is a plugin (`requires: ['ui']`).
   Call `combo`, `nearMiss`, `luckyMoment` and `summary` on the object it returns.
   They do nothing before install and after dispose. Nothing in the main entry
   imports it (a test walks the import graph).
+- `dopaminejs/celebrate`: `celebrate(preset, options?)` works standalone (its own toast, `ParticleSystem` canvas `dopamine-celebrate-canvas` and `SoundManager`, and a hidden live region, removed by `destroyCelebrations()`) or through `options.parts`, which uses the card with `burst: false`. Nothing in the main entry imports it (a test walks the import graph), and the script tag build does not include it.
 - `dopaminejs/testing` imports `vitest`, an optional peer dependency, so no
   other entry may import it. `conformance.particles|sound|ui|storage|plugin(make)`
   are `describe` blocks; `conformanceFailures(name, make)` returns the failed titles

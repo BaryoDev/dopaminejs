@@ -155,6 +155,11 @@ describe('public API surface', () => {
         expect(() => compare('dopaminejs-games', renderSurface(mod))).not.toThrow();
     });
 
+    it('dopaminejs/celebrate subpath has not changed', async () => {
+        const mod = await import('../src/celebrate.js');
+        expect(() => compare('dopaminejs-celebrate', renderSurface(mod))).not.toThrow();
+    });
+
     it('dopaminejs/testing subpath has not changed', async () => {
         const mod = await import('../src/testing.js');
         expect(() => compare('dopaminejs-testing', renderSurface(mod))).not.toThrow();

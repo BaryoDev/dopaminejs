@@ -45,6 +45,19 @@ describe('ParticleSystem', () => {
         vi.unstubAllGlobals();
     });
 
+    it('should throw and leave no canvas when the 2d context is null', () => {
+        HTMLCanvasElement.prototype.getContext = vi.fn(() => null);
+        const before = vi.spyOn(window, 'addEventListener');
+
+        try {
+            expect(() => new ParticleSystem()).toThrow();
+            expect(document.querySelectorAll('canvas')).toHaveLength(0);
+            expect(before.mock.calls.filter(([type]) => type === 'resize')).toHaveLength(0);
+        } finally {
+            before.mockRestore();
+        }
+    });
+
     it('should initialize with default config (full screen)', () => {
         particleSystem = new ParticleSystem();
         expect(particleSystem.container).toBe(document.body);

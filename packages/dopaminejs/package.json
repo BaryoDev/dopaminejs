@@ -23,6 +23,11 @@
             "import": "./dist/games.js",
             "require": "./dist/games.cjs"
         },
+        "./celebrate": {
+            "types": "./types/celebrate.d.ts",
+            "import": "./dist/celebrate.js",
+            "require": "./dist/celebrate.cjs"
+        },
         "./testing": {
             "types": "./types/testing.d.ts",
             "import": "./dist/testing.js",

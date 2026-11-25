@@ -37,6 +37,21 @@ describe('RewardUI', () => {
         expect(parts.particles.burst).toBe(later.burst);
     });
 
+    it('a card with burst false fires no confetti, any other burst value keeps it', () => {
+        ui.popup({ kind: 'custom', title: 'Quiet', burst: false });
+        vi.advanceTimersByTime(400);
+        expect(parts.particles.burst).not.toHaveBeenCalled();
+
+        vi.advanceTimersByTime(4600);
+        for (const burst of [true, 0, 'false', null, undefined]) {
+            ui.popup({ kind: 'custom', title: 'Loud', burst });
+            vi.advanceTimersByTime(400);
+            expect(parts.particles.burst).toHaveBeenCalledTimes(1);
+            parts.particles.burst.mockClear();
+            vi.advanceTimersByTime(4600);
+        }
+    });
+
     it('does nothing when there is no particles part', () => {
         parts.particles = null;
         ui.popup({ kind: 'achievement', title: 'A' });

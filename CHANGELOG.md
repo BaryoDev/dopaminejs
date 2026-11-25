@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `celebrate(preset, options?)` and `destroyCelebrations()` in the new `dopaminejs/celebrate` subpath. One call shows a toast, fires confetti and plays a sound, with no `createDopamine()` needed. Pass `parts: dopamine.parts` to send them through a host. Presets are `complete`, `milestone`, `streak` and `certificate`. Options are `title`, `body`, `icon`, `target`, `sound` and `parts`. With reduced motion on there is no confetti. The main bundles and the script tag build do not include it. Types `CelebratePreset` and `CelebrateOptions` ship in `types/celebrate.d.ts`.
+- `RewardUI.popup()` takes `burst: false` to skip the confetti a card fires.
+
 ## [3.5.0] - 2026-11-16
 
 Published with this release: `dopaminejs` 3.5.0 and `dopaminejs-react` 2.2.0, which clears `loadFailed` on `load_recovered`. The Vue binding gets the same change and stays private. The plugins did not change.
