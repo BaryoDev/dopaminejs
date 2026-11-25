@@ -125,7 +125,8 @@ function track(state, el) {
     state.io.observe(node);
 }
 
-// The element itself, then what it holds.
+// The element itself, then what it holds. A sentinel matches nothing, so the
+// observer adding or removing one changes nothing.
 function matching(node) {
     if (node.nodeType !== 1) return [];
     const found = node.matches(SELECTOR) ? [node] : [];
@@ -133,7 +134,6 @@ function matching(node) {
 }
 
 function scan(state, node) {
-    if (node.nodeType === 1 && node.hasAttribute(SENTINEL)) return;
     for (const el of matching(node)) track(state, el);
 }
 
@@ -215,7 +215,6 @@ export function auto(options) {
         state.mo = new MutationObserver((records) => {
             for (const record of records) {
                 for (const node of record.removedNodes) {
-                    if (node.nodeType !== 1 || node.hasAttribute(SENTINEL)) continue;
                     for (const el of matching(node)) remove(state, el);
                 }
                 for (const node of record.addedNodes) scan(state, node);

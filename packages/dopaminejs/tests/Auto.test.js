@@ -213,6 +213,14 @@ describe('elements that come and go', () => {
         await flush();
         expect(host.progress.addXP).toHaveBeenCalledTimes(1);
     });
+
+    it('a click inside the root on an element that holds the root does nothing', async () => {
+        html('<div data-dopamine-on="click" data-dopamine-xp="1"><div id="in"><span></span></div></div>');
+        auto({ host, root: document.getElementById('in') });
+        click(document.querySelector('#in span'));
+        await flush();
+        expect(host.progress.addXP).not.toHaveBeenCalled();
+    });
 });
 
 describe('once per page load', () => {
