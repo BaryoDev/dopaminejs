@@ -649,21 +649,6 @@ export interface DopamineOptions {
     log?: Partial<Logger>;
 }
 
-export type CelebratePreset = 'complete' | 'milestone' | 'streak' | 'certificate';
-
-export interface CelebrateOptions {
-    /** Replaces the preset title. */
-    title?: string;
-    /** A line under the title. */
-    body?: string;
-    /** Replaces the preset icon. A string follows `safeIcons`. */
-    icon?: string | Node;
-    /** Confetti is centred on this element, else on the viewport. */
-    target?: Element;
-    /** A sound key to play. `false` plays nothing. Default is the preset sound. */
-    sound?: string | false;
-}
-
 export interface Dopamine {
     progress: RewardSystem;
     /** Getters only. */
@@ -674,12 +659,6 @@ export interface Dopamine {
     ready: Promise<Dopamine>;
     /** Install a plugin later. Returns its disposer. */
     use(plugin: DopaminePlugin): Disposer;
-    /**
-     * Show a toast, fire confetti and play a sound in one call. An unknown
-     * preset, or a call after `dispose()`, does nothing. With reduced motion
-     * on there is no confetti.
-     */
-    celebrate(preset: CelebratePreset, options?: CelebrateOptions): void;
     /** Disposes plugins in reverse, then the parts, then clears the bus. */
     dispose(): void;
 }

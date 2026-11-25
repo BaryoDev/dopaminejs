@@ -127,10 +127,13 @@ Cards show one at a time. A second unlock waits until the first has left, so its
 ## Celebrate a moment
 
 ```javascript
-dopamine.celebrate('complete', { title: 'Lesson 3 done', target: button });
+import { celebrate } from 'dopaminejs/celebrate';
+
+celebrate('complete', { title: 'Lesson 3 done', target: button });
+celebrate('certificate', { parts: dopamine.parts });   // through a host
 ```
 
-Shows a toast, fires confetti and plays a sound. Presets: `complete`, `milestone`, `streak`, `certificate`. Options: `title`, `body`, `icon`, `target` (confetti starts at its centre) and `sound` (a key, or `false`). With reduced motion on there is no confetti.
+Shows a toast, fires confetti and plays a sound, with or without `createDopamine()`. Presets: `complete`, `milestone`, `streak`, `certificate`. Options: `title`, `body`, `icon`, `target` (confetti starts at its centre), `sound` (a key, or `false`) and `parts`. With reduced motion on there is no confetti. `destroyCelebrations()` removes what the standalone route made. Not in the script tag build.
 
 ## Cleanup
 

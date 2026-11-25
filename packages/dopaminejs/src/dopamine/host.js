@@ -14,7 +14,6 @@ import { ParticleSystem } from './effects/ParticleSystem.js';
 import { SoundManager } from './audio/SoundManager.js';
 import { createHaptics } from './feel/haptics.js';
 import { prefersReducedMotion } from './feel/motion.js';
-import { createCelebrate } from './celebrate.js';
 import { resolveStorage } from './utils/storage.js';
 
 export const HOST_API = 3;
@@ -358,8 +357,6 @@ export function createDopamine(options = {}) {
         });
     ready.catch(() => {});
 
-    const celebrate = createCelebrate({ parts, env, log, isDisposed: () => disposed, settle });
-
-    const host = { progress, parts, events, ready, use, celebrate, dispose };
+    const host = { progress, parts, events, ready, use, dispose };
     return host;
 }

@@ -97,19 +97,28 @@ release. `unpkg.com` serves the same file.
 
 ## Celebrate a moment
 
-One call shows a toast, fires confetti and plays a sound:
+One call shows a toast, fires confetti and plays a sound. It works with no `createDopamine()` and no XP bar:
 
 ```javascript
-dopamine.celebrate('complete', { title: 'Lesson 3 done', target: button });
+import { celebrate } from 'dopaminejs/celebrate';
+
+celebrate('complete', { title: 'Lesson 3 done', target: button });
+```
+
+Already have a host? Pass its parts and the toast, confetti and sound go through them:
+
+```javascript
+celebrate('complete', { title: 'Lesson 3 done', parts: dopamine.parts });
 ```
 
 The presets are `complete`, `milestone`, `streak` and `certificate`. An unknown preset does nothing. Options are all optional:
 
-- `title`, `body` and `icon` replace the preset text and icon. The text is set as text, and a string icon follows `safeIcons`.
+- `title`, `body` and `icon` replace the preset text and icon. Text is set as text. On the standalone route a string icon is text too, and a Node is appended. Through `parts` a string icon follows `safeIcons`.
 - `target` is an element. The confetti starts at its centre. Without one, or if it has no size, it starts at the middle of the viewport.
 - `sound` is a sound key, or `false` for none. The default is the preset sound.
+- `parts` is the host's `parts`. Without it, `celebrate` makes its own toast, canvas and sound manager on the first call.
 
-With reduced motion on, there is no confetti. The toast and sound still happen. The setting is read on each call. The toast queues behind other cards, and `dispose()` removes it.
+With reduced motion on, there is no confetti. The toast and sound still happen. The setting is read on each call. The standalone toast lasts 3 seconds, and a new call replaces it. Call `destroyCelebrations()` to remove the toast, the canvas and the sound manager. `celebrate` never throws, and errors go to `console.error`. The script tag build does not include it.
 
 ## Why streaks are the hard part
 

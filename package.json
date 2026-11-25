@@ -70,6 +70,12 @@
             "import": "*",
             "limit": "1.5 KB",
             "name": "dopaminejs/games (ESM)"
+        },
+        {
+            "path": "packages/dopaminejs/dist/celebrate.js",
+            "import": "*",
+            "limit": "4.75 KB",
+            "name": "dopaminejs/celebrate (ESM)"
         }
     ],
     "engines": {

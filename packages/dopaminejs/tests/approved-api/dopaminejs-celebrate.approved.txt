@@ -1,0 +1,2 @@
+celebrate: function(2)
+destroyCelebrations: function(0)

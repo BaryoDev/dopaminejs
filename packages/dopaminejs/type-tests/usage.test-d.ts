@@ -18,10 +18,14 @@ import {
     type Player,
     type AchievementDefinition,
     type DopaminePlugin,
-    type PluginContext,
+    type PluginContext
+} from '../types/index.js';
+import {
+    celebrate,
+    destroyCelebrations,
     type CelebratePreset,
     type CelebrateOptions
-} from '../types/index.js';
+} from '../types/celebrate.js';
 import {
     RewardSystem as CoreRewardSystem,
     DataService as CoreDataService,
@@ -50,16 +54,17 @@ async function quickstart(): Promise<void> {
 
     await dopamine.progress.record('breakout', { score: 4200, deaths: 2 });
     const preset: CelebratePreset = 'complete';
-    const celebrateOptions: CelebrateOptions = { title: 'Done' };
-    dopamine.celebrate(preset, celebrateOptions);
-    dopamine.celebrate('certificate', {
+    const celebrateOptions: CelebrateOptions = { title: 'Done', parts: dopamine.parts };
+    celebrate(preset, celebrateOptions);
+    celebrate('certificate', {
         title: 'Lesson 3 done',
         body: 'Nice work',
         icon: document.createElement('span'),
         target: document.body,
         sound: false
     });
-    dopamine.celebrate('streak', { sound: 'click' });
+    celebrate('streak', { sound: 'click' });
+    destroyCelebrations();
     dopamine.dispose();
 }
 
