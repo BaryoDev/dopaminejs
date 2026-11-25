@@ -209,26 +209,29 @@ describe('showCertificate', () => {
 
         const assignedTo = (ctx, name) => ctx.assigned.filter(([key]) => key === name).map(([, value]) => value);
         const cardFill = (ctx) => ctx.rects.find((r) => r.w === CARD_WIDTH && r.h === CARD_HEIGHT).fillStyle;
+        // Returns an object, never the context itself: the context's Proxy answers `then`, so awaiting it would never settle.
         const theme = async (bg) => {
             showCertificate(FIELDS);
             card().style.setProperty('--dopamine-toast-bg', bg);
             card().style.setProperty('--dopamine-toast-accent', '#abcdef');
             saved.length = 0;
             await download();
-            return contexts[contexts.length - 1];
+            const ctx = contexts[contexts.length - 1];
+            return { fill: cardFill(ctx), strokes: assignedTo(ctx, 'strokeStyle') };
         };
 
         // A background the canvas accepts is used as it is, and the border takes the accent.
         const plain = await theme('#102030');
-        expect(cardFill(plain)).toBe('#102030');
-        expect(assignedTo(plain, 'strokeStyle')).toEqual(['#abcdef']);
-        for (const bg of ['rgb(0 0 0 / 50%)', 'red', 'black']) {
-            expect(cardFill(await theme(bg))).toBe(bg);
+        expect(plain.fill).toBe('#102030');
+        expect(plain.strokes).toEqual(['#abcdef']);
+        // The canvas reads black back as hex, so that is what the fill shows.
+        for (const [bg, shown] of [['rgb(0 0 0 / 50%)', 'rgb(0 0 0 / 50%)'], ['red', 'red'], ['black', '#000000']]) {
+            expect((await theme(bg)).fill).toBe(shown);
         }
 
         // A gradient, url() or junk is not a colour the canvas takes: the PNG falls back to its own gradient.
         for (const bg of ['linear-gradient(135deg, red, blue)', 'url(https://other.test/bg.png)', 'not a colour']) {
-            expect(cardFill(await theme(bg))).toEqual(expect.objectContaining({ gradient: true }));
+            expect((await theme(bg)).fill).toEqual(expect.objectContaining({ gradient: true }));
         }
     });
 
@@ -300,9 +303,11 @@ describe('showCertificate', () => {
             expect(img.hasAttribute('style')).toBe(false);
 
             const loose = document.createElement('img');
+            loose.setAttribute('style', 'width:5px');
             showCertificate({ ...FIELDS, logo: loose });
             destroyCertificate();
             expect(loose.parentElement).toBeNull();
+            expect(loose.getAttribute('style')).toBe('width:5px');
         });
 
         it('a string is text by default, even when it looks like HTML', () => {

@@ -260,7 +260,7 @@ export function showCertificate(fields, options) {
         if (logo !== undefined && logo !== null && logo !== '') {
             logoHolder = make('div', `height:${LOGO_SIZE}px;font-size:56px;line-height:${LOGO_SIZE}px`);
             logoHolder.className = 'dopamine-certificate-logo';
-            // A node taken from the page goes back where it was when the certificate closes.
+            // A node taken from the page goes back where it was, with its style, when the certificate closes. One with no parent is left out.
             const parent = logo instanceof Node ? logo.parentNode : null;
             const next = parent ? logo.nextSibling : null;
             const styled = [];
@@ -270,14 +270,15 @@ export function showCertificate(fields, options) {
                 child.style.maxWidth = '100%';
                 child.style.maxHeight = `${LOGO_SIZE}px`;
             }
-            if (parent) {
+            if (logo instanceof Node) {
                 restoreLogo = () => {
                     restoreLogo = null;
                     for (const [child, text] of styled) {
                         if (text === null) child.removeAttribute('style');
                         else child.setAttribute('style', text);
                     }
-                    parent.insertBefore(logo, next && next.parentNode === parent ? next : null);
+                    logo.parentNode?.removeChild(logo);
+                    parent?.insertBefore(logo, next && next.parentNode === parent ? next : null);
                 };
             }
             if (logoHolder.firstChild) card.appendChild(logoHolder);
