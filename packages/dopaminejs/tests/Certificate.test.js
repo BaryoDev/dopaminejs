@@ -16,10 +16,14 @@ const CARD_WIDTH = 1200;
 const CARD_HEIGHT = 850;
 
 // The blob URL calls stay installed: the revoke timer can fire after a test ends.
-const blobUrls = { created: [], revoked: [] };
+// Revoke timers outlive a test, so URL names never repeat: a late revoke from an earlier test cannot look like this test's.
+let blobCount = 0;
+const blobUrls = { created: [], urls: [], revoked: [] };
 URL.createObjectURL = (blob) => {
     blobUrls.created.push(blob);
-    return `blob:test/${blobUrls.created.length}`;
+    const url = `blob:test/${++blobCount}`;
+    blobUrls.urls.push(url);
+    return url;
 };
 URL.revokeObjectURL = (url) => {
     blobUrls.revoked.push(url);
@@ -92,6 +96,7 @@ describe('showCertificate', () => {
         contexts = [];
         saved = [];
         blobUrls.created.length = 0;
+        blobUrls.urls.length = 0;
         blobUrls.revoked.length = 0;
         HTMLCanvasElement.prototype.getContext = function () {
             const ctx = makeContext(this);
@@ -468,7 +473,7 @@ describe('showCertificate', () => {
             const file = await download();
 
             expect(file.download).toBe('certificate.png');
-            expect(file.href).toBe('blob:test/1');
+            expect(file.href).toBe(blobUrls.urls[0]);
             expect(blobUrls.created[0].type).toBe('image/png');
             const drawn = contexts[0].texts.map((t) => t.text);
             expect(drawn).toEqual(expect.arrayContaining([FIELDS.title, FIELDS.recipient, FIELDS.date, FIELDS.issuer, 'Acme']));
@@ -620,9 +625,11 @@ describe('showCertificate', () => {
         it('revokes the blob URL a moment after the save', async () => {
             showCertificate(FIELDS);
             await download();
-            expect(blobUrls.revoked).toHaveLength(0);
+            const url = blobUrls.urls[0];
+            expect(url).toBeDefined();
+            expect(blobUrls.revoked).not.toContain(url);
 
-            await vi.waitFor(() => expect(blobUrls.revoked).toEqual(['blob:test/1']), { timeout: 3000 });
+            await vi.waitFor(() => expect(blobUrls.revoked).toContain(url), { timeout: 3000 });
         });
 
         it('still saves after the certificate is closed mid-download', async () => {
