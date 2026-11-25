@@ -84,20 +84,21 @@ Importing `dopaminejs` has no side effects. Import `dopaminejs/style.css` yourse
 The script tag build ships from 3.4.0. It is not on the CDNs for 3.3.0 or earlier.
 
 From 3.4.0, a page with no bundler can load one script. It sets `window.Dopamine`
-with the same named exports as the package. Replace `VERSION` with an exact version, such as `3.4.0`.
+with the same named exports as the package. Always load an exact version. This is 3.6.0:
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@VERSION/dist/style.css">
-<script src="https://cdn.jsdelivr.net/npm/dopaminejs@VERSION/dist/dopamine.global.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@3.6.0/dist/style.css">
+<script src="https://cdn.jsdelivr.net/npm/dopaminejs@3.6.0/dist/dopamine.global.js"
+        integrity="sha384-17tPDG+NydvQYtB4h+mQltknIPySojuVUHIYl+2GN27BvS7UlhAooV75pwW4z+S7"
+        crossorigin="anonymous"></script>
 <script>
   const rewards = new Dopamine.RewardSystem(new Dopamine.DataService());
   rewards.init().then(() => rewards.addXP(250));
 </script>
 ```
 
-To have the browser refuse a changed file, add `integrity="sha384-..."` and
-`crossorigin="anonymous"` to the script tag. The publish job prints the sha384 value for each
-release. `unpkg.com` serves the same file.
+The `integrity` value makes the browser refuse a changed file. It belongs to 3.6.0 only; the
+publish job prints the value for each release. `unpkg.com` serves the same file.
 
 ## Celebrate a moment
 
