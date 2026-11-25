@@ -221,7 +221,10 @@ function close() {
     open.overlay.remove();
     open.style.remove();
     const back = open.previous;
-    if (back && back.isConnected && typeof back.focus === 'function') back.focus();
+    // A logo put back above can open a newer certificate. That one keeps the focus and takes this one's opener.
+    if (current) {
+        if (open.overlay.contains(current.previous)) current.previous = back;
+    } else if (back && back.isConnected && typeof back.focus === 'function') back.focus();
 }
 
 /**
@@ -353,9 +356,10 @@ export function showCertificate(fields, options) {
                 order[next].focus();
             }
         });
-        // aria-modal does not stop a script from focusing the page behind.
+        // aria-modal does not stop a script from focusing the page behind. A closing certificate's trap can still be
+        // installed when its logo goes back, so it stands down once it no longer owns the certificate.
         on(document, 'focusin', (event) => {
-            if (!overlay.contains(event.target)) card.focus();
+            if (current === state && !overlay.contains(event.target)) card.focus();
         });
         on(overlay, 'click', (event) => {
             const target = event.target;

@@ -454,6 +454,41 @@ describe('showCertificate', () => {
             expect(img.parentNode).toBe(host);
         });
 
+        it('a certificate opened while the closing one puts its logo back keeps the focus', () => {
+            if (!customElements.get('dopamine-reopen-logo')) {
+                customElements.define('dopamine-reopen-logo', class extends HTMLElement {
+                    connectedCallback() {
+                        if (!this.reopen) return;
+                        this.reopen = false;
+                        showCertificate({ ...FIELDS, title: 'Next' });
+                    }
+                });
+            }
+            const logo = document.createElement('dopamine-reopen-logo');
+            logo.textContent = 'logo';
+            document.body.appendChild(logo);
+            const opener = document.createElement('button');
+            document.body.appendChild(opener);
+            opener.focus();
+            showCertificate({ ...FIELDS, logo });
+            logo.reopen = true;
+            let moves = 0;
+            const count = () => { moves += 1; };
+            document.addEventListener('focusin', count, true);
+            destroyCertificate();
+            document.removeEventListener('focusin', count, true);
+
+            expect(logo.reopen).toBe(false);
+            expect(logo.parentNode).toBe(document.body);
+            expect(document.querySelectorAll('.dopamine-certificate-overlay')).toHaveLength(1);
+            expect(card().querySelector('.dopamine-certificate-title').textContent).toBe('Next');
+            expect(document.activeElement).toBe(card());
+            expect(moves).toBe(1);
+            expect(errors).not.toHaveBeenCalled();
+            destroyCertificate();
+            expect(document.activeElement).toBe(opener);
+        });
+
         it('a title getter that opens a certificate and then throws leaves that certificate open', () => {
             const fields = {
                 get title() {
