@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `auto({ host, root?, maxXP? })` and `destroyAuto()` in the new `dopaminejs/auto` subpath: rewards from HTML data attributes (#46). `data-dopamine-on` is `click`, `submit`, `ended`, `read` or `visible`, with `data-dopamine-xp`, `-achievement`, `-celebrate`, `-certificate-title`, `-recipient`, `-date`, `-issuer`, `-logo` and `-repeat`. Each element fires once per page load unless it repeats. One delegated listener set, one `IntersectionObserver` and one `MutationObserver` whatever the element count. Types in `types/auto.d.ts`. The size limit for the subpath is 1.7 kB, and the main bundles do not include it.
+- `dist/dopamine.all.global.js`, a second script tag file with the main entry, `celebrate`, the certificate and `auto` in one file (#46). Add `data-dopamine-auto` to its script tag to wire the page with a default host. The size limit is 21.7 kB. `dist/dopamine.global.js` is unchanged. The publish job prints a hash for each file.
+
 ## [3.7.0] - 2026-11-25
 
 Published with this release: `dopaminejs` 3.7.0. The wrappers and plugins did not change.
