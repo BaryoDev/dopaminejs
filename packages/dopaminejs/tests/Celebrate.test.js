@@ -252,6 +252,9 @@ describe('celebrate', () => {
 
         expect(toasts()).toHaveLength(0);
         expect(document.querySelector('#dopamine-celebrate-canvas')).toBeNull();
+        // jsdom queues a 0 ms storage event for each localStorage write, and SoundManager writes
+        // once to probe it. Run those; a toast timer that destroy missed is still 3000 ms out.
+        vi.advanceTimersByTime(1);
         expect(vi.getTimerCount()).toBe(0);
         expect(particleDestroy).toHaveBeenCalledTimes(1);
         expect(soundDestroy).toHaveBeenCalledTimes(1);
