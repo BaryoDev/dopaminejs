@@ -454,8 +454,14 @@ describe('celebrate and certificate', () => {
         expect(presets).toHaveLength(4);
         html('<div>' + presets.map((p) => `<button data-dopamine-on="click" data-dopamine-celebrate=" ${p} "></button>`).join('') + '</div>');
         auto({ host });
-        for (const button of document.querySelectorAll('button')) click(button);
-        await vi.waitFor(() => expect(celebrate).toHaveBeenCalledTimes(presets.length));
+        // One at a time: vitest's mocker drops calls when the first loads of a
+        // mocked module race. A browser shares one module record, so this is
+        // about the test, not auto.js.
+        const buttons = [...document.querySelectorAll('button')];
+        for (const [index, button] of buttons.entries()) {
+            click(button);
+            await vi.waitFor(() => expect(celebrate).toHaveBeenCalledTimes(index + 1));
+        }
         expect(celebrate.mock.calls.map((call) => call[0]).sort()).toEqual([...presets].sort());
         expect(warn).not.toHaveBeenCalled();
     });
