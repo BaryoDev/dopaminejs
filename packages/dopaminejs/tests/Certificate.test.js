@@ -357,7 +357,9 @@ describe('showCertificate', () => {
             const headBefore = document.head.children.length;
 
             showCertificate({ ...FIELDS, logo: 'L' });
-            const added = log.filter((entry) => entry[0] === 'add');
+            // jsdom's selector engine (dom-selector) adds one window focus listener the first time a selector runs and keeps it; it is not ours.
+            const isJsdomFocusTracker = (entry) => entry[2] === 'focus' && String(entry[3]).includes('this.#focus');
+            const added = log.filter((entry) => entry[0] === 'add' && !isJsdomFocusTracker(entry));
             expect(added.length).toBeGreaterThan(0);
             button('close').click();
 
