@@ -60,9 +60,13 @@ export class ParticleSystem {
             }
         }
 
+        // Ask for the context before the canvas goes into the page, so a
+        // constructor that fails leaves no node and no listener behind.
+        const ctx = this.canvas.getContext('2d');
+        if (!ctx) throw new Error('[DopamineJS] This canvas has no 2d context');
         this.container.appendChild(this.canvas);
 
-        this.ctx = this.canvas.getContext('2d');
+        this.ctx = ctx;
         this.particles = [];
         this.pool = []; // Object pool
         this.sprites = new Map(); // key -> Image

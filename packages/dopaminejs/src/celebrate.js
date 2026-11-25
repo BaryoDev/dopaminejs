@@ -23,6 +23,10 @@ const TOAST_STYLE = 'position:fixed;top:16px;left:50%;transform:translateX(-50%)
     + 'border-radius:10px;background:#1f2937;color:#fff;border:1px solid rgba(255,255,255,0.25);'
     + 'box-shadow:0 6px 24px rgba(0,0,0,0.35);font:16px/1.3 system-ui,sans-serif;pointer-events:none';
 
+const hasBody = (body) => body !== undefined && body !== null && body !== '';
+
+const REGION_STYLE = 'position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap';
+
 // Options come from callers, so an inherited property must not count. A local
 // copy: importing hasOwn from core/store.js splits a shared chunk and grows the main CJS bundle.
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
@@ -34,6 +38,8 @@ let particles = null;
 let sound = null;
 let toast = null;
 let timer = null;
+let region = null;
+let regionTimer = null;
 
 // A part that throws or rejects is logged, so the other two still run.
 const attempt = (fn) => {
@@ -65,12 +71,32 @@ function removeToast() {
     toast = null;
 }
 
+// A live region that arrives with its text is often skipped, so one hidden
+// region is put in the page empty and its text is set a tick later.
+function announce(message) {
+    clearTimeout(regionTimer);
+    regionTimer = null;
+    if (region) {
+        region.textContent = message;
+        return;
+    }
+    region = document.createElement('div');
+    region.className = 'dopamine-celebrate-live';
+    region.setAttribute('role', 'status');
+    region.setAttribute('aria-live', 'polite');
+    region.style.cssText = REGION_STYLE;
+    document.body.appendChild(region);
+    regionTimer = setTimeout(() => {
+        regionTimer = null;
+        if (region) region.textContent = message;
+    }, 0);
+}
+
 function showToast(title, body, icon) {
     removeToast();
     const el = document.createElement('div');
     el.className = 'dopamine-celebrate-toast';
-    el.setAttribute('role', 'status');
-    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-hidden', 'true');
     el.style.cssText = TOAST_STYLE;
 
     const add = (text) => {
@@ -91,10 +117,11 @@ function showToast(title, body, icon) {
     const name = add(title);
     name.style.fontWeight = '600';
     text.appendChild(name);
-    if (body !== undefined && body !== null && body !== '') text.appendChild(add(body));
+    if (hasBody(body)) text.appendChild(add(body));
     el.appendChild(text);
 
     document.body.appendChild(el);
+    announce(hasBody(body) ? `${title}. ${body}` : String(title));
     toast = el;
     timer = setTimeout(removeToast, TOAST_MS);
 }
@@ -107,6 +134,7 @@ function showToast(title, body, icon) {
  * @param {{ title?: string, body?: string, icon?: string|Node, target?: Element,
  *   sound?: string|false, parts?: Object }} [options] - `parts` sends the toast,
  *   confetti and sound through a host's parts.
+ *   A part the host does not have is skipped, with no standalone fallback.
  * @returns {undefined}
  */
 export function celebrate(name, options) {
@@ -144,13 +172,19 @@ export function celebrate(name, options) {
     attempt(() => {
         if (routed) return given.sound?.play?.(key);
         sound ??= new SoundManager();
+        // The manager reads the mute flag once, so take a mute made elsewhere.
+        sound.muted = sound.storage.getItem(sound.storageKey) === 'true';
         return sound.play(key);
     });
 }
 
-/** Remove the toast, its timer, and the particle system and sound manager the standalone route made. */
+/** Remove the toast, the live region, the timers, and the particle system and sound manager the standalone route made. */
 export function destroyCelebrations() {
     removeToast();
+    clearTimeout(regionTimer);
+    regionTimer = null;
+    region?.remove();
+    region = null;
     const made = [particles, sound];
     particles = null;
     sound = null;

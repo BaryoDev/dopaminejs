@@ -199,11 +199,65 @@ describe('celebrate', () => {
         expect(toasts()[0].querySelector('.mine')).toBe(icon);
     });
 
-    it('the toast is a polite status region', () => {
+    it('the toast is hidden from assistive technology and a persistent region announces it', () => {
+        vi.useFakeTimers();
+        celebrate('complete', { title: 'First', body: 'Line' });
+        const region = document.querySelector('.dopamine-celebrate-live');
+
+        expect(toasts()[0].getAttribute('aria-hidden')).toBe('true');
+        expect(region.getAttribute('role')).toBe('status');
+        expect(region.getAttribute('aria-live')).toBe('polite');
+        // It is in the page empty, and the text arrives a tick later.
+        expect(region.textContent).toBe('');
+        vi.advanceTimersByTime(1);
+        expect(region.textContent).toBe('First. Line');
+
+        celebrate('complete', { title: 'Second' });
+        expect(document.querySelectorAll('.dopamine-celebrate-live')).toHaveLength(1);
+        expect(document.querySelector('.dopamine-celebrate-live')).toBe(region);
+        expect(region.textContent).toBe('Second');
+    });
+
+    it('destroyCelebrations removes the live region and its timer', () => {
+        vi.useFakeTimers();
+        celebrate('complete', { sound: false });
+        destroyCelebrations();
+        vi.advanceTimersByTime(1);
+
+        expect(document.querySelector('.dopamine-celebrate-live')).toBeNull();
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('a mute made elsewhere is honoured by the standalone sound', () => {
+        const seen = [];
+        play.mockImplementation(function () { seen.push(this.muted); });
+        try {
+            celebrate('complete');
+            new SoundManager().toggleMute();
+            celebrate('complete');
+        } finally {
+            localStorage.removeItem('dopamineSoundsMuted');
+        }
+
+        expect(seen).toEqual([false, true]);
+    });
+
+    it('parts without the host parts adds no toast and no canvas and does not throw', () => {
+        expect(() => celebrate('complete', { parts: {} })).not.toThrow();
+
+        expect(toasts()).toHaveLength(0);
+        expect(document.querySelector('canvas')).toBeNull();
+        expect(errors).not.toHaveBeenCalled();
+    });
+
+    it('a null 2d context leaves no canvas, still shows the toast and logs the error', () => {
+        HTMLCanvasElement.prototype.getContext = vi.fn(() => null);
+        celebrate('complete');
         celebrate('complete');
 
-        expect(toasts()[0].getAttribute('role')).toBe('status');
-        expect(toasts()[0].getAttribute('aria-live')).toBe('polite');
+        expect(document.querySelectorAll('canvas')).toHaveLength(0);
+        expect(toasts()).toHaveLength(1);
+        expect(errors).toHaveBeenCalledTimes(2);
     });
 
     it('a second call replaces the toast', () => {

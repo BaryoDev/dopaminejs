@@ -401,11 +401,10 @@ export class RewardUI {
      *   the colour and the burst.
      * - `custom` (and any other kind): the achievement layout without the heading.
      *
-     * - `burst`: on a card, `false` skips the confetti it fires after 300 ms.
-     *   Any other value keeps it.
-     *
      * @param {{ kind: string, title?: string, body?: string, icon?: string|Node,
      *   meta?: string, tier?: 'common'|'rare'|'legendary', burst?: boolean }} popup
+     *   `burst: false` on a card skips the confetti it fires after 300 ms. Any
+     *   other value keeps it.
      */
     popup(popup) {
         if (!this.container || !popup || typeof popup !== 'object') return;
