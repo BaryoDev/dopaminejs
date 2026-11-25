@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-11-25
+
+Published with this release: `dopaminejs` 3.8.0. The wrappers and plugins did not change.
+
 ### Added
 
 - `auto({ host, root?, maxXP? })` and `destroyAuto()` in the new `dopaminejs/auto` subpath: rewards from HTML data attributes (#46). `data-dopamine-on` is `click`, `submit`, `ended`, `read` or `visible`, with `data-dopamine-xp`, `-achievement`, `-celebrate`, `-certificate-title`, `-recipient`, `-date`, `-issuer`, `-logo` and `-repeat`. Each element fires once per page load unless it repeats. XP, achievement and celebrate values are trimmed, and a bad XP value, an unknown achievement id or an unknown preset is ignored with one warning per element. Click and submit are heard in the capture phase at the root, so a handler on the element or inside it that stops the event does not stop the reward. The `read` sentinel stays the last child when the children change. One delegated listener set, one `IntersectionObserver` and one `MutationObserver` whatever the element count. Types in `types/auto.d.ts`. The size limit for the subpath is 1.8 kB, and the main bundles do not include it.
