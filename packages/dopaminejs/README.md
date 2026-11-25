@@ -1,8 +1,8 @@
 # dopaminejs
 
-> Progression mechanics for web apps. XP, levels, achievements, and timezone-correct daily streaks, with the particles and sound to make them land.
+> Gamification for any website. XP, levels, achievements and timezone-correct daily streaks, with confetti, particles and sound.
 
-Zero runtime dependencies. Works with any framework.
+Zero runtime dependencies. Works with any framework, or with no build step through the script tag build (3.4.0 and later, see the repository README).
 
 ```bash
 npm install dopaminejs

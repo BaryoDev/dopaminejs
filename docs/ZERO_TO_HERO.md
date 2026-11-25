@@ -1,6 +1,6 @@
 # Zero to Hero: Progress Feedback with DopamineJS
 
-DopamineJS gives any web app XP, levels, achievements and streaks, and shows them with a bar, popups, particles and sound.
+DopamineJS gives any website XP, levels, achievements and streaks, and shows them with a bar, popups, confetti and sound.
 
 ## 1. Setup
 

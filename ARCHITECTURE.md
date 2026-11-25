@@ -1,6 +1,6 @@
 # DopamineJS Architecture
 
-**Vision**: Progression mechanics for web apps. A drop-in layer for XP, levels, achievements, and daily streaks that makes the feedback feel good.
+**Vision**: Gamification for any website. A drop-in layer for XP, levels, achievements, and daily streaks that makes the feedback feel good.
 
 ## Design Philosophy
 1.  **Zero-Config Start**: It must work well out of the box.
