@@ -24,6 +24,7 @@ describe('celebrate', () => {
     let soundDestroy;
     let errors;
     const realMatchMedia = window.matchMedia;
+    const realGetContext = HTMLCanvasElement.prototype.getContext;
     const centre = () => ({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
     const toasts = () => document.querySelectorAll('.dopamine-celebrate-toast');
     const reduceMotion = () => {
@@ -36,6 +37,12 @@ describe('celebrate', () => {
     });
 
     beforeEach(() => {
+        // jsdom has no canvas, so the real ParticleSystem constructor needs a context.
+        HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+            clearRect: vi.fn(), save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
+            fillRect: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), moveTo: vi.fn(),
+            lineTo: vi.fn(), closePath: vi.fn(), drawImage: vi.fn(), scale: vi.fn(), setTransform: vi.fn()
+        }));
         document.body.innerHTML = '';
         document.head.innerHTML = '';
         burst = vi.spyOn(ParticleSystem.prototype, 'burst').mockImplementation(() => {});
@@ -48,6 +55,7 @@ describe('celebrate', () => {
     afterEach(() => {
         destroyCelebrations();
         window.matchMedia = realMatchMedia;
+        HTMLCanvasElement.prototype.getContext = realGetContext;
         vi.useRealTimers();
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
@@ -57,6 +65,7 @@ describe('celebrate', () => {
     it.each(PRESETS)('each preset shows its toast, confetti and sound: %s', (name, title, icon, sound, count) => {
         celebrate(name);
 
+        expect(errors).not.toHaveBeenCalled();
         expect(toasts()).toHaveLength(1);
         expect(toasts()[0].textContent).toBe(`${icon}${title}`);
         expect(burst).toHaveBeenCalledTimes(1);

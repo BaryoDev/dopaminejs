@@ -23,7 +23,8 @@ const TOAST_STYLE = 'position:fixed;top:16px;left:50%;transform:translateX(-50%)
     + 'border-radius:10px;background:#1f2937;color:#fff;border:1px solid rgba(255,255,255,0.25);'
     + 'box-shadow:0 6px 24px rgba(0,0,0,0.35);font:16px/1.3 system-ui,sans-serif;pointer-events:none';
 
-// Options come from callers, so an inherited property must not count.
+// Options come from callers, so an inherited property must not count. A local
+// copy: importing hasOwn from core/store.js splits a shared chunk and grows the main CJS bundle.
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const ownValue = (object, key) =>
     (object !== null && typeof object === 'object' && hasOwn(object, key) ? object[key] : undefined);
@@ -124,7 +125,7 @@ export function celebrate(name, options) {
         if (!routed) return;
     }
     const hasDom = typeof document !== 'undefined' && typeof window !== 'undefined';
-    const calm = () => prefersReducedMotion(window).matches !== true;
+    const motionAllowed = () => prefersReducedMotion(window).matches !== true;
 
     attempt(() => {
         if (routed) {
@@ -133,7 +134,7 @@ export function celebrate(name, options) {
         showToast(shownTitle, body, shownIcon);
     });
     attempt(() => {
-        if (!hasDom || !calm()) return;
+        if (!hasDom || !motionAllowed()) return;
         const at = centreOf(ownValue(options, 'target'));
         if (routed) return given.particles?.burst?.('confetti', at, { count });
         particles ??= new ParticleSystem({ canvasId: 'dopamine-celebrate-canvas' });
