@@ -160,6 +160,11 @@ describe('public API surface', () => {
         expect(() => compare('dopaminejs-celebrate', renderSurface(mod))).not.toThrow();
     });
 
+    it('dopaminejs/certificate subpath has not changed', async () => {
+        const mod = await import('../src/certificate.js');
+        expect(() => compare('dopaminejs-certificate', renderSurface(mod))).not.toThrow();
+    });
+
     it('dopaminejs/testing subpath has not changed', async () => {
         const mod = await import('../src/testing.js');
         expect(() => compare('dopaminejs-testing', renderSurface(mod))).not.toThrow();

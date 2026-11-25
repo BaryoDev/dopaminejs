@@ -2,6 +2,7 @@
  * The `dopaminejs/celebrate` subpath: one call shows a toast, fires confetti
  * and plays a sound. It works without createDopamine(). Pass `parts` to send
  * the three through a host instead. Nothing in the main entry imports it.
+ * `celebrate('certificate', { certificate })` loads ./certificate.js on demand.
  */
 
 import { ParticleSystem } from './dopamine/effects/ParticleSystem.js';
@@ -134,8 +135,9 @@ function showToast(title, body, icon) {
  *
  * @param {'complete'|'milestone'|'streak'|'certificate'} name
  * @param {{ title?: string, body?: string, icon?: string|Node, target?: Element,
- *   sound?: string|false, parts?: Object }} [options] - `parts` sends the toast,
- *   confetti and sound through a host's parts.
+ *   sound?: string|false, parts?: Object, certificate?: Object }} [options] - `parts`
+ *   sends the toast, confetti and sound through a host's parts. `certificate`
+ *   opens that certificate after the confetti; destroyCertificate() closes it.
  *   A part the host does not have is skipped, with no standalone fallback.
  * @returns {undefined}
  */
@@ -158,11 +160,9 @@ export function celebrate(name, options) {
     }
     const routed = given !== null && typeof given === 'object';
 
-    if (typeof document === 'undefined' || typeof window === 'undefined') {
-        // No DOM: only a host's parts can still do something.
-        if (!routed) return;
-    }
     const hasDom = typeof document !== 'undefined' && typeof window !== 'undefined';
+    // No DOM: only a host's parts can still do something.
+    if (!hasDom && !routed) return;
     const motionAllowed = () => prefersReducedMotion(window).matches !== true;
 
     attempt(() => {
@@ -183,6 +183,11 @@ export function celebrate(name, options) {
         }
         particles ??= new ParticleSystem({ canvasId: 'dopamine-celebrate-canvas' });
         particles.burst('confetti', at, { count });
+    });
+    // Loaded on demand so the certificate code is not in this entry.
+    attempt(() => {
+        const fields = ownValue(options, 'certificate');
+        return fields && import('./certificate.js').then((m) => m.showCertificate(fields));
     });
     if (key === null) return;
     attempt(() => {

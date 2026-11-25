@@ -1,0 +1,2 @@
+destroyCertificate: function(0)
+showCertificate: function(2)

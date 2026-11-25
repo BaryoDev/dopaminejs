@@ -27,6 +27,12 @@ import {
     type CelebrateOptions
 } from '../types/celebrate.js';
 import {
+    showCertificate,
+    destroyCertificate,
+    type CertificateFields,
+    type CertificateOptions
+} from '../types/certificate.js';
+import {
     RewardSystem as CoreRewardSystem,
     DataService as CoreDataService,
     EventEmitter as CoreEmitter,
@@ -64,6 +70,12 @@ async function quickstart(): Promise<void> {
         sound: false
     });
     celebrate('streak', { sound: 'click' });
+    const fields: CertificateFields = { title: 'Course complete', recipient: 'Ana', date: '2026-11-25', issuer: 'Acme', logo: document.createElement('img') };
+    const certificateOptions: CertificateOptions = { safeIcons: false };
+    showCertificate(fields, certificateOptions);
+    showCertificate({ title: 'Done', logo: '<svg></svg>' });
+    celebrate('certificate', { certificate: fields });
+    destroyCertificate();
     destroyCelebrations();
     dopamine.dispose();
 }

@@ -57,11 +57,12 @@ packages/dopaminejs/src/
   progression.js      the `dopaminejs/core` subpath, no browser globals allowed
   games.js            the `dopaminejs/games` subpath: gameFeedback() plugin
   celebrate.js        the `dopaminejs/celebrate` subpath: celebrate(), destroyCelebrations()
+  certificate.js      the `dopaminejs/certificate` subpath: showCertificate(), destroyCertificate()
   testing.js          the `dopaminejs/testing` subpath: createTestHost, conformance, loadFixtures
   dopamine/
     host.js           createDopamine, HOST_API, the plugin contract
     core/             RewardSystem, DataService, EventEmitter, merge, validate
-    ui/               RewardUI and dopamine.css
+    ui/               RewardUI, icon.js (the shared icon sanitiser) and dopamine.css
     effects/          ParticleSystem
     audio/            SoundManager
     feel/             haptics, reduced motion
@@ -110,6 +111,7 @@ throwing one does not stop the others.
   They do nothing before install and after dispose. Nothing in the main entry
   imports it (a test walks the import graph).
 - `dopaminejs/celebrate`: `celebrate(preset, options?)` works standalone (its own toast, `ParticleSystem` canvas `dopamine-celebrate-canvas` and `SoundManager`, and a hidden live region, removed by `destroyCelebrations()`) or through `options.parts`, which uses the card with `burst: false`. Nothing in the main entry imports it (a test walks the import graph), and the script tag build does not include it.
+- `dopaminejs/certificate`: `showCertificate(fields, options?)` opens a modal card (`role="dialog"`, focus trapped, one at a time) with Download (PNG from a canvas), Print and Close, and `destroyCertificate()` removes it. Fields are text; a string `logo` follows `safeIcons` through `ui/icon.js`. Its styles are inline plus one print `<style>` that it removes on close. `celebrate` opens it with `import('./certificate.js')`, so it stays out of the celebrate entry (size-limit ignores that import). Nothing in the main entry imports it (a test walks the import graph), and the script tag build does not include it.
 - `dopaminejs/testing` imports `vitest`, an optional peer dependency, so no
   other entry may import it. `conformance.particles|sound|ui|storage|plugin(make)`
   are `describe` blocks; `conformanceFailures(name, make)` returns the failed titles
