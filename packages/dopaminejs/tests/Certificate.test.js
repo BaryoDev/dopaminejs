@@ -50,9 +50,18 @@ describe('showCertificate', () => {
                 // A cross-origin image taints the canvas, as in a browser.
                 if (String(image.src).includes('other.test')) canvas.tainted = true;
             },
-            createLinearGradient: () => ({ addColorStop() {} })
+            // Every property the certificate sets, in order, as [name, value].
+            assigned: [],
+            createLinearGradient: () => ({ gradient: true, addColorStop() {} })
         };
-        return new Proxy(target, { get: (t, key) => (key in t ? t[key] : () => {}) });
+        return new Proxy(target, {
+            get: (t, key) => (key in t ? t[key] : () => {}),
+            set(t, key, value) {
+                t.assigned.push([key, value]);
+                t[key] = value;
+                return true;
+            }
+        });
     };
 
     const overlay = () => document.querySelector('.dopamine-certificate-overlay');
@@ -114,13 +123,34 @@ describe('showCertificate', () => {
         document.head.innerHTML = '';
     });
 
-    it('shows every field as text', () => {
+    it('shows every field as text', async () => {
         showCertificate(FIELDS);
 
         expect(card().querySelector('.dopamine-certificate-title').textContent).toBe(FIELDS.title);
         expect(card().querySelector('.dopamine-certificate-recipient').textContent).toBe(FIELDS.recipient);
         expect(card().querySelector('.dopamine-certificate-date').textContent).toBe(FIELDS.date);
         expect(card().querySelector('.dopamine-certificate-issuer').textContent).toBe(FIELDS.issuer);
+
+        // Only own properties count: values on the prototype are not shown, in the card or on the PNG.
+        const inherited = Object.create({
+            title: 'inherited title',
+            recipient: 'inherited recipient',
+            date: 'inherited date',
+            issuer: 'inherited issuer',
+            logo: 'inherited logo'
+        });
+        inherited.title = 'Own title';
+        showCertificate(inherited);
+
+        expect(card().querySelector('.dopamine-certificate-title').textContent).toBe('Own title');
+        for (const name of ['recipient', 'date', 'issuer']) {
+            expect(card().querySelector(`.dopamine-certificate-${name}`).textContent).toBe('');
+        }
+        expect(card().querySelector('.dopamine-certificate-logo')).toBeNull();
+        expect(card().textContent).not.toContain('inherited');
+        saved.length = 0;
+        await download();
+        expect(contexts[contexts.length - 1].texts.map((t) => t.text)).toEqual(['Own title']);
     });
 
     it('shows HTML in title, recipient, date and issuer as literal text', () => {
@@ -156,12 +186,34 @@ describe('showCertificate', () => {
         for (const name of ['download', 'print', 'close']) expect(button(name).type).toBe('button');
     });
 
-    it('reads the existing toast variables for its theme, on the card and on the PNG', () => {
+    it('reads the existing toast variables for its theme, on the card and on the PNG', async () => {
         const source = readFileSync(resolve(here, '../src/certificate.js'), 'utf8');
 
         for (const name of ['bg', 'text', 'muted', 'accent', 'radius', 'shadow']) {
             expect(source).toContain(`--dopamine-toast-${name}`);
             expect(readFileSync(resolve(here, '../src/dopamine/ui/dopamine.css'), 'utf8')).toContain(`--dopamine-toast-${name}`);
+        }
+
+        const assignedTo = (ctx, name) => ctx.assigned.filter(([key]) => key === name).map(([, value]) => value);
+        showCertificate(FIELDS);
+        card().style.setProperty('--dopamine-toast-bg', '#102030');
+        card().style.setProperty('--dopamine-toast-accent', '#abcdef');
+        await download();
+        const plain = contexts[0];
+
+        // A plain colour background is used as it is, and the border takes the accent.
+        expect(assignedTo(plain, 'fillStyle')[0]).toBe('#102030');
+        expect(assignedTo(plain, 'strokeStyle')).toEqual(['#abcdef']);
+
+        // A gradient or url() is not a plain colour: the PNG falls back to its own gradient.
+        saved.length = 0;
+        for (const bg of ['linear-gradient(135deg, red, blue)', 'url(https://other.test/bg.png)']) {
+            showCertificate(FIELDS);
+            card().style.setProperty('--dopamine-toast-bg', bg);
+            await download();
+            const fill = assignedTo(contexts[contexts.length - 1], 'fillStyle')[0];
+            expect(fill).toEqual(expect.objectContaining({ gradient: true }));
+            saved.length = 0;
         }
     });
 
@@ -509,6 +561,22 @@ describe('showCertificate', () => {
             const last = contexts[contexts.length - 1];
             expect(last.images).toHaveLength(1);
             expect(last.images[0].image.src).toMatch(/^data:image\/svg\+xml/);
+
+            // A logo that did not load (no natural width) is not drawn, and the PNG is still saved.
+            vi.unstubAllGlobals();
+            saved.length = 0;
+            const broken = document.createElement('img');
+            broken.src = 'https://same.test/missing.png';
+            Object.defineProperty(broken, 'naturalWidth', { value: 0 });
+            showCertificate({ ...FIELDS, logo: broken });
+            const file = await download();
+
+            const drawn = contexts[contexts.length - 1];
+            expect(file.download).toBe('certificate.png');
+            expect(drawn.images).toHaveLength(0);
+            expect(drawn.texts.map((t) => t.text)).toEqual(
+                expect.arrayContaining([FIELDS.title, FIELDS.recipient, FIELDS.date, FIELDS.issuer])
+            );
         });
 
         it('a cross-origin logo taints the canvas: the PNG is saved without it, with one warning', async () => {
@@ -545,6 +613,8 @@ describe('showCertificate', () => {
             await vi.waitFor(() => expect(errors).toHaveBeenCalledTimes(1));
 
             expect(saved).toHaveLength(0);
+            expect(errors.mock.calls[0][0]).toBeInstanceOf(Error);
+            expect(errors.mock.calls[0][0].message).toBe('[DopamineJS] This canvas has no 2d context');
         });
 
         it('revokes the blob URL a moment after the save', async () => {
