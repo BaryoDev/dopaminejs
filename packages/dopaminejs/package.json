@@ -1,6 +1,6 @@
 {
     "name": "dopaminejs",
-    "version": "3.5.0",
+    "version": "3.6.0",
     "description": "Gamification for any website: XP, levels, achievements and timezone-correct daily streaks, with confetti, particles and sound. One script tag or one import. Zero dependencies.",
     "type": "module",
     "main": "./dist/dopamine.cjs",

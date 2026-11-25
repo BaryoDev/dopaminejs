@@ -4,10 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-11-25
+
+Published with this release: `dopaminejs` 3.6.0. The wrappers and plugins did not change.
+
 ### Added
 
 - `celebrate(preset, options?)` and `destroyCelebrations()` in the new `dopaminejs/celebrate` subpath. One call shows a toast, fires confetti and plays a sound, with no `createDopamine()` needed. Pass `parts: dopamine.parts` to send them through a host. Presets are `complete`, `milestone`, `streak` and `certificate`. Options are `title`, `body`, `icon`, `target`, `sound` and `parts`. With reduced motion on there is no confetti. The main bundles and the script tag build do not include it. Types `CelebratePreset` and `CelebrateOptions` ship in `types/celebrate.d.ts`.
 - `RewardUI.popup()` takes `burst: false` to skip the confetti a card fires.
+
+### Changed
+
+- `new ParticleSystem()` throws `[DopamineJS] This canvas has no 2d context` when the canvas has none, before it adds the canvas to the page. Before, it added the canvas and set `ctx` to `null`.
+- The npm description and keywords say gamification for any website, with `no-build` and `script-tag` added.
 
 ## [3.5.0] - 2026-11-16
 
