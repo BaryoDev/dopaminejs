@@ -16,7 +16,8 @@ export interface AutoOptions {
  * `-certificate-title`, `-recipient`, `-date`, `-issuer` and `-logo`.
  * Each element fires once per page load unless it has `data-dopamine-repeat`.
  * Elements added or removed later are picked up; a changed attribute is not.
- * Throws a `TypeError` when `host` is missing. Calling it again replaces the
+ * Throws a `TypeError` when `host` is missing or `root` is not a Document or
+ * an Element. Calling it again replaces the
  * earlier call.
  */
 export function auto(options: AutoOptions): void;

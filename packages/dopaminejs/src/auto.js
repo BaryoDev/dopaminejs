@@ -156,17 +156,23 @@ function scan(state, node) {
  *   `host` is a createDopamine() result. `root` holds every listener and
  *   observer, default `document`. `maxXP` default 1000.
  * @returns {undefined}
- * @throws {TypeError} when `host` or `host.progress` is missing
+ * @throws {TypeError} when `host` or `host.progress` is missing, or `root` is
+ *   not a Document or an Element
  */
 export function auto(options) {
     const host = options !== null && typeof options === 'object' && hasOwn(options, 'host') ? options.host : undefined;
     if (host === null || typeof host !== 'object' || host.progress === null || typeof host.progress !== 'object') {
         throw new TypeError('auto() needs a host from createDopamine()');
     }
-    destroyAuto();
     if (typeof document === 'undefined') return;
     const given = hasOwn(options, 'root') ? options.root : undefined;
     const root = given ?? document;
+    // Checked before anything attaches: `window` takes listeners but not a
+    // MutationObserver, and a half set up call would leave listeners behind.
+    if (root === null || typeof root !== 'object' || (root.nodeType !== 1 && root.nodeType !== 9)) {
+        throw new TypeError('auto() root must be a Document or an Element');
+    }
+    destroyAuto();
     const limit = hasOwn(options, 'maxXP') ? options.maxXP : undefined;
     const maxXP = Number.isInteger(limit) && limit >= 0 ? limit : DEFAULT_MAX_XP;
 
@@ -181,6 +187,8 @@ export function auto(options) {
         noObserver: false,
         listeners: []
     };
+    // Active before anything attaches, so destroyAuto() can undo a partial setup.
+    active = state;
 
     const delegate = (type) => (event) => {
         const origin = event.target;
@@ -216,7 +224,6 @@ export function auto(options) {
         state.mo.observe(root, { childList: true, subtree: true });
     }
 
-    active = state;
     scan(state, root.nodeType === 9 ? root.documentElement ?? root : root);
 }
 

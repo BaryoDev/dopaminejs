@@ -88,13 +88,13 @@
         {
             "path": "packages/dopaminejs/dist/auto.js",
             "import": "*",
-            "limit": "1.7 KB",
+            "limit": "1.8 KB",
             "ignore": ["./celebrate.js", "./certificate.js"],
             "name": "dopaminejs/auto (ESM)"
         },
         {
             "path": "packages/dopaminejs/dist/dopamine.all.global.js",
-            "limit": "21.7 KB",
+            "limit": "21.8 KB",
             "name": "dopaminejs (script tag, all)"
         }
     ],

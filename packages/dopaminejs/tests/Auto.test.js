@@ -425,7 +425,7 @@ describe('celebrate and certificate', () => {
 describe('bounds and cleanup', () => {
     it('2000 visible elements make one IntersectionObserver, one MutationObserver and three listeners', () => {
         html(Array.from({ length: 2000 }, () => '<i data-dopamine-on="visible"></i>').join(''));
-        const mutation = vi.spyOn(globalThis, 'MutationObserver');
+        const mutation = vi.spyOn(globalThis.MutationObserver.prototype, 'observe');
         const add = vi.spyOn(document, 'addEventListener');
         auto({ host });
         expect(FakeIO.instances).toHaveLength(1);
@@ -486,6 +486,16 @@ describe('bounds and cleanup', () => {
         click(el.querySelector('button'));
         await flush();
         expect(host.progress.addXP).toHaveBeenCalledWith(5);
+    });
+
+    it('a root that is not a Document or an Element throws before any listener is added', () => {
+        const add = vi.spyOn(window, 'addEventListener');
+        const docAdd = vi.spyOn(document, 'addEventListener');
+        expect(() => auto({ host, root: window })).toThrow(TypeError);
+        expect(() => auto({ host, root: 'main' })).toThrow(TypeError);
+        expect(() => auto({ host, root: document.createTextNode('x') })).toThrow(TypeError);
+        expect(add).not.toHaveBeenCalled();
+        expect(docAdd).not.toHaveBeenCalled();
     });
 
     it('auto() with no host throws a TypeError', () => {
