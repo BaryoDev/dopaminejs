@@ -13,6 +13,8 @@ const root = resolve(pkgDir, '../..');
 
 let outDir;
 let code;
+let allDir;
+let allCode;
 
 beforeAll(async () => {
     // Built here, into a temp folder, because the suite runs before the
@@ -25,9 +27,20 @@ beforeAll(async () => {
         build: { outDir }
     });
     code = readFileSync(join(outDir, 'dopamine.global.js'), 'utf8');
+    allDir = mkdtempSync(join(tmpdir(), 'script-tag-all-'));
+    await build({
+        root: pkgDir,
+        configFile: join(pkgDir, 'vite.config.all.js'),
+        logLevel: 'silent',
+        build: { outDir: allDir }
+    });
+    allCode = readFileSync(join(allDir, 'dopamine.all.global.js'), 'utf8');
 }, 60000);
 
-afterAll(() => rmSync(outDir, { recursive: true, force: true }));
+afterAll(() => {
+    rmSync(outDir, { recursive: true, force: true });
+    rmSync(allDir, { recursive: true, force: true });
+});
 
 describe('script tag build', () => {
     it('sets window.Dopamine with no module loader and runs init and addXP', async () => {
@@ -57,6 +70,14 @@ describe('script tag build', () => {
         window.close();
     });
 
+    it('does not include auto, so the plain file stays as it was', () => {
+        const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/', runScripts: 'outside-only' });
+        dom.window.eval(code);
+        expect(dom.window.Dopamine.auto).toBeUndefined();
+        expect(dom.window.Dopamine.celebrate).toBeUndefined();
+        dom.window.close();
+    });
+
     it('leaves the rest of the output folder alone', async () => {
         const dir = mkdtempSync(join(tmpdir(), 'script-tag-files-'));
         try {
@@ -74,6 +95,74 @@ describe('script tag build', () => {
             rmSync(dir, { recursive: true, force: true });
         }
     }, 60000);
+});
+
+describe('all-in-one script tag build', () => {
+    // createDopamine() builds a particle canvas, and jsdom has no 2d context.
+    const stubCanvas = (window) => {
+        window.HTMLCanvasElement.prototype.getContext = () => new Proxy({}, { get: () => () => {}, set: () => true });
+    };
+    const page = () => {
+        const dom = new JSDOM(
+            '<!doctype html><body><button data-dopamine-on="click" data-dopamine-xp="5">go</button></body>',
+            { url: 'https://example.test/', runScripts: 'dangerously' }
+        );
+        stubCanvas(dom.window);
+        return dom;
+    };
+    const load = (window, attributes) => {
+        const script = window.document.createElement('script');
+        for (const name of attributes) script.setAttribute(name, '');
+        script.textContent = allCode;
+        window.document.body.appendChild(script);
+    };
+    const xpOf = (window) => {
+        const saved = JSON.parse(window.localStorage.getItem('dopamine_player') ?? '{"xpBy":{}}');
+        return Object.values(saved.xpBy).reduce((sum, value) => sum + value, 0);
+    };
+    const wait = () => new Promise((done) => setTimeout(done, 50));
+
+    it('has the main entry, celebrate, the certificate and auto, with no module loader', () => {
+        const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/', runScripts: 'outside-only' });
+        expect(dom.window.require).toBeUndefined();
+        dom.window.eval(allCode);
+        const names = Object.keys(dom.window.Dopamine);
+        for (const name of ['createDopamine', 'RewardSystem', 'celebrate', 'destroyCelebrations',
+            'showCertificate', 'destroyCertificate', 'auto', 'destroyAuto']) {
+            expect(names).toContain(name);
+        }
+        dom.window.close();
+    });
+
+    it('is one file: the dynamic imports are inlined', () => {
+        expect(allCode).not.toMatch(/import\(\s*['"]\.\//);
+        expect(allCode).not.toMatch(/\brequire\(/);
+    });
+
+    it('without data-dopamine-auto, loading adds no listener to document and awards nothing', async () => {
+        const dom = page();
+        const { window } = dom;
+        const added = [];
+        const real = window.document.addEventListener.bind(window.document);
+        window.document.addEventListener = (...args) => { added.push(args[0]); return real(...args); };
+        load(window, []);
+        window.document.querySelector('button').click();
+        await wait();
+        expect(added).toEqual([]);
+        expect(xpOf(window)).toBe(0);
+        window.close();
+    });
+
+    it('with data-dopamine-auto on the script, a click awards the XP', async () => {
+        const dom = page();
+        const { window } = dom;
+        load(window, ['data-dopamine-auto']);
+        window.document.querySelector('button').click();
+        await wait();
+        expect(xpOf(window)).toBe(5);
+        window.Dopamine.destroyAuto();
+        window.close();
+    });
 });
 
 describe('check-versions --dist and the unpkg and jsdelivr fields', () => {
