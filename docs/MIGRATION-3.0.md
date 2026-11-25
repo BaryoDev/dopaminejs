@@ -1,6 +1,6 @@
 # Migration guide: 2.x to 3.0
 
-3.0 is progress feedback for any web app: XP, levels, achievements and streaks, shown
+3.0 is progress feedback for any website: XP, levels, achievements and streaks, shown
 with a bar, popups, particles and sound. The game engine is gone. If your game needs the
 engine, stay on 2.x. 2.x is unsupported and gets no more fixes.
 

@@ -1,7 +1,7 @@
 {
     "name": "dopaminejs-plugin-sound-packs",
     "version": "2.0.0",
-    "description": "Sound pack presets for DopamineJS - retro, modern, cute, and sci-fi themes",
+    "description": "Sound pack presets for DopamineJS: retro, modern, cute and scifi",
     "type": "module",
     "main": "./dist/index.umd.cjs",
     "module": "./dist/index.mjs",
