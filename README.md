@@ -20,6 +20,9 @@ parts you can keep, swap or leave out.
 - **Web apps**: including the internal tools nobody opens voluntarily
 - **Games**: the game helpers are in `dopaminejs/games`
 
+Your code decides when something happened (a lesson done, a post read to the end) and calls
+`addXP` or `record`. DopamineJS does not watch the page for you.
+
 ## Quick start
 
 ```bash
