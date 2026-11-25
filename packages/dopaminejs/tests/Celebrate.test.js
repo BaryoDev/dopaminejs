@@ -215,10 +215,23 @@ describe('celebrate', () => {
         celebrate('complete', { title: 'Second' });
         expect(document.querySelectorAll('.dopamine-celebrate-live')).toHaveLength(1);
         expect(document.querySelector('.dopamine-celebrate-live')).toBe(region);
-        // The text always arrives through the tick, also on a later call.
-        expect(region.textContent).toBe('First. Line');
+        // The old text is cleared at once, and the new text arrives through the tick.
+        expect(region.textContent).toBe('');
         vi.advanceTimersByTime(1);
         expect(region.textContent).toBe('Second');
+    });
+
+    it('the same message twice is cleared, then set again a tick later', () => {
+        vi.useFakeTimers();
+        celebrate('complete', { title: 'Same' });
+        vi.advanceTimersByTime(1);
+        const region = document.querySelector('.dopamine-celebrate-live');
+        expect(region.textContent).toBe('Same');
+
+        celebrate('complete', { title: 'Same' });
+        expect(region.textContent).toBe('');
+        vi.advanceTimersByTime(1);
+        expect(region.textContent).toBe('Same');
     });
 
     it('two calls in the same tick on a fresh page set the text after the region is in', () => {
@@ -289,6 +302,46 @@ describe('celebrate', () => {
         expect(document.querySelectorAll('canvas')).toHaveLength(0);
         expect(toasts()).toHaveLength(1);
         expect(errors).toHaveBeenCalledTimes(2);
+    });
+
+    it('a throwing option getter is logged, starts nothing and does not throw', () => {
+        const boom = new Error('unavailable');
+        let result;
+
+        expect(() => { result = celebrate('complete', { get title() { throw boom; } }); }).not.toThrow();
+
+        expect(result).toBeUndefined();
+        expect(errors).toHaveBeenCalledWith(boom);
+        expect(toasts()).toHaveLength(0);
+        expect(document.querySelector('canvas')).toBeNull();
+        expect(burst).not.toHaveBeenCalled();
+        expect(play).not.toHaveBeenCalled();
+    });
+
+    it('a canvas detached by a body replace is destroyed and replaced', () => {
+        celebrate('complete', { sound: false });
+        const first = burst.mock.contexts[0];
+        document.body.replaceChildren();
+
+        celebrate('complete', { sound: false });
+        const second = burst.mock.contexts[1];
+
+        expect(particleDestroy).toHaveBeenCalledTimes(1);
+        expect(particleDestroy.mock.contexts[0]).toBe(first);
+        expect(second).not.toBe(first);
+        expect(second.canvas.isConnected).toBe(true);
+        const canvases = document.querySelectorAll('canvas#dopamine-celebrate-canvas');
+        expect(canvases).toHaveLength(1);
+        expect(canvases[0].isConnected).toBe(true);
+        expect(canvases[0]).toBe(second.canvas);
+    });
+
+    it('a connected canvas is reused', () => {
+        celebrate('complete', { sound: false });
+        celebrate('complete', { sound: false });
+
+        expect(burst.mock.contexts[1]).toBe(burst.mock.contexts[0]);
+        expect(particleDestroy).not.toHaveBeenCalled();
     });
 
     it('a second call replaces the toast', () => {

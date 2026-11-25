@@ -78,6 +78,8 @@ function removeToast() {
 function announce(message) {
     clearTimeout(regionTimer);
     if (region && !region.isConnected) region = null;
+    // The same text set again may send no live-region event, so empty it first.
+    if (region) region.textContent = '';
     if (!region) {
         region = document.createElement('div');
         region.className = 'dopamine-celebrate-live';
@@ -140,12 +142,20 @@ function showToast(title, body, icon) {
 export function celebrate(name, options) {
     if (typeof name !== 'string' || !hasOwn(PRESETS, name)) return;
     const { title, icon, sound: presetSound, count } = PRESETS[name];
-    const shownTitle = ownValue(options, 'title') ?? title;
-    const body = ownValue(options, 'body');
-    const shownIcon = ownValue(options, 'icon') ?? icon;
-    const soundOption = ownValue(options, 'sound');
-    const key = soundOption === false ? null : (typeof soundOption === 'string' ? soundOption : presetSound);
-    const given = ownValue(options, 'parts');
+    let shownTitle, body, shownIcon, key, given, target;
+    try {
+        // A getter on the options can throw, so the reads sit inside the guard.
+        shownTitle = ownValue(options, 'title') ?? title;
+        body = ownValue(options, 'body');
+        shownIcon = ownValue(options, 'icon') ?? icon;
+        const soundOption = ownValue(options, 'sound');
+        key = soundOption === false ? null : (typeof soundOption === 'string' ? soundOption : presetSound);
+        given = ownValue(options, 'parts');
+        target = ownValue(options, 'target');
+    } catch (error) {
+        console.error(error);
+        return;
+    }
     const routed = given !== null && typeof given === 'object';
 
     if (typeof document === 'undefined' || typeof window === 'undefined') {
@@ -163,8 +173,14 @@ export function celebrate(name, options) {
     });
     attempt(() => {
         if (!hasDom || !motionAllowed()) return;
-        const at = centreOf(ownValue(options, 'target'));
+        const at = centreOf(target);
         if (routed) return given.particles?.burst?.('confetti', at, { count });
+        // A body replace detaches the canvas, so confetti would draw where nobody sees it.
+        if (particles && !particles.canvas.isConnected) {
+            const old = particles;
+            particles = null;
+            attempt(() => old.destroy());
+        }
         particles ??= new ParticleSystem({ canvasId: 'dopamine-celebrate-canvas' });
         particles.burst('confetti', at, { count });
     });
