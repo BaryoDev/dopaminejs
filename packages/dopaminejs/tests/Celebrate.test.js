@@ -215,14 +215,45 @@ describe('celebrate', () => {
         celebrate('complete', { title: 'Second' });
         expect(document.querySelectorAll('.dopamine-celebrate-live')).toHaveLength(1);
         expect(document.querySelector('.dopamine-celebrate-live')).toBe(region);
+        // The text always arrives through the tick, also on a later call.
+        expect(region.textContent).toBe('First. Line');
+        vi.advanceTimersByTime(1);
         expect(region.textContent).toBe('Second');
+    });
+
+    it('two calls in the same tick on a fresh page set the text after the region is in', () => {
+        vi.useFakeTimers();
+        celebrate('complete', { title: 'One' });
+        celebrate('complete', { title: 'Two' });
+        const region = document.querySelector('.dopamine-celebrate-live');
+
+        expect(region.textContent).toBe('');
+        vi.advanceTimersByTime(1);
+        expect(region.textContent).toBe('Two');
+    });
+
+    it('a region detached by a body replace is replaced by a new one', () => {
+        vi.useFakeTimers();
+        celebrate('complete', { title: 'One' });
+        vi.advanceTimersByTime(1);
+        document.body.replaceChildren();
+
+        celebrate('complete', { title: 'Two' });
+        vi.advanceTimersByTime(1);
+
+        const regions = document.querySelectorAll('.dopamine-celebrate-live');
+        expect(regions).toHaveLength(1);
+        expect(regions[0].isConnected).toBe(true);
+        expect(regions[0].textContent).toContain('Two');
     });
 
     it('destroyCelebrations removes the live region and its timer', () => {
         vi.useFakeTimers();
         celebrate('complete', { sound: false });
+        // Not advanced: the region's 0 ms text timer is still pending, and only
+        // destroy clearing it brings the count to 0.
+        expect(vi.getTimerCount()).toBeGreaterThan(1);
         destroyCelebrations();
-        vi.advanceTimersByTime(1);
 
         expect(document.querySelector('.dopamine-celebrate-live')).toBeNull();
         expect(vi.getTimerCount()).toBe(0);
@@ -301,14 +332,14 @@ describe('celebrate', () => {
         vi.useFakeTimers();
         celebrate('complete');
         expect(document.querySelector('#dopamine-celebrate-canvas')).not.toBeNull();
+        // jsdom queues a 0 ms storage event for each localStorage write, and SoundManager writes
+        // once to probe it. Run those first; a toast timer that destroy misses is still 3000 ms out.
+        vi.advanceTimersByTime(1);
 
         destroyCelebrations();
 
         expect(toasts()).toHaveLength(0);
         expect(document.querySelector('#dopamine-celebrate-canvas')).toBeNull();
-        // jsdom queues a 0 ms storage event for each localStorage write, and SoundManager writes
-        // once to probe it. Run those; a toast timer that destroy missed is still 3000 ms out.
-        vi.advanceTimersByTime(1);
         expect(vi.getTimerCount()).toBe(0);
         expect(particleDestroy).toHaveBeenCalledTimes(1);
         expect(soundDestroy).toHaveBeenCalledTimes(1);

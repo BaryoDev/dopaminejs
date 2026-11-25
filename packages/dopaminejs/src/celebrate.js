@@ -72,20 +72,20 @@ function removeToast() {
 }
 
 // A live region that arrives with its text is often skipped, so one hidden
-// region is put in the page empty and its text is set a tick later.
+// region is put in the page empty and its text is always set a tick later.
+// A page that replaces its body leaves the old region detached, so that one
+// counts as missing.
 function announce(message) {
     clearTimeout(regionTimer);
-    regionTimer = null;
-    if (region) {
-        region.textContent = message;
-        return;
+    if (region && !region.isConnected) region = null;
+    if (!region) {
+        region = document.createElement('div');
+        region.className = 'dopamine-celebrate-live';
+        region.setAttribute('role', 'status');
+        region.setAttribute('aria-live', 'polite');
+        region.style.cssText = REGION_STYLE;
+        document.body.appendChild(region);
     }
-    region = document.createElement('div');
-    region.className = 'dopamine-celebrate-live';
-    region.setAttribute('role', 'status');
-    region.setAttribute('aria-live', 'polite');
-    region.style.cssText = REGION_STYLE;
-    document.body.appendChild(region);
     regionTimer = setTimeout(() => {
         regionTimer = null;
         if (region) region.textContent = message;
@@ -121,9 +121,9 @@ function showToast(title, body, icon) {
     el.appendChild(text);
 
     document.body.appendChild(el);
-    announce(hasBody(body) ? `${title}. ${body}` : String(title));
     toast = el;
     timer = setTimeout(removeToast, TOAST_MS);
+    announce(hasBody(body) ? `${title}. ${body}` : String(title));
 }
 
 /**
