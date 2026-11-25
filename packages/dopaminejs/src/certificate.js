@@ -11,7 +11,6 @@ const HEIGHT = 850;
 const TEXT_WIDTH = WIDTH - 240;
 const LOGO_SIZE = 110;
 const FALLBACK_BG = ['#667eea', '#764ba2'];
-const PLAIN_COLOUR = /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\))$/i;
 
 const FIELD_CSS = {
     title: 'margin:16px 0 0;font-size:32px;font-weight:700;line-height:1.2',
@@ -87,7 +86,9 @@ function wrap(ctx, text, max) {
     if (!cut && line !== '') cut = !flush();
     if (cut) {
         let last = lines[max - 1];
-        while (last !== '' && !fits(`${last}\u2026`)) last = last.slice(0, -1);
+        while (last !== '' && !fits(`${last}\u2026`)) {
+            last = Array.from(last).slice(0, -1).join('');
+        }
         lines[max - 1] = `${last}\u2026`;
     }
     return lines;
@@ -95,8 +96,17 @@ function wrap(ctx, text, max) {
 
 function paint(ctx, state, logo) {
     const { fields, look } = state;
-    const bg = PLAIN_COLOUR.test(look.bg) ? look.bg : null;
-    let fill = bg;
+    // The canvas keeps its old fillStyle when it cannot parse a colour, so a value is
+    // taken when setting it after a known one changed it. Two probes cover black and white.
+    const accepts = (colour) => {
+        for (const probe of ['#000000', '#ffffff']) {
+            ctx.fillStyle = probe;
+            ctx.fillStyle = colour;
+            if (ctx.fillStyle !== probe) return true;
+        }
+        return false;
+    };
+    let fill = look.bg && accepts(look.bg) ? look.bg : null;
     if (!fill) {
         fill = ctx.createLinearGradient?.(0, 0, WIDTH, HEIGHT);
         fill?.addColorStop(0, FALLBACK_BG[0]);
@@ -149,14 +159,18 @@ function paint(ctx, state, logo) {
 // The logo as something drawImage takes, text, or null. Always drawn from the
 // copy already in the card, so the same sanitising rules apply.
 function loadLogo(holder) {
+    const dropped = () => {
+        console.warn('[DopamineJS] The certificate logo had not loaded, so the PNG has no logo.');
+        return null;
+    };
     const img = holder.querySelector('img');
-    if (img) return Promise.resolve(img.naturalWidth > 0 ? img : null);
+    if (img) return Promise.resolve(img.naturalWidth > 0 ? img : dropped());
     const svg = holder.querySelector('svg');
     if (!svg) return Promise.resolve(holder.textContent.trim() || null);
     return new Promise((resolve) => {
         const image = new Image();
         image.onload = () => resolve(image);
-        image.onerror = () => resolve(null);
+        image.onerror = () => resolve(dropped());
         image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
     });
 }
@@ -185,7 +199,10 @@ async function download(state) {
         console.warn('[DopamineJS] The certificate logo could not be saved (cross-origin), so the PNG has no logo.');
         blob = await render(null);
     }
-    if (!blob) return;
+    if (!blob) {
+        console.error(new Error('[DopamineJS] The canvas gave no PNG'));
+        return;
+    }
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -218,7 +235,12 @@ function close() {
  */
 export function showCertificate(fields, options) {
     if (typeof document === 'undefined') return;
+    if (fields === null || typeof fields !== 'object' || Array.isArray(fields)) {
+        console.warn('[DopamineJS] showCertificate needs an object of fields.');
+        return;
+    }
     close();
+    let restoreLogo = null;
     try {
         const value = (name) => textOf(ownValue(fields, name));
         const given = { title: value('title'), recipient: value('recipient'), date: value('date'), issuer: value('issuer') };
@@ -238,11 +260,28 @@ export function showCertificate(fields, options) {
         if (logo !== undefined && logo !== null && logo !== '') {
             logoHolder = make('div', `height:${LOGO_SIZE}px;font-size:56px;line-height:${LOGO_SIZE}px`);
             logoHolder.className = 'dopamine-certificate-logo';
+            // A node taken from the page goes back where it was when the certificate closes.
+            const parent = logo instanceof Node ? logo.parentNode : null;
+            const next = parent ? logo.nextSibling : null;
+            const styled = [];
             setIcon(logoHolder, logo, safeIcons);
             for (const child of logoHolder.querySelectorAll('img,svg')) {
-                child.style.cssText = `max-width:100%;max-height:${LOGO_SIZE}px`;
+                styled.push([child, child.getAttribute('style')]);
+                child.style.maxWidth = '100%';
+                child.style.maxHeight = `${LOGO_SIZE}px`;
             }
-            card.appendChild(logoHolder);
+            if (parent) {
+                restoreLogo = () => {
+                    restoreLogo = null;
+                    for (const [child, text] of styled) {
+                        if (text === null) child.removeAttribute('style');
+                        else child.setAttribute('style', text);
+                    }
+                    parent.insertBefore(logo, next && next.parentNode === parent ? next : null);
+                };
+            }
+            if (logoHolder.firstChild) card.appendChild(logoHolder);
+            else logoHolder = null;
         }
         for (const name of ['title', 'recipient', 'date', 'issuer']) {
             const node = make(name === 'title' ? 'h2' : 'p', `${CLAMP}-webkit-line-clamp:${LINES[name]};${FIELD_CSS[name]}`, given[name]);
@@ -267,6 +306,7 @@ export function showCertificate(fields, options) {
         style.textContent = PRINT_CSS;
         const state = { fields: given, logoHolder, look: null, overlay, style, undo: [], previous: document.activeElement };
         current = state;
+        if (restoreLogo) state.undo.push(restoreLogo);
         const read = (name, fallback) => getComputedStyle(card).getPropertyValue(name).trim() || fallback;
         const refreshLook = () => {
             state.look = {
@@ -283,9 +323,10 @@ export function showCertificate(fields, options) {
         };
         on(document, 'keydown', (event) => {
             if (event.key === 'Escape') {
+                if (event.defaultPrevented) return;
                 event.preventDefault();
                 close();
-            } else if (event.key === 'Tab') {
+            } else if (event.key === 'Tab' && !event.ctrlKey && !event.altKey && !event.metaKey) {
                 const order = [buttons.download, buttons.print, buttons.close];
                 const at = order.indexOf(document.activeElement);
                 const step = event.shiftKey ? order.length - 1 : 1;
@@ -300,9 +341,10 @@ export function showCertificate(fields, options) {
                 close();
             } else if (target === buttons.print) {
                 window.print();
-            } else if (target === buttons.download) {
+            } else if (target === buttons.download && !state.saving) {
+                state.saving = true;
                 refreshLook();
-                download(state).catch((error) => console.error(error));
+                download(state).catch((error) => console.error(error)).finally(() => { state.saving = false; });
             }
         });
 
@@ -312,6 +354,7 @@ export function showCertificate(fields, options) {
     } catch (error) {
         console.error(error);
         close();
+        restoreLogo?.();
     }
 }
 

@@ -14,6 +14,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const FIELDS = { title: 'Course complete', recipient: 'Ana Reyes', date: 'Nov 25, 2026', issuer: 'Acme Academy' };
 const CARD_WIDTH = 1200;
 const CARD_HEIGHT = 850;
+const COLOUR = /^(#[0-9a-f]{3,8}|rgba?\(.*\)|red|black|white)$/i;
 
 // The blob URL calls stay installed: the revoke timer can fire after a test ends.
 // Revoke timers outlive a test, so URL names never repeat: a late revoke from an earlier test cannot look like this test's.
@@ -45,6 +46,10 @@ describe('showCertificate', () => {
             canvas,
             texts: [],
             images: [],
+            rects: [],
+            fillRect(x, y, w, h) {
+                target.rects.push({ x, y, w, h, fillStyle: target.fillStyle });
+            },
             measureText: (text) => ({ width: String(text).length * 10 }),
             fillText(text, x, y, maxWidth) {
                 target.texts.push({ text, x, y, maxWidth, font: target.font });
@@ -62,6 +67,9 @@ describe('showCertificate', () => {
             get: (t, key) => (key in t ? t[key] : () => {}),
             set(t, key, value) {
                 t.assigned.push([key, value]);
+                // Like a canvas, keep the old colour when a string does not parse, and read black and white back as hex.
+                if (typeof value === 'string') value = { black: '#000000', white: '#ffffff' }[value.toLowerCase()] ?? value;
+                if ((key === 'fillStyle' || key === 'strokeStyle') && typeof value === 'string' && !COLOUR.test(value)) return true;
                 t[key] = value;
                 return true;
             }
@@ -200,25 +208,27 @@ describe('showCertificate', () => {
         }
 
         const assignedTo = (ctx, name) => ctx.assigned.filter(([key]) => key === name).map(([, value]) => value);
-        showCertificate(FIELDS);
-        card().style.setProperty('--dopamine-toast-bg', '#102030');
-        card().style.setProperty('--dopamine-toast-accent', '#abcdef');
-        await download();
-        const plain = contexts[0];
-
-        // A plain colour background is used as it is, and the border takes the accent.
-        expect(assignedTo(plain, 'fillStyle')[0]).toBe('#102030');
-        expect(assignedTo(plain, 'strokeStyle')).toEqual(['#abcdef']);
-
-        // A gradient or url() is not a plain colour: the PNG falls back to its own gradient.
-        saved.length = 0;
-        for (const bg of ['linear-gradient(135deg, red, blue)', 'url(https://other.test/bg.png)']) {
+        const cardFill = (ctx) => ctx.rects.find((r) => r.w === CARD_WIDTH && r.h === CARD_HEIGHT).fillStyle;
+        const theme = async (bg) => {
             showCertificate(FIELDS);
             card().style.setProperty('--dopamine-toast-bg', bg);
-            await download();
-            const fill = assignedTo(contexts[contexts.length - 1], 'fillStyle')[0];
-            expect(fill).toEqual(expect.objectContaining({ gradient: true }));
+            card().style.setProperty('--dopamine-toast-accent', '#abcdef');
             saved.length = 0;
+            await download();
+            return contexts[contexts.length - 1];
+        };
+
+        // A background the canvas accepts is used as it is, and the border takes the accent.
+        const plain = await theme('#102030');
+        expect(cardFill(plain)).toBe('#102030');
+        expect(assignedTo(plain, 'strokeStyle')).toEqual(['#abcdef']);
+        for (const bg of ['rgb(0 0 0 / 50%)', 'red', 'black']) {
+            expect(cardFill(await theme(bg))).toBe(bg);
+        }
+
+        // A gradient, url() or junk is not a colour the canvas takes: the PNG falls back to its own gradient.
+        for (const bg of ['linear-gradient(135deg, red, blue)', 'url(https://other.test/bg.png)', 'not a colour']) {
+            expect(cardFill(await theme(bg))).toEqual(expect.objectContaining({ gradient: true }));
         }
     });
 
@@ -230,13 +240,71 @@ describe('showCertificate', () => {
     });
 
     it('no fields at all still opens an empty card', () => {
-        expect(() => showCertificate()).not.toThrow();
+        expect(() => showCertificate({})).not.toThrow();
 
         expect(card()).not.toBeNull();
         expect(card().querySelector('.dopamine-certificate-title').textContent).toBe('');
     });
 
+    it('anything but an object of fields warns and opens nothing', () => {
+        for (const bad of ['abc', true, 5, [], null, undefined]) {
+            warn.mockClear();
+            expect(() => showCertificate(bad)).not.toThrow();
+
+            expect(overlay(), String(bad)).toBeNull();
+            expect(warn, String(bad)).toHaveBeenCalledTimes(1);
+        }
+    });
+
     describe('logo', () => {
+        it('a logo that is not an image, text or markup leaves no empty logo band', () => {
+            for (const logo of [5, true, {}]) {
+                showCertificate({ ...FIELDS, logo });
+
+                expect(card().querySelector('.dopamine-certificate-logo'), String(logo)).toBeNull();
+            }
+        });
+
+        it('an image taken from the page goes back, with its style, however the certificate closes', () => {
+            const host = document.createElement('div');
+            const before = document.createElement('span');
+            const img = document.createElement('img');
+            img.setAttribute('style', 'width:10px');
+            const after = document.createElement('span');
+            host.append(before, img, after);
+            document.body.appendChild(host);
+            const closers = [() => key('Escape'), () => destroyCertificate(), () => showCertificate(FIELDS)];
+
+            for (const closeIt of closers) {
+                showCertificate({ ...FIELDS, logo: img });
+                expect(img.parentElement).toBe(card().querySelector('.dopamine-certificate-logo'));
+                expect(img.style.width).toBe('10px');
+                expect(img.style.maxWidth).toBe('100%');
+                closeIt();
+                destroyCertificate();
+
+                expect([...host.children]).toEqual([before, img, after]);
+                expect(img.getAttribute('style')).toBe('width:10px');
+            }
+        });
+
+        it('an image whose next sibling is gone goes back at the end, and one with no parent stays out', () => {
+            const host = document.createElement('div');
+            const img = document.createElement('img');
+            const after = document.createElement('span');
+            host.append(img, after);
+            showCertificate({ ...FIELDS, logo: img });
+            after.remove();
+            destroyCertificate();
+            expect([...host.children]).toEqual([img]);
+            expect(img.hasAttribute('style')).toBe(false);
+
+            const loose = document.createElement('img');
+            showCertificate({ ...FIELDS, logo: loose });
+            destroyCertificate();
+            expect(loose.parentElement).toBeNull();
+        });
+
         it('a string is text by default, even when it looks like HTML', () => {
             showCertificate({ ...FIELDS, logo: '<img src=x onerror=alert(1)>' });
             const logo = card().querySelector('.dopamine-certificate-logo');
@@ -350,6 +418,18 @@ describe('showCertificate', () => {
             expect(() => destroyCertificate()).not.toThrow();
         });
 
+        it('Escape that an earlier listener already handled leaves it open', () => {
+            const earlier = (event) => event.preventDefault();
+            destroyCertificate();
+            document.addEventListener('keydown', earlier);
+            showCertificate(FIELDS);
+            const event = key('Escape');
+            document.removeEventListener('keydown', earlier);
+
+            expect(event.defaultPrevented).toBe(true);
+            expect(overlay()).not.toBeNull();
+        });
+
         it('Escape after it is closed does nothing', () => {
             button('close').click();
             const event = key('Escape');
@@ -384,6 +464,16 @@ describe('showCertificate', () => {
             expect(document.activeElement).toBe(button('print'));
             key('Tab');
             expect(document.activeElement).toBe(button('close'));
+        });
+
+        it('Tab with Ctrl, Alt or Meta is left to the browser', () => {
+            button('download').focus();
+            for (const modifier of ['ctrlKey', 'altKey', 'metaKey']) {
+                const event = key('Tab', { [modifier]: true });
+
+                expect(event.defaultPrevented, modifier).toBe(false);
+                expect(document.activeElement).toBe(button('download'));
+            }
         });
 
         it('Tab from the card itself, or from outside it, lands on a button', () => {
@@ -532,6 +622,18 @@ describe('showCertificate', () => {
             for (const line of recipient) expect(line.text.length * 10).toBeLessThanOrEqual(960);
         });
 
+        it('cuts an emoji string by whole characters, never leaving half a surrogate pair', async () => {
+            showCertificate({ ...FIELDS, recipient: '\u{1F600}'.repeat(5000) });
+            await download();
+            const recipient = linesOf(contexts[0], 44);
+
+            expect(recipient).toHaveLength(3);
+            expect(recipient[2].text.endsWith('\u2026')).toBe(true);
+            for (const line of contexts[0].texts) {
+                expect(line.text).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/);
+            }
+        });
+
         it('text that fits is not cut and has no ellipsis', async () => {
             showCertificate(FIELDS);
             await download();
@@ -577,11 +679,53 @@ describe('showCertificate', () => {
             const file = await download();
 
             const drawn = contexts[contexts.length - 1];
+            expect(warn).toHaveBeenCalledTimes(1);
             expect(file.download).toBe('certificate.png');
             expect(drawn.images).toHaveLength(0);
             expect(drawn.texts.map((t) => t.text)).toEqual(
                 expect.arrayContaining([FIELDS.title, FIELDS.recipient, FIELDS.date, FIELDS.issuer])
             );
+        });
+
+        it('an SVG logo that fails to load is dropped with one warning and the PNG is saved', async () => {
+            vi.stubGlobal('Image', class {
+                set src(value) {
+                    this.source = value;
+                    queueMicrotask(() => this.onerror());
+                }
+                get src() { return this.source; }
+            });
+            showCertificate({ ...FIELDS, logo: '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>' });
+            await download();
+
+            expect(warn).toHaveBeenCalledTimes(1);
+            expect(contexts[0].images).toHaveLength(0);
+            expect(saved).toHaveLength(1);
+        });
+
+        it('a canvas that gives no PNG logs one error and saves nothing', async () => {
+            HTMLCanvasElement.prototype.toBlob = (callback) => callback(null);
+            showCertificate(FIELDS);
+            button('download').click();
+            await vi.waitFor(() => expect(errors).toHaveBeenCalledTimes(1));
+
+            expect(errors.mock.calls[0][0]).toBeInstanceOf(Error);
+            expect(saved).toHaveLength(0);
+            expect(blobUrls.created).toHaveLength(0);
+        });
+
+        it('two quick clicks on Download save one PNG', async () => {
+            showCertificate(FIELDS);
+            button('download').click();
+            button('download').click();
+            await vi.waitFor(() => expect(saved.length).toBeGreaterThan(0));
+            await new Promise((resolve) => setTimeout(resolve, 30));
+
+            expect(saved).toHaveLength(1);
+            expect(contexts).toHaveLength(1);
+
+            button('download').click();
+            await vi.waitFor(() => expect(saved).toHaveLength(2));
         });
 
         it('a cross-origin logo taints the canvas: the PNG is saved without it, with one warning', async () => {
@@ -655,6 +799,16 @@ describe('showCertificate', () => {
             expect(burst).toHaveBeenCalledTimes(1);
             expect(card().querySelector('.dopamine-certificate-recipient').textContent).toBe(FIELDS.recipient);
             expect(errors).not.toHaveBeenCalled();
+        });
+
+        it('a certificate option that is not an object opens nothing and warns', async () => {
+            for (const bad of ['abc', true, 5, []]) {
+                warn.mockClear();
+                celebrate('certificate', { certificate: bad });
+                await vi.waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
+
+                expect(overlay(), String(bad)).toBeNull();
+            }
         });
 
         it('without a certificate option no certificate opens', async () => {

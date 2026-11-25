@@ -155,8 +155,10 @@ celebrate('certificate', { certificate: { title: 'Intro to Gardening', recipient
 ```
 
 - `title`, `recipient`, `date` and `issuer` are set as text, so a name from a CMS cannot inject HTML. Long text wraps, and past a few lines it ends with an ellipsis, in the card and in the PNG.
-- `logo` is a string or an image. A string follows `safeIcons` as an achievement icon does: text or allowlisted SVG by default, HTML only with `showCertificate(fields, { safeIcons: false })`. An `HTMLImageElement` is moved in, never parsed.
-- Download draws the card on a canvas and saves `certificate.png`. If the logo is from another origin the canvas cannot be exported, so the PNG is saved without the logo and `console.warn` says so once.
+- `logo` is a string or an image. A string follows `safeIcons` as an achievement icon does: text or allowlisted SVG by default, HTML only with `showCertificate(fields, { safeIcons: false })`. An `HTMLImageElement` is moved in, never parsed, and goes back to its place in the page, with its own style, when the certificate closes.
+- Download draws the card on a canvas and saves `certificate.png`. If the logo is from another origin the canvas cannot be exported, so the PNG is saved without the logo and `console.warn` says so once. A logo that has not loaded is dropped from the PNG the same way.
+- The PNG takes a plain colour from `--dopamine-toast-bg` (anything the canvas accepts as a colour) and draws a gradient as its default purple background.
+- `fields` must be an object; anything else logs a warning and opens nothing.
 - Print calls `window.print()` with a print style that shows only the certificate.
 - It is a dialog (`role="dialog"`, `aria-modal`, labelled by the title) with focus kept inside. Escape, Close or a click outside closes it and focus goes back to where it was. One certificate is open at a time. `destroyCertificate()` closes it and removes its DOM, print style and listeners. `destroyCelebrations()` does not.
 - Colours come from the `--dopamine-toast-*` variables (`bg`, `text`, `muted`, `accent`, `radius`, `shadow`). The PNG reads them too; a gradient `bg` is drawn as the default purple gradient.
