@@ -84,12 +84,12 @@ Importing `dopaminejs` has no side effects. Import `dopaminejs/style.css` yourse
 The script tag build ships from 3.4.0. It is not on the CDNs for 3.3.0 or earlier.
 
 From 3.4.0, a page with no bundler can load one script. It sets `window.Dopamine`
-with the same named exports as the package. Always load an exact version. This is 3.6.0:
+with the same named exports as the package. Always load an exact version. This is 3.7.0:
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@3.6.0/dist/style.css">
-<script src="https://cdn.jsdelivr.net/npm/dopaminejs@3.6.0/dist/dopamine.global.js"
-        integrity="sha384-17tPDG+NydvQYtB4h+mQltknIPySojuVUHIYl+2GN27BvS7UlhAooV75pwW4z+S7"
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@3.7.0/dist/style.css">
+<script src="https://cdn.jsdelivr.net/npm/dopaminejs@3.7.0/dist/dopamine.global.js"
+        integrity="sha384-dUaLNFGKaZQYdTli6Urq52KXfZpLQOcCfzYrUPvq2v34ysltHJS4MGlCoNeFQBqA"
         crossorigin="anonymous"></script>
 <script>
   const rewards = new Dopamine.RewardSystem(new Dopamine.DataService());
@@ -97,7 +97,7 @@ with the same named exports as the package. Always load an exact version. This i
 </script>
 ```
 
-The `integrity` value makes the browser refuse a changed file. It belongs to 3.6.0 only; the
+The `integrity` value makes the browser refuse a changed file. It belongs to 3.7.0 only; the
 publish job prints the value for each release. `unpkg.com` serves the same file.
 
 ## Celebrate a moment
