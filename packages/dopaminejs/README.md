@@ -135,6 +135,43 @@ celebrate('certificate', { parts: dopamine.parts });   // through a host
 
 Shows a toast, fires confetti and plays a sound, with or without `createDopamine()`. Presets: `complete`, `milestone`, `streak`, `certificate`. Options: `title`, `body`, `icon`, `target` (confetti starts at its centre), `sound` (a key, or `false`) and `parts`. With reduced motion on there is no confetti. A part the host does not have is skipped, with no standalone fallback. `destroyCelebrations()` removes what the standalone route made. Not in the script tag build.
 
+## Completion certificate
+
+A modal card the visitor can download as a PNG or print. This one opens when a video ends:
+
+```javascript
+import { showCertificate } from 'dopaminejs/certificate';
+
+const logo = new Image();
+logo.src = '/img/acme.png';
+
+video.addEventListener('ended', () => {
+    showCertificate({
+        title: 'Intro to Gardening',
+        recipient: 'Ana Reyes',
+        date: 'Nov 25, 2026',
+        issuer: 'Acme Academy',
+        logo
+    });
+});
+```
+
+`celebrate` can open it after the confetti. The certificate code loads on demand, so a page that never shows one does not download it:
+
+```javascript
+import { celebrate } from 'dopaminejs/celebrate';
+
+celebrate('certificate', { certificate: { title: 'Intro to Gardening', recipient: 'Ana Reyes' } });
+```
+
+- `title`, `recipient`, `date` and `issuer` are set as text, so a name from a CMS cannot inject HTML. Long text wraps, and past a few lines it ends with an ellipsis, in the card and in the PNG.
+- `logo` is a string or an image. A string follows `safeIcons` as an achievement icon does: text or allowlisted SVG by default, HTML only with `showCertificate(fields, { safeIcons: false })`. An `HTMLImageElement` is moved in, never parsed.
+- Download draws the card on a canvas and saves `certificate.png`. If the logo is from another origin the canvas cannot be exported, so the PNG is saved without the logo and `console.warn` says so once.
+- Print calls `window.print()` with a print style that shows only the certificate.
+- It is a dialog (`role="dialog"`, `aria-modal`, labelled by the title) with focus kept inside. Escape, Close or a click outside closes it and focus goes back to where it was. One certificate is open at a time. `destroyCertificate()` closes it and removes its DOM, print style and listeners. `destroyCelebrations()` does not.
+- Colours come from the `--dopamine-toast-*` variables (`bg`, `text`, `muted`, `accent`, `radius`, `shadow`). The PNG reads them too; a gradient `bg` is drawn as the default purple gradient.
+- Not in the script tag build.
+
 ## Cleanup
 
 Everything that touches the DOM can be torn down:

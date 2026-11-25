@@ -125,6 +125,43 @@ The presets are `complete`, `milestone`, `streak` and `certificate`. An unknown 
 
 With reduced motion on, there is no confetti. The toast and sound still happen. The setting is read on each call. The standalone toast lasts 3 seconds, and a new call replaces it. Call `destroyCelebrations()` to remove the toast, its screen reader region, the canvas and the sound manager. `celebrate` never throws, and errors go to `console.error`. The script tag build does not include it.
 
+## Completion certificate
+
+A modal card the visitor can download as a PNG or print. This one opens when a video ends:
+
+```javascript
+import { showCertificate } from 'dopaminejs/certificate';
+
+const logo = new Image();
+logo.src = '/img/acme.png';
+
+video.addEventListener('ended', () => {
+    showCertificate({
+        title: 'Intro to Gardening',
+        recipient: 'Ana Reyes',
+        date: 'Nov 25, 2026',
+        issuer: 'Acme Academy',
+        logo
+    });
+});
+```
+
+`celebrate` can open it after the confetti. The certificate code loads on demand, so a page that never shows one does not download it:
+
+```javascript
+import { celebrate } from 'dopaminejs/celebrate';
+
+celebrate('certificate', { certificate: { title: 'Intro to Gardening', recipient: 'Ana Reyes' } });
+```
+
+- `title`, `recipient`, `date` and `issuer` are set as text, so a name from a CMS cannot inject HTML. Long text wraps, and past a few lines it ends with an ellipsis, in the card and in the PNG.
+- `logo` is a string or an image. A string follows `safeIcons` as an achievement icon does: text or allowlisted SVG by default, HTML only with `showCertificate(fields, { safeIcons: false })`. An `HTMLImageElement` is moved in, never parsed.
+- Download draws the card on a canvas and saves `certificate.png`. If the logo is from another origin the canvas cannot be exported, so the PNG is saved without the logo and `console.warn` says so once.
+- Print calls `window.print()` with a print style that shows only the certificate.
+- It is a dialog (`role="dialog"`, `aria-modal`, labelled by the title) with focus kept inside. Escape, Close or a click outside closes it and focus goes back to where it was. One certificate is open at a time. `destroyCertificate()` closes it and removes its DOM, print style and listeners. `destroyCelebrations()` does not.
+- Colours come from the `--dopamine-toast-*` variables (`bg`, `text`, `muted`, `accent`, `radius`, `shadow`). The PNG reads them too; a gradient `bg` is drawn as the default purple gradient.
+- Not in the script tag build.
+
 ## Why streaks are the hard part
 
 A daily streak is a calendar question, not a clock question. "Did they come back yesterday"

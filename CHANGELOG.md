@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `showCertificate(fields, options?)` and `destroyCertificate()` in the new `dopaminejs/certificate` subpath: a modal completion card with Download (PNG drawn on a canvas), Print and Close. Fields are `title`, `recipient`, `date`, `issuer` and `logo`, all set as text; a string `logo` follows `safeIcons`, an image is moved in. Long text wraps and ends with an ellipsis inside the card. A cross-origin logo that taints the canvas is dropped from the PNG with one `console.warn`. It is a labelled `aria-modal` dialog with focus trapped, closed by Escape, the Close button or `destroyCertificate()`. Types `CertificateFields` and `CertificateOptions` ship in `types/certificate.d.ts`. The size limit for the subpath is 3.9 kB. The main bundles do not include it.
+- `celebrate(preset, { certificate })` opens a certificate after the confetti, loading `dopaminejs/certificate` on demand.
+
+### Changed
+
+- The icon sanitiser moved from `RewardUI.js` to `dopamine/ui/icon.js` so the certificate shares it. Behaviour is the same. The CJS main bundle is 25 bytes larger (16.71 of 16.75 kB); the ESM and script tag bundles are not larger.
+
 ## [3.6.0] - 2026-11-25
 
 Published with this release: `dopaminejs` 3.6.0. The wrappers and plugins did not change.

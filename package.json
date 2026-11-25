@@ -76,7 +76,14 @@
             "path": "packages/dopaminejs/dist/celebrate.js",
             "import": "*",
             "limit": "5 KB",
+            "ignore": ["./certificate.js"],
             "name": "dopaminejs/celebrate (ESM)"
+        },
+        {
+            "path": "packages/dopaminejs/dist/certificate.js",
+            "import": "*",
+            "limit": "3.9 KB",
+            "name": "dopaminejs/certificate (ESM)"
         }
     ],
     "engines": {

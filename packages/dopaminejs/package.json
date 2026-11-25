@@ -28,6 +28,11 @@
             "import": "./dist/celebrate.js",
             "require": "./dist/celebrate.cjs"
         },
+        "./certificate": {
+            "types": "./types/certificate.d.ts",
+            "import": "./dist/certificate.js",
+            "require": "./dist/certificate.cjs"
+        },
         "./testing": {
             "types": "./types/testing.d.ts",
             "import": "./dist/testing.js",

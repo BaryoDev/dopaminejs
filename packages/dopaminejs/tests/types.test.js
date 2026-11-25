@@ -58,3 +58,15 @@ describe('type declarations', () => {
         expect(api.default).toBeUndefined();
     });
 });
+
+describe('certificate type declarations', () => {
+    it('declare exactly what dopaminejs/certificate exports', async () => {
+        const text = readFileSync(join(here, '../types/certificate.d.ts'), 'utf8');
+        const declared = [...text.matchAll(/^export\s+(?:declare\s+)?(?:class|const|function)\s+([A-Za-z_$][\w$]*)/gm)]
+            .map((match) => match[1]);
+        const mod = await import('../src/certificate.js');
+
+        expect(declared.length).toBeGreaterThan(0);
+        expect(declared.slice().sort()).toEqual(Object.keys(mod).sort());
+    });
+});

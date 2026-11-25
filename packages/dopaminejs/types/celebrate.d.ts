@@ -1,4 +1,5 @@
 import type { Parts } from './index';
+import type { CertificateFields } from './certificate';
 
 export type CelebratePreset = 'complete' | 'milestone' | 'streak' | 'certificate';
 
@@ -18,6 +19,13 @@ export interface CelebrateOptions {
      * A part the host does not have is skipped, with no standalone fallback.
      */
     parts?: Partial<Parts>;
+    /**
+     * Open this certificate after the confetti, as the `certificate` preset does.
+     * It is loaded on demand from `dopaminejs/certificate`, so a call without it
+     * downloads nothing extra. `destroyCelebrations()` does not close it; call
+     * `destroyCertificate()`.
+     */
+    certificate?: CertificateFields;
 }
 
 /**
