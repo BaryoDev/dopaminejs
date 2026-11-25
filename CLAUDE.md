@@ -106,7 +106,7 @@ throwing one does not stop the others.
   Call `combo`, `nearMiss`, `luckyMoment` and `summary` on the object it returns.
   They do nothing before install and after dispose. Nothing in the main entry
   imports it (a test walks the import graph).
-- `dopaminejs/celebrate`: `celebrate(preset, options?)` works standalone (its own toast, `ParticleSystem` canvas `dopamine-celebrate-canvas` and `SoundManager`, removed by `destroyCelebrations()`) or through `options.parts`, which uses the card with `burst: false`. Nothing in the main entry imports it (a test walks the import graph), and the script tag build does not include it.
+- `dopaminejs/celebrate`: `celebrate(preset, options?)` works standalone (its own toast, `ParticleSystem` canvas `dopamine-celebrate-canvas` and `SoundManager`, and a hidden live region, removed by `destroyCelebrations()`) or through `options.parts`, which uses the card with `burst: false`. Nothing in the main entry imports it (a test walks the import graph), and the script tag build does not include it.
 - `dopaminejs/testing` imports `vitest`, an optional peer dependency, so no
   other entry may import it. `conformance.particles|sound|ui|storage|plugin(make)`
   are `describe` blocks; `conformanceFailures(name, make)` returns the failed titles
