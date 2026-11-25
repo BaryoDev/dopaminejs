@@ -34,5 +34,13 @@
     "homepage": "https://github.com/BaryoDev/dopaminejs#readme",
     "engines": {
         "node": ">=20.19"
-    }
+    },
+    "keywords": [
+        "dopaminejs",
+        "dopaminejs-plugin",
+        "gamification",
+        "audio",
+        "sound",
+        "howler"
+    ]
 }
