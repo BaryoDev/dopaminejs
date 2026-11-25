@@ -357,15 +357,16 @@ describe('showCertificate', () => {
             const headBefore = document.head.children.length;
 
             showCertificate({ ...FIELDS, logo: 'L' });
-            // jsdom's selector engine (dom-selector) adds one window focus listener the first time a selector runs and keeps it; it is not ours.
-            const isJsdomFocusTracker = (entry) => entry[2] === 'focus' && String(entry[3]).includes('this.#focus');
-            const added = log.filter((entry) => entry[0] === 'add' && !isJsdomFocusTracker(entry));
+            // jsdom's selector engine (dom-selector) adds window focus, keyboard and mouse listeners the first time a selector runs and keeps them; they are not ours.
+            const isJsdomSelectorTracker = (entry) => /this\.#(focus|event) = evt/.test(String(entry[3]));
+            const added = log.filter((entry) => entry[0] === 'add' && !isJsdomSelectorTracker(entry));
             expect(added.length).toBeGreaterThan(0);
             button('close').click();
 
             const removed = log.filter((entry) => entry[0] === 'remove');
             for (const [, target, type, handler] of added) {
-                expect(removed.some((r) => r[1] === target && r[2] === type && r[3] === handler)).toBe(true);
+                const matched = removed.some((r) => r[1] === target && r[2] === type && r[3] === handler);
+                expect(matched, `${type} listener not removed: ${String(handler).slice(0, 80)}`).toBe(true);
             }
             expect(document.body.children).toHaveLength(bodyBefore);
             expect(document.head.children).toHaveLength(headBefore);
