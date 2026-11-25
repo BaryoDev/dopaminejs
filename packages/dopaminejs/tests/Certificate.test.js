@@ -190,6 +190,18 @@ describe('showCertificate', () => {
         expect(document.activeElement).toBe(card());
     });
 
+    it('a certificate with no title, or a blank one, still has an accessible name', () => {
+        for (const fields of [{ recipient: 'Ana' }, { title: '   ', recipient: 'Ana' }]) {
+            showCertificate(fields);
+
+            expect(card().hasAttribute('aria-labelledby')).toBe(false);
+            expect(card().getAttribute('aria-label')).toBe('Completion certificate');
+            destroyCertificate();
+        }
+        showCertificate(FIELDS);
+        expect(card().hasAttribute('aria-label')).toBe(false);
+    });
+
     it('has Download, Print and Close buttons', () => {
         showCertificate(FIELDS);
 
@@ -310,6 +322,43 @@ describe('showCertificate', () => {
             expect(loose.getAttribute('style')).toBe('width:5px');
         });
 
+        it('a fragment logo gets its children back on close', () => {
+            const fragment = document.createDocumentFragment();
+            const first = document.createElement('img');
+            const second = document.createElement('img');
+            fragment.append(first, second);
+            showCertificate({ ...FIELDS, logo: fragment });
+            expect(fragment.childNodes).toHaveLength(0);
+            destroyCertificate();
+
+            expect([...fragment.childNodes]).toEqual([first, second]);
+        });
+
+        it('an image from a same-origin iframe is shown and goes back on close', () => {
+            const frame = document.createElement('iframe');
+            document.body.appendChild(frame);
+            const img = frame.contentDocument.createElement('img');
+            frame.contentDocument.body.appendChild(img);
+            expect(img instanceof Node).toBe(false);
+            showCertificate({ ...FIELDS, logo: img });
+
+            expect(card().querySelector('.dopamine-certificate-logo').contains(img)).toBe(true);
+            destroyCertificate();
+            expect(img.parentNode).toBe(frame.contentDocument.body);
+        });
+
+        it('focus goes back to a focused page image that was the logo', () => {
+            const img = document.createElement('img');
+            img.tabIndex = 0;
+            document.body.appendChild(img);
+            img.focus();
+            expect(document.activeElement).toBe(img);
+            showCertificate({ ...FIELDS, logo: img });
+            destroyCertificate();
+
+            expect(document.activeElement).toBe(img);
+        });
+
         it('a string is text by default, even when it looks like HTML', () => {
             showCertificate({ ...FIELDS, logo: '<img src=x onerror=alert(1)>' });
             const logo = card().querySelector('.dopamine-certificate-logo');
@@ -363,6 +412,60 @@ describe('showCertificate', () => {
             expect(first.isConnected).toBe(false);
             expect(card().querySelector('.dopamine-certificate-title').textContent).toBe('Second');
             expect(document.querySelectorAll('style')).toHaveLength(1);
+        });
+
+        it('a certificate opened by a focus listener during close is the only one left', () => {
+            const opener = document.createElement('button');
+            document.body.appendChild(opener);
+            opener.focus();
+            showCertificate({ ...FIELDS, title: 'A' });
+            let nested = false;
+            opener.addEventListener('focus', () => {
+                if (nested) return;
+                nested = true;
+                showCertificate({ ...FIELDS, title: 'C' });
+            });
+            showCertificate({ ...FIELDS, title: 'B' });
+
+            expect(document.querySelectorAll('.dopamine-certificate-overlay')).toHaveLength(1);
+            expect(card().querySelector('.dopamine-certificate-title').textContent).toBe('C');
+            destroyCertificate();
+            expect(document.querySelectorAll('.dopamine-certificate-overlay')).toHaveLength(0);
+            expect(document.querySelectorAll('style')).toHaveLength(0);
+        });
+
+        it('a nested open that loses puts the caller logo back', () => {
+            const host = document.createElement('div');
+            const img = document.createElement('img');
+            host.appendChild(img);
+            document.body.appendChild(host);
+            const opener = document.createElement('button');
+            document.body.appendChild(opener);
+            opener.focus();
+            showCertificate(FIELDS);
+            let nested = false;
+            opener.addEventListener('focus', () => {
+                if (nested) return;
+                nested = true;
+                showCertificate(FIELDS);
+            });
+            showCertificate({ ...FIELDS, logo: img });
+
+            expect(img.parentNode).toBe(host);
+        });
+
+        it('a title getter that opens a certificate and then throws leaves that certificate open', () => {
+            const fields = {
+                get title() {
+                    showCertificate({ ...FIELDS, title: 'Inner' });
+                    throw new Error('boom');
+                }
+            };
+            showCertificate(fields);
+
+            expect(errors).toHaveBeenCalledTimes(1);
+            expect(document.querySelectorAll('.dopamine-certificate-overlay')).toHaveLength(1);
+            expect(card().querySelector('.dopamine-certificate-title').textContent).toBe('Inner');
         });
 
         it('focus goes back to the element that had it before the first one', () => {
@@ -486,9 +589,24 @@ describe('showCertificate', () => {
             key('Tab');
             expect(document.activeElement).toBe(button('download'));
 
-            document.body.focus();
+            button('download').blur();
+            expect(document.activeElement).toBe(document.body);
             key('Tab', { shiftKey: true });
             expect(document.activeElement).toBe(button('close'));
+        });
+    });
+
+    describe('focus outside', () => {
+        it('focus sent to the page behind comes back to the card, and is free after close', () => {
+            const behind = document.createElement('button');
+            document.body.appendChild(behind);
+            showCertificate(FIELDS);
+            behind.focus();
+
+            expect(document.activeElement).toBe(card());
+            destroyCertificate();
+            behind.focus();
+            expect(document.activeElement).toBe(behind);
         });
     });
 
@@ -821,6 +939,14 @@ describe('showCertificate', () => {
             expect(errors).not.toHaveBeenCalled();
         });
 
+        it('the certificate fields read once when celebrate is called are the ones shown', async () => {
+            let reads = 0;
+            celebrate('certificate', { get certificate() { return reads++ === 0 ? FIELDS : undefined; } });
+            await vi.waitFor(() => expect(overlay()).not.toBeNull());
+
+            expect(card().querySelector('.dopamine-certificate-recipient').textContent).toBe(FIELDS.recipient);
+        });
+
         it('a certificate option that is not an object opens nothing and warns', async () => {
             for (const bad of ['abc', true, 5, []]) {
                 warn.mockClear();
@@ -861,7 +987,7 @@ describe('the certificate subpath is separate', () => {
             }
         };
         walk(resolve(src, entry));
-        return [...seen].map((file) => file.slice(src.length));
+        return [...seen].map((file) => file.slice(src.length).replaceAll('\\', '/'));
     };
 
     it('the main entry does not reach certificate.js', () => {

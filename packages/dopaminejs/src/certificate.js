@@ -4,7 +4,7 @@
  * it on demand. Nothing in the main entry imports it.
  */
 
-import { setIcon } from './dopamine/ui/icon.js';
+import { isNode, setIcon } from './dopamine/ui/icon.js';
 
 const WIDTH = 1200;
 const HEIGHT = 850;
@@ -43,6 +43,8 @@ const textOf = (value) => (value === undefined || value === null ? '' : String(v
 
 // What is open now, until close() or destroyCertificate().
 let current = null;
+// Counts calls, so a call that a nested one overtook can tell.
+let invocation = 0;
 
 function make(tag, css, text) {
     const node = document.createElement(tag);
@@ -239,7 +241,9 @@ export function showCertificate(fields, options) {
         console.warn('[DopamineJS] showCertificate needs an object of fields.');
         return;
     }
+    const token = ++invocation;
     close();
+    const previous = document.activeElement;
     let restoreLogo = null;
     try {
         const value = (name) => textOf(ownValue(fields, name));
@@ -253,7 +257,8 @@ export function showCertificate(fields, options) {
         card.className = 'dopamine-certificate-card';
         card.setAttribute('role', 'dialog');
         card.setAttribute('aria-modal', 'true');
-        card.setAttribute('aria-labelledby', 'dopamine-certificate-title');
+        if (given.title.trim()) card.setAttribute('aria-labelledby', 'dopamine-certificate-title');
+        else card.setAttribute('aria-label', 'Completion certificate');
         card.tabIndex = -1;
 
         let logoHolder = null;
@@ -261,8 +266,11 @@ export function showCertificate(fields, options) {
             logoHolder = make('div', `height:${LOGO_SIZE}px;font-size:56px;line-height:${LOGO_SIZE}px`);
             logoHolder.className = 'dopamine-certificate-logo';
             // A node taken from the page goes back where it was, with its style, when the certificate closes. One with no parent is left out.
-            const parent = logo instanceof Node ? logo.parentNode : null;
+            const node = isNode(logo);
+            const parent = node ? logo.parentNode : null;
             const next = parent ? logo.nextSibling : null;
+            // A fragment is emptied by the move, so its children go back into it.
+            const kids = node && logo.nodeType === 11 ? [...logo.childNodes] : null;
             const styled = [];
             setIcon(logoHolder, logo, safeIcons);
             for (const child of logoHolder.querySelectorAll('img,svg')) {
@@ -270,12 +278,16 @@ export function showCertificate(fields, options) {
                 child.style.maxWidth = '100%';
                 child.style.maxHeight = `${LOGO_SIZE}px`;
             }
-            if (logo instanceof Node) {
+            if (node) {
                 restoreLogo = () => {
                     restoreLogo = null;
                     for (const [child, text] of styled) {
                         if (text === null) child.removeAttribute('style');
                         else child.setAttribute('style', text);
+                    }
+                    if (kids) {
+                        logo.append(...kids);
+                        return;
                     }
                     logo.parentNode?.removeChild(logo);
                     parent?.insertBefore(logo, next && next.parentNode === parent ? next : null);
@@ -305,7 +317,12 @@ export function showCertificate(fields, options) {
 
         const style = document.createElement('style');
         style.textContent = PRINT_CSS;
-        const state = { fields: given, logoHolder, look: null, overlay, style, undo: [], previous: document.activeElement };
+        const state = { fields: given, logoHolder, look: null, overlay, style, undo: [], previous };
+        // A focus listener that ran during close() can have opened a newer certificate.
+        if (token !== invocation) {
+            restoreLogo?.();
+            return;
+        }
         current = state;
         if (restoreLogo) state.undo.push(restoreLogo);
         const read = (name, fallback) => getComputedStyle(card).getPropertyValue(name).trim() || fallback;
@@ -336,6 +353,10 @@ export function showCertificate(fields, options) {
                 order[next].focus();
             }
         });
+        // aria-modal does not stop a script from focusing the page behind.
+        on(document, 'focusin', (event) => {
+            if (!overlay.contains(event.target)) card.focus();
+        });
         on(overlay, 'click', (event) => {
             const target = event.target;
             if (target === overlay || target === buttons.close) {
@@ -354,7 +375,8 @@ export function showCertificate(fields, options) {
         card.focus();
     } catch (error) {
         console.error(error);
-        close();
+        // A newer call owns the certificate now.
+        if (token === invocation) close();
         restoreLogo?.();
     }
 }

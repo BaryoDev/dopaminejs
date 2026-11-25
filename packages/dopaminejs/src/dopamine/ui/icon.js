@@ -125,6 +125,14 @@ function parseSafeSvg(markup) {
     return cleanNode(root, { ids, prefix: `dj-icon-${++iconCounter}-` });
 }
 
+/** A DOM node, including one made in another same-origin window, which fails `instanceof Node`. */
+export function isNode(value) {
+    if (value === null || typeof value !== 'object') return false;
+    if (typeof Node !== 'undefined' && value instanceof Node) return true;
+    const Foreign = value.ownerDocument?.defaultView?.Node;
+    return typeof Foreign === 'function' && value instanceof Foreign;
+}
+
 /**
  * Single place where icons reach the DOM. A Node is appended. A string is a
  * sanitised SVG or plain text unless safeIcons is off; then it is HTML (see
@@ -132,7 +140,7 @@ function parseSafeSvg(markup) {
  */
 export function setIcon(el, icon, safeIcons) {
     el.textContent = '';
-    if (typeof Node !== 'undefined' && icon instanceof Node) {
+    if (isNode(icon)) {
         el.appendChild(icon);
     } else if (typeof icon !== 'string') {
         return;

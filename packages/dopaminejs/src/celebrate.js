@@ -185,7 +185,10 @@ export function celebrate(name, options) {
         particles.burst('confetti', at, { count });
     });
     // Loaded on demand so the certificate code is not in this entry.
-    attempt(() => ownValue(options, 'certificate') && import('./certificate.js').then((m) => m.showCertificate(options.certificate)));
+    attempt(() => {
+        const fields = ownValue(options, 'certificate');
+        return fields && import('./certificate.js').then((m) => m.showCertificate(fields));
+    });
     if (key === null) return;
     attempt(() => {
         if (routed) return given.sound?.play?.(key);
