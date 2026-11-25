@@ -38,13 +38,14 @@ export default defineConfig({
     build: {
         lib: {
             // The root barrel, the browser-free progression subpath
-            // (./core), and the games, celebrate, certificate and testing subpaths.
+            // (./core), and the games, celebrate, certificate, auto and testing subpaths.
             entry: {
                 dopamine: resolve(__dirname, 'src/index.js'),
                 core: resolve(__dirname, 'src/progression.js'),
                 games: resolve(__dirname, 'src/games.js'),
                 celebrate: resolve(__dirname, 'src/celebrate.js'),
                 certificate: resolve(__dirname, 'src/certificate.js'),
+                auto: resolve(__dirname, 'src/auto.js'),
                 testing: resolve(__dirname, 'src/testing.js'),
             },
             name: 'Dopamine',

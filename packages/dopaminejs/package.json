@@ -33,6 +33,11 @@
             "import": "./dist/certificate.js",
             "require": "./dist/certificate.cjs"
         },
+        "./auto": {
+            "types": "./types/auto.d.ts",
+            "import": "./dist/auto.js",
+            "require": "./dist/auto.cjs"
+        },
         "./testing": {
             "types": "./types/testing.d.ts",
             "import": "./dist/testing.js",
@@ -50,7 +55,7 @@
     ],
     "scripts": {
         "dev": "vite",
-        "build": "vite build && vite build --config vite.config.iife.js",
+        "build": "vite build && vite build --config vite.config.iife.js && vite build --config vite.config.all.js",
         "test": "vitest run",
         "test:watch": "vitest",
         "preview": "vite preview"
