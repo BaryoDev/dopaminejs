@@ -15,9 +15,10 @@ export interface AutoOptions {
  * `data-dopamine-xp`, `-achievement`, `-celebrate`, `-repeat` and
  * `-certificate-title`, `-recipient`, `-date`, `-issuer` and `-logo`.
  * Each element fires once per page load unless it has `data-dopamine-repeat`.
- * Values are trimmed, and a bad value or an unknown celebrate preset is ignored
- * with one warning for that element. `read` keeps its sentinel as the last
- * child. Click and submit are heard in the capture phase.
+ * XP, achievement and celebrate values are trimmed, and a bad value or an
+ * unknown celebrate preset is ignored with one warning for that element. `read`
+ * keeps its sentinel as the last child. Click and submit are heard in the
+ * capture phase at the root.
  * Elements added or removed later are picked up; a changed attribute is not.
  * Throws a `TypeError` when `host` is missing or `root` is not a Document or
  * an Element. Calling it again replaces the earlier call.

@@ -222,10 +222,12 @@ Attributes:
 - `data-dopamine-certificate-title`, `-recipient`, `-date`, `-issuer` and `-logo` open a certificate, after the celebration if there is one.
 - `data-dopamine-repeat` lets the element fire every time.
 
-Values are trimmed. Each element warns at most once, for the first bad value it has. Put `click` on the
+The XP, achievement and celebrate values are trimmed; `data-dopamine-on` and the certificate fields are
+used as written. Each element warns at most once, for the first bad value it has. Put `click` on the
 control itself, not on a `<label>`: a click on a label also clicks its control, so a label with
-`data-dopamine-repeat` awards twice. Click and submit are heard in the capture phase, so a page handler
-that stops the event does not stop the reward. Elements inside a shadow root are not seen.
+`data-dopamine-repeat` awards twice. Click and submit are heard in the capture phase at the root, so a
+handler on the element or inside it that stops the event does not stop the reward. A capture listener on
+`window` that stops it still does. Elements inside a shadow root are not seen.
 
 Each element fires once per page load, even if `destroyAuto()` and `auto()` run in between. With
 `data-dopamine-repeat` it fires on each click, and each time it enters the viewport again. Elements added to or removed
