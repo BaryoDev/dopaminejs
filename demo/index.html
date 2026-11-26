@@ -94,5 +94,10 @@ host.ready.then(() => {
     document.getElementById('status').textContent = 'dopaminejs failed to start';
 });
 </script>
+<script>
+if (typeof Dopamine === 'undefined') {
+    document.getElementById('status').textContent = 'dopaminejs failed to load';
+}
+</script>
 </body>
 </html>

@@ -169,3 +169,25 @@ describe('demo page attributes', () => {
         expect(unlocked).toContain('tutorial_badge');
     });
 });
+
+describe('demo page when the script tag fails to load', () => {
+    afterAll(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('should say dopaminejs failed to load and not set the ready marker', () => {
+        document.body.innerHTML = page.body.innerHTML;
+        // A browser runs each inline script alone, and one that throws does not stop the next.
+        // Dopamine is a parameter and not defined, as it is when the CDN file is blocked.
+        for (const el of page.querySelectorAll('script:not([src])')) {
+            try {
+                new Function('Dopamine', el.textContent)(undefined);
+            } catch {
+                // The main script throws on its first line, as it does in a browser.
+            }
+        }
+        const status = document.getElementById('status');
+        expect(status.textContent).toBe('dopaminejs failed to load');
+        expect(status.hasAttribute('data-ready')).toBe(false);
+    });
+});

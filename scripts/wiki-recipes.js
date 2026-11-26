@@ -29,7 +29,6 @@ const tests = join(root, 'packages/dopaminejs/tests');
 const demo = readFileSync(join(root, 'demo/index.html'), 'utf8');
 const react = readFileSync(join(tests, 'ReactProvider.test.js'), 'utf8');
 const vue = readFileSync(join(tests, 'VueHostComponent.test.js'), 'utf8');
-const reactPackage = JSON.parse(readFileSync(join(root, 'packages/dopaminejs-react/package.json'), 'utf8'));
 
 // The same pin tests/Demo.test.js reads: the core version comes from the demo.
 const ALL_JS = /https:\/\/cdn\.jsdelivr\.net\/npm\/dopaminejs@([^/"]+)\/dist\/dopamine\.all\.global\.js"\s+integrity="([^"]+)"/;
@@ -39,7 +38,6 @@ if (!pin) {
     process.exit(1);
 }
 const VERSION = pin[1];
-const REACT_VERSION = reactPackage.version;
 
 function grab(src, pattern) {
     const match = src.match(pattern);
@@ -59,7 +57,7 @@ const OL = grab(demo, /<ol>.*?<\/ol>/s);
 const FORM = grab(demo, /<form.*?<\/form>/s);
 const PREVENT = grab(demo, /document.getElementById\('signup'\).*?\n/s);
 const ACH = grab(demo, /const progress = .*?\n\}\);/s);
-const BOOT = grab(demo, /const host = .*?\nDopamine.auto\(\{ host \}\);/s);
+const BOOT = grab(demo, /const progress = .*?\nDopamine.auto\(\{ host \}\);/s);
 const LESSON = grab(react, /    function LessonDone\(\).*?\n    function Lesson\(\).*?\n    \}\n/s)
     .trimEnd().split('\n').map((l) => (l.startsWith('    ') ? l.slice(4) : l)).join('\n');
 const VUEC = grab(vue, /const XPButton = defineComponent.*?\n\}\);/s);
@@ -194,7 +192,7 @@ If the form navigates away on submit, the page may unload before the XP is saved
 `,
     'Recipe-React.md': `# Recipe: React
 
-XP from a React component. Uses \`dopaminejs-react\` ${REACT_VERSION}. Live: [the demo](${DEMO}) shows the same rewards from HTML attributes.
+XP from a React component. Live: [the demo](${DEMO}) shows the same rewards from HTML attributes.
 
 \`\`\`bash
 npm install dopaminejs dopaminejs-react

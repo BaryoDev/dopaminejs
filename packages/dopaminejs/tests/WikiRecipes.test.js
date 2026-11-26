@@ -10,6 +10,7 @@ const script = join(root, 'scripts/wiki-recipes.js');
 const readme = readFileSync(join(root, 'README.md'), 'utf8');
 
 const ALL_JS = /https:\/\/cdn\.jsdelivr\.net\/npm\/dopaminejs@([^/"]+)\/dist\/dopamine\.all\.global\.js"\s+integrity="([^"]+)"/;
+const USAGE = 'Usage: node scripts/wiki-recipes.js <dir of a dopaminejs.wiki clone>';
 const PINNED = [
     'Recipe-Video-Completion',
     'Recipe-Course-Certificate',
@@ -46,13 +47,16 @@ describe('wiki recipe generator', () => {
         }
     });
 
-    it('should write no version in the five pinned pages other than the README pin', () => {
+    it('should write no version other than the README pin, and none in the React and Vue pages', () => {
         const pin = readme.match(ALL_JS)[1];
         for (const name of PINNED) {
             const text = readFileSync(join(dir, `${name}.md`), 'utf8');
             const versions = text.match(/\d+\.\d+\.\d+/g) ?? [];
             expect(versions.length, name).toBeGreaterThan(0);
             for (const version of versions) expect(version, name).toBe(pin);
+        }
+        for (const name of ['Recipe-React', 'Recipe-Vue']) {
+            expect(readFileSync(join(dir, `${name}.md`), 'utf8').match(/\d+\.\d+\.\d+/), name).toBeNull();
         }
     });
 
@@ -65,5 +69,28 @@ describe('wiki recipe generator', () => {
         }
         expect(error).toBeDefined();
         expect(error.status).toBe(1);
+        expect(String(error.stderr)).toContain(USAGE);
+    });
+
+    it('should exit 1 with the usage line for a folder that does not exist', () => {
+        let error;
+        try {
+            execFileSync(process.execPath, [script, join(dir, 'missing')], { stdio: 'pipe' });
+        } catch (e) {
+            error = e;
+        }
+        expect(error).toBeDefined();
+        expect(error.status).toBe(1);
+        expect(String(error.stderr)).toContain(USAGE);
+    });
+
+    it('should define progress in every js block that uses it', () => {
+        for (const file of readdirSync(dir)) {
+            const text = readFileSync(join(dir, file), 'utf8');
+            // A bare `progress`, not the host.progress property.
+            for (const block of text.matchAll(/```js\n(.*?)\n```/gs)) {
+                if (/(?<![.\w])progress\b/.test(block[1])) expect(block[1], file).toContain('const progress =');
+            }
+        }
     });
 });
