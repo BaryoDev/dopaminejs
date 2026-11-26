@@ -84,11 +84,11 @@ Importing `dopaminejs` has no side effects. Import `dopaminejs/style.css` yourse
 The script tag build ships from 3.4.0. It is not on the CDNs for 3.3.0 or earlier.
 
 From 3.4.0, a page with no bundler can load one script. It sets `window.Dopamine`
-with the same named exports as the package. Always load an exact version. This is 3.7.0:
+with the same named exports as the package. Always load an exact version. This is 3.8.0:
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@3.7.0/dist/style.css">
-<script src="https://cdn.jsdelivr.net/npm/dopaminejs@3.7.0/dist/dopamine.global.js"
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@3.8.0/dist/style.css">
+<script src="https://cdn.jsdelivr.net/npm/dopaminejs@3.8.0/dist/dopamine.global.js"
         integrity="sha384-dUaLNFGKaZQYdTli6Urq52KXfZpLQOcCfzYrUPvq2v34ysltHJS4MGlCoNeFQBqA"
         crossorigin="anonymous"></script>
 <script>
@@ -97,7 +97,7 @@ with the same named exports as the package. Always load an exact version. This i
 </script>
 ```
 
-The `integrity` value makes the browser refuse a changed file. It belongs to 3.7.0 only; the
+The `integrity` value makes the browser refuse a changed file. It belongs to 3.8.0 only; the
 publish job prints the value for each release. `unpkg.com` serves the same file.
 
 ## Celebrate a moment
@@ -198,14 +198,14 @@ This is 3.8.0:
 ```html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@3.8.0/dist/style.css">
 <script src="https://cdn.jsdelivr.net/npm/dopaminejs@3.8.0/dist/dopamine.all.global.js"
+        integrity="sha384-MAjfDgRBUHoYdY5AFqXdS0IVb3+tb5CvBl8cnhAF/iYaTxOsgot8vY7C0Ch1gj8D"
         crossorigin="anonymous" data-dopamine-auto></script>
 ```
 
-The `integrity` hash for this file comes with the 3.8.0 release (the publish job prints it). The tag
-can go in `<head>` with no `defer`: it waits for the body. Include it once, because each copy builds its
-own host. Without `data-dopamine-auto`, loading the file changes nothing. For achievements your page
-defines or other options, skip the attribute and call `Dopamine.auto({ host })` with your own
-`Dopamine.createDopamine({ ... })`.
+The `integrity` value belongs to 3.8.0 only. The tag can go in `<head>` with no `defer`: it waits
+for the body. Include it once, because each copy builds its own host. Without `data-dopamine-auto`,
+loading the file changes nothing. For achievements your page defines or other options, skip the
+attribute and call `Dopamine.auto({ host })` with your own `Dopamine.createDopamine({ ... })`.
 
 `auto({ host, root?, maxXP? })`:
 
