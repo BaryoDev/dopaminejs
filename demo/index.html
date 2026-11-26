@@ -25,16 +25,17 @@
        data-dopamine-on="ended" data-dopamine-xp="50" data-dopamine-achievement="lesson_done"
        data-dopamine-celebrate="certificate"
        data-dopamine-certificate-title="Intro to Gardening"
-       data-dopamine-certificate-recipient="Ana Reyes"
+       data-dopamine-certificate-recipient="A. Learner"
        data-dopamine-certificate-date="26 November 2026"
        data-dopamine-certificate-issuer="Demo Academy"></video>
 <p><button type="button" id="skip">Skip to the end of the video</button></p>
+<p class="muted">The video is WebM. If your browser cannot play it, the other three examples still work.</p>
 </section>
 
 <section id="blog">
 <h2>Blog post</h2>
 <p>Scroll the post to the end. You get XP and a streak toast.</p>
-<article class="post" data-dopamine-on="read" data-dopamine-xp="20" data-dopamine-celebrate="streak">
+<article class="post" tabindex="0" aria-label="Sample post" data-dopamine-on="read" data-dopamine-xp="20" data-dopamine-celebrate="streak">
 <p>Seeds need water, light and time. Most people give them the first two and run out of the third.</p>
 <p>Start small. One pot on a windowsill is enough to learn how your light moves through the day.</p>
 <p>Water in the morning. The soil dries slower, and you will notice a dry pot before the plant does.</p>
@@ -47,11 +48,11 @@
 
 <section id="docs">
 <h2>Docs tutorial</h2>
-<p>Finish the three steps. Each step gives XP, and the last one unlocks a badge.</p>
+<p>Each button gives XP, and the third unlocks a badge.</p>
 <ol>
-<li>Install the package. <button type="button" data-dopamine-on="click" data-dopamine-xp="10">Done</button></li>
-<li>Add the script tag. <button type="button" data-dopamine-on="click" data-dopamine-xp="10">Done</button></li>
-<li>Add a data attribute. <button type="button" data-dopamine-on="click" data-dopamine-xp="10"
+<li>Install the package. <button type="button" aria-label="Done with step 1" data-dopamine-on="click" data-dopamine-xp="10">Done</button></li>
+<li>Add the script tag. <button type="button" aria-label="Done with step 2" data-dopamine-on="click" data-dopamine-xp="10">Done</button></li>
+<li>Add a data attribute. <button type="button" aria-label="Done with step 3" data-dopamine-on="click" data-dopamine-xp="10"
     data-dopamine-achievement="tutorial_badge" data-dopamine-celebrate="milestone">Done</button></li>
 </ol>
 </section>
@@ -89,6 +90,8 @@ host.ready.then(() => {
     const status = document.getElementById('status');
     status.textContent = 'dopaminejs 3.8.0 is running';
     status.setAttribute('data-ready', '3.8.0');
+}).catch(() => {
+    document.getElementById('status').textContent = 'dopaminejs failed to start';
 });
 </script>
 </body>

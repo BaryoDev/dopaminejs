@@ -12,8 +12,6 @@ p, li { max-width: 60ch; }
 section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; margin: 1.2rem 0; }
 video { display: block; width: 100%; height: auto; border-radius: 6px; background: #000; }
 button { font: inherit; padding: .55rem .9rem; margin: .25rem .25rem .25rem 0; border: 1px solid var(--accent); border-radius: 6px; background: transparent; color: var(--accent); cursor: pointer; }
-button:disabled { opacity: .5; cursor: default; }
 input { font: inherit; padding: .5rem; width: 100%; max-width: 20rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
 label { display: block; margin: .5rem 0 .25rem; }
 .post { max-height: 14rem; overflow: auto; border: 1px solid var(--line); border-radius: 6px; padding: .5rem .8rem; }
-code { font-size: .9em; }

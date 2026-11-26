@@ -158,4 +158,12 @@ describe('demo page attributes', () => {
         // auto() never cancels a submit, so the page script must.
         expect(event.defaultPrevented).toBe(true);
     });
+
+    it('should give XP for the three docs buttons and unlock tutorial_badge on the third', async () => {
+        // 10 + 10 + 10 from the buttons, plus the 25 the achievement itself pays.
+        for (const button of document.querySelectorAll('#docs button')) button.click();
+        await vi.waitFor(() => expect(host.progress.snapshot().xp).toBe(55));
+        const unlocked = host.progress.getUnlockedAchievements().map((a) => a.id);
+        expect(unlocked).toContain('tutorial_badge');
+    });
 });
