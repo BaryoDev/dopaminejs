@@ -16,6 +16,7 @@ permissions: {}
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
@@ -36,6 +37,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pages: write
       id-token: write
@@ -51,6 +53,7 @@ jobs:
   verify:
     needs: deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions: {}
     env:
       URL: ${{ needs.deploy.outputs.page_url }}
@@ -58,7 +61,7 @@ jobs:
       - name: Wait for this commit to be served
         run: |
           for i in 1 2 3 4 5 6 7 8 9 10; do
-            served=$(curl -fsS "${URL}commit.txt?run=$GITHUB_RUN_ID-$i" || true)
+            served=$(curl -fsS --connect-timeout 10 --max-time 20 "${URL}commit.txt?run=$GITHUB_RUN_ID-$i" || true)
             [ "$served" = "$GITHUB_SHA" ] && exit 0
             sleep 15
           done
@@ -66,11 +69,16 @@ jobs:
           exit 1
 
       - name: The page has the demo heading
-        run: curl -fsS "$URL" | grep -q '<h1>dopaminejs demo</h1>'
+        run: curl -fsS --connect-timeout 10 --max-time 20 "$URL" | grep -q '<h1>dopaminejs demo</h1>'
+
+      - name: The video and the stylesheet are served
+        run: |
+          curl -fsSI --connect-timeout 10 --max-time 20 "${URL}lesson.webm" > /dev/null
+          curl -fsSI --connect-timeout 10 --max-time 20 "${URL}demo.css" > /dev/null
 
       - name: The script ran in a browser
         run: |
-          dom=$(google-chrome --headless=new --no-sandbox --virtual-time-budget=15000 --dump-dom "$URL")
+          dom=$(timeout 90 google-chrome --headless=new --no-sandbox --virtual-time-budget=15000 --dump-dom "$URL")
           echo "$dom" | grep -Eq 'data-ready="[0-9]+\.[0-9]+\.[0-9]+"' || {
             echo "no ready marker, so window.Dopamine did not load or the host did not start" >&2
             exit 1
