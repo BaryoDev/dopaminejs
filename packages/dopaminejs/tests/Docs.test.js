@@ -18,6 +18,7 @@ function files() {
         if (f !== 'MIGRATION-3.0.md') list.push(join(root, 'docs', f));
     }
     list.push(...walk(join(root, 'examples')));
+    list.push(...walk(join(root, 'demo')).filter((f) => /\.(html|css)$/.test(f)));
     for (const pkg of readdirSync(join(root, 'packages'))) {
         const readme = join(root, 'packages', pkg, 'README.md');
         if (existsSync(readme)) list.push(readme);
