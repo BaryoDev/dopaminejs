@@ -2,8 +2,10 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect } from 'vitest';
-import { createApp, defineComponent, h, onUnmounted } from 'vue';
-import { createDopamine, DataService, RewardSystem } from 'dopaminejs';
+import { defineComponent, h, onUnmounted } from 'vue';
+import { createDopamine } from 'dopaminejs';
+import { createApp } from 'vue';
+import { DataService, RewardSystem } from 'dopaminejs';
 import { createMemoryStorage } from '../src/dopamine/utils/storage.js';
 
 // The component the Vue recipe on the wiki quotes. It uses the core only.
