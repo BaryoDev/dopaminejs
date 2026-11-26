@@ -72,6 +72,8 @@ packages/dopaminejs/src/
 
 `dist/dopamine.global.js` is the script tag build (`vite.config.iife.js`, run after the main build, which owns `dist/`). It exposes `window.Dopamine`. `dist/dopamine.all.global.js` is the all-in-one script tag file (`vite.config.all.js`, entry `src/all.js`, run after the iife build): the main entry, celebrate, the certificate and auto in one file, with the dynamic imports inlined. With `data-dopamine-auto` on its own script tag it calls `auto({ host: createDopamine() })`, and does nothing at load otherwise. It is not in `exports`. `tests/ScriptTag.test.js` builds both into temp folders.
 
+`demo/` is the static page on GitHub Pages (`index.html`, `demo.css`, `lesson.webm`). It loads `dopamine.all.global.js` and `style.css` from jsDelivr at one pinned version with SRI, defines its own achievements in one inline script, and sets `data-ready` on `#status` once `host.ready` resolves. `.github/workflows/pages.yml` deploys it on a push to `main` that touches `demo/` or the workflow, and by hand (`workflow_dispatch`), then a verify job checks `commit.txt`, the heading and the ready marker in headless Chrome. `tests/Demo.test.js` runs the page's inline script in jsdom. `scripts/wiki-recipes.js` writes the wiki recipe pages from the demo and the React and Vue tests, and `tests/WikiRecipes.test.js` runs it.
+
 `dopaminejs/style.css` is emitted by the build from `ui/dopamine.css`. Nothing
 imports it. `RewardUI` takes `injectCss: true` to add it from code.
 
@@ -185,7 +187,7 @@ Bump the versions, update `CHANGELOG.md`, tag `v<core version>`, push the tag.
 Only packages whose version is not on npm get published. Never run
 `npm publish` by hand. Details are in the README.
 
-After a release that ships `dist/dopamine.global.js` and `dist/dopamine.all.global.js`, take both hashes the publish job printed ("Print SRI hash of the script tag build", also in the job summary). Put the first and the version into the README "No build step" section, and the second into the "Rewards from HTML attributes" snippet as its `integrity` attribute.
+After a release that ships `dist/dopamine.global.js` and `dist/dopamine.all.global.js`, take both hashes the publish job printed ("Print SRI hash of the script tag build", also in the job summary). Put the first and the version into the README "No build step" section, and the second into the "Rewards from HTML attributes" snippet as its `integrity` attribute. The demo moves with them: set the version in every URL in `demo/index.html`, the `data-ready` value and the status text, the `dopamine.all.global.js` integrity (the README's second hash), and the `style.css` integrity (`curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A`). `tests/Demo.test.js` fails if the version or the all-in-one hash differs from the README's. Five wiki pages pin the version, the all-in-one script hash and the style.css hash: Recipe-Video-Completion, Recipe-Course-Certificate, Recipe-Reading-Streak, Recipe-Onboarding-Checklist and Recipe-Form-Completion. They are generated from the demo, so regenerate them with `node scripts/wiki-recipes.js <wiki clone>` after the demo moves, then commit and push the wiki.
 
 ## Commits
 

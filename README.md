@@ -3,6 +3,8 @@
 > **Gamification for any website.** XP, levels, achievements, daily streaks and confetti,
 > from one script tag or one import.
 
+Live demo: <https://baryodev.github.io/dopaminejs/>
+
 Course sites, blogs, onboarding flows and community sites all end up building the same
 thing: points that add up, a level that goes up, a streak that must not break, and something
 on screen when it happens. Teams write it again each time, usually without the timezone

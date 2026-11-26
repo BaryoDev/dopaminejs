@@ -4,10 +4,12 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { RewardSystem } from '../src/dopamine/core/RewardSystem.js';
 import { createMemoryStorage } from '../src/dopamine/utils/storage.js';
-import { RewardsProvider } from '../../dopaminejs-react/src/RewardsContext.js';
+import React from 'react';
+import { RewardsProvider, useRewards } from '../../dopaminejs-react/src/RewardsContext.js';
 
 const dispatched = vi.hoisted(() => []);
 const cleanups = vi.hoisted(() => []);
+const context = vi.hoisted(() => ({ value: null }));
 
 // No React renderer is installed. These stand-ins run the provider once, as
 // its first render would, so the value it hands to the context can be read.
@@ -15,7 +17,7 @@ const cleanups = vi.hoisted(() => []);
 vi.mock('react', () => {
     const api = {
         createContext: () => ({ Provider: 'Provider' }),
-        useContext: () => null,
+        useContext: () => context.value,
         useEffect: (effect) => { cleanups.push(effect()); },
         useReducer: (reducer, arg, init) => [init(arg), (action) => { dispatched.push(action); }],
         useRef: (value) => ({ current: value }),
@@ -38,6 +40,7 @@ describe('RewardsProvider', () => {
         vi.restoreAllMocks();
         dispatched.length = 0;
         cleanups.length = 0;
+        context.value = null;
     });
 
     const render = () => RewardsProvider({ storage: createMemoryStorage(), children: null }).props.value;
@@ -174,5 +177,27 @@ describe('RewardsProvider', () => {
 
         for (const cleanup of cleanups) cleanup?.();
         expect(calls).toEqual(['install', 'dispose']);
+    });
+
+    // The React recipe on the wiki quotes these two components.
+    function LessonDone() {
+        const { addXP } = useRewards();
+        return React.createElement('button', { onClick: () => addXP(50, 'lesson complete') }, 'Mark as done');
+    }
+
+    function Lesson() {
+        return React.createElement(RewardsProvider, null, React.createElement(LessonDone));
+    }
+
+    it('should let a component under the provider award XP through useRewards', async () => {
+        const addXP = vi.spyOn(RewardSystem.prototype, 'addXP').mockResolvedValue({ leveledUp: false });
+        const tree = Lesson();
+        expect(tree.type).toBe(RewardsProvider);
+        expect(tree.children[0].type).toBe(LessonDone);
+
+        context.value = RewardsProvider({ storage: createMemoryStorage(), children: null }).props.value;
+        await LessonDone().props.onClick();
+
+        expect(addXP).toHaveBeenCalledWith(50, 'lesson complete');
     });
 });

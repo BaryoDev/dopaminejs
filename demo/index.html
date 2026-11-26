@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dopaminejs demo</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dopaminejs@3.8.0/dist/style.css"
+      integrity="sha384-V+LoF/ktvub3CkT58OykQg4el30VrNFSAJwnQ/WExiuyxXf4HXsQ6l3K58Y923b8"
+      crossorigin="anonymous">
+<link rel="stylesheet" href="demo.css">
+<script src="https://cdn.jsdelivr.net/npm/dopaminejs@3.8.0/dist/dopamine.all.global.js"
+        integrity="sha384-MAjfDgRBUHoYdY5AFqXdS0IVb3+tb5CvBl8cnhAF/iYaTxOsgot8vY7C0Ch1gj8D"
+        crossorigin="anonymous"></script>
+</head>
+<body>
+<main>
+<h1>dopaminejs demo</h1>
+<p>XP, achievements, streaks and confetti for a website, from one script tag and HTML attributes. Each section below is one use case. Progress is saved in this browser only.</p>
+<p class="muted" id="status">Loading dopaminejs 3.8.0</p>
+
+<section id="course">
+<h2>Course lesson</h2>
+<p>Watch the video to the end. You get XP, an achievement, confetti and a certificate.</p>
+<video id="lesson" src="lesson.webm" controls playsinline preload="metadata"
+       data-dopamine-on="ended" data-dopamine-xp="50" data-dopamine-achievement="lesson_done"
+       data-dopamine-celebrate="certificate"
+       data-dopamine-certificate-title="Intro to Gardening"
+       data-dopamine-certificate-recipient="A. Learner"
+       data-dopamine-certificate-date="26 November 2026"
+       data-dopamine-certificate-issuer="Demo Academy"></video>
+<p><button type="button" id="skip">Skip to the end of the video</button></p>
+<p class="muted">The video is WebM. If your browser cannot play it, the other three examples still work.</p>
+</section>
+
+<section id="blog">
+<h2>Blog post</h2>
+<p>Scroll the post to the end. You get XP and a streak toast.</p>
+<article class="post" tabindex="0" aria-label="Sample post" data-dopamine-on="read" data-dopamine-xp="20" data-dopamine-celebrate="streak">
+<p>Seeds need water, light and time. Most people give them the first two and run out of the third.</p>
+<p>Start small. One pot on a windowsill is enough to learn how your light moves through the day.</p>
+<p>Water in the morning. The soil dries slower, and you will notice a dry pot before the plant does.</p>
+<p>Keep a note of what you did. Two lines a day shows you what worked when something goes wrong.</p>
+<p>Do not move a plant every few days. It spends the week adjusting instead of growing.</p>
+<p>Harvest a little at a time. A plant cut back lightly keeps producing for longer.</p>
+<p>That is all. Come back tomorrow and read the next one to keep your streak.</p>
+</article>
+</section>
+
+<section id="docs">
+<h2>Docs tutorial</h2>
+<p>Each button gives XP, and the third unlocks a badge.</p>
+<ol>
+<li>Install the package. <button type="button" aria-label="Done with step 1" data-dopamine-on="click" data-dopamine-xp="10">Done</button></li>
+<li>Add the script tag. <button type="button" aria-label="Done with step 2" data-dopamine-on="click" data-dopamine-xp="10">Done</button></li>
+<li>Add a data attribute. <button type="button" aria-label="Done with step 3" data-dopamine-on="click" data-dopamine-xp="10"
+    data-dopamine-achievement="tutorial_badge" data-dopamine-celebrate="milestone">Done</button></li>
+</ol>
+</section>
+
+<section id="form">
+<h2>Form</h2>
+<p>Submit the form for XP. Nothing is sent anywhere.</p>
+<form id="signup" data-dopamine-on="submit" data-dopamine-xp="15">
+<label for="email">Email</label>
+<input id="email" type="email" placeholder="you@example.com" required>
+<p><button type="submit">Subscribe</button></p>
+</form>
+</section>
+</main>
+
+<script>
+const progress = new Dopamine.RewardSystem(new Dopamine.DataService(), {
+    builtinAchievements: false,
+    achievements: {
+        lesson_done: { name: 'Lesson complete', description: 'Watched a lesson to the end', icon: '\u{1F393}', xp: 25, check: () => false },
+        tutorial_badge: { name: 'Tutorial finished', description: 'Finished every step', icon: '\u{1F396}', xp: 25, check: () => false }
+    }
+});
+const host = Dopamine.createDopamine({ progress });
+Dopamine.auto({ host });
+
+document.getElementById('signup').addEventListener('submit', (event) => event.preventDefault());
+document.getElementById('skip').addEventListener('click', () => {
+    const video = document.getElementById('lesson');
+    video.currentTime = Math.max(0, (video.duration || 4) - 0.3);
+    video.play();
+});
+
+host.ready.then(() => {
+    const status = document.getElementById('status');
+    status.textContent = 'dopaminejs 3.8.0 is running';
+    status.setAttribute('data-ready', '3.8.0');
+}).catch(() => {
+    document.getElementById('status').textContent = 'dopaminejs failed to start';
+});
+</script>
+<script>
+if (typeof Dopamine === 'undefined') {
+    document.getElementById('status').textContent = 'dopaminejs failed to load';
+}
+</script>
+</body>
+</html>
