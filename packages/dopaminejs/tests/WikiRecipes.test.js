@@ -46,6 +46,16 @@ describe('wiki recipe generator', () => {
         }
     });
 
+    it('should write no version in the five pinned pages other than the README pin', () => {
+        const pin = readme.match(ALL_JS)[1];
+        for (const name of PINNED) {
+            const text = readFileSync(join(dir, `${name}.md`), 'utf8');
+            const versions = text.match(/\d+\.\d+\.\d+/g) ?? [];
+            expect(versions.length, name).toBeGreaterThan(0);
+            for (const version of versions) expect(version, name).toBe(pin);
+        }
+    });
+
     it('should exit 1 with no argument', () => {
         let error;
         try {

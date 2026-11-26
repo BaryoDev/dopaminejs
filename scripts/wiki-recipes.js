@@ -29,6 +29,17 @@ const tests = join(root, 'packages/dopaminejs/tests');
 const demo = readFileSync(join(root, 'demo/index.html'), 'utf8');
 const react = readFileSync(join(tests, 'ReactProvider.test.js'), 'utf8');
 const vue = readFileSync(join(tests, 'VueHostComponent.test.js'), 'utf8');
+const reactPackage = JSON.parse(readFileSync(join(root, 'packages/dopaminejs-react/package.json'), 'utf8'));
+
+// The same pin tests/Demo.test.js reads: the core version comes from the demo.
+const ALL_JS = /https:\/\/cdn\.jsdelivr\.net\/npm\/dopaminejs@([^/"]+)\/dist\/dopamine\.all\.global\.js"\s+integrity="([^"]+)"/;
+const pin = demo.match(ALL_JS);
+if (!pin) {
+    console.error('wiki-recipes: demo/index.html has no pinned dopamine.all.global.js script tag');
+    process.exit(1);
+}
+const VERSION = pin[1];
+const REACT_VERSION = reactPackage.version;
 
 function grab(src, pattern) {
     const match = src.match(pattern);
@@ -59,7 +70,7 @@ if (!vue.includes(VUEI)) {
 }
 
 const DEMO = 'https://baryodev.github.io/dopaminejs/';
-const SETUP = `Put this in the page. It loads dopaminejs 3.8.0 from jsDelivr, and the \`integrity\` values make the browser refuse a changed file:
+const SETUP = `Put this in the page. It loads dopaminejs ${VERSION} from jsDelivr, and the \`integrity\` values make the browser refuse a changed file:
 
 \`\`\`html
 ${HEAD}
@@ -183,7 +194,7 @@ If the form navigates away on submit, the page may unload before the XP is saved
 `,
     'Recipe-React.md': `# Recipe: React
 
-XP from a React component. Uses \`dopaminejs-react\` 2.2.0. Live: [the demo](${DEMO}) shows the same rewards from HTML attributes.
+XP from a React component. Uses \`dopaminejs-react\` ${REACT_VERSION}. Live: [the demo](${DEMO}) shows the same rewards from HTML attributes.
 
 \`\`\`bash
 npm install dopaminejs dopaminejs-react
