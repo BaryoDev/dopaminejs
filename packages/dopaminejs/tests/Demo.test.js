@@ -161,8 +161,10 @@ describe('demo page attributes', () => {
 
     it('should give XP for the three docs buttons and unlock tutorial_badge on the third', async () => {
         // 10 + 10 + 10 from the buttons, plus the 25 the achievement itself pays.
+        // The host is shared with the tests above (the form submit pays 15), so count from here.
+        const before = host.progress.snapshot().xp;
         for (const button of document.querySelectorAll('#docs button')) button.click();
-        await vi.waitFor(() => expect(host.progress.snapshot().xp).toBe(55));
+        await vi.waitFor(() => expect(host.progress.snapshot().xp - before).toBe(55));
         const unlocked = host.progress.getUnlockedAchievements().map((a) => a.id);
         expect(unlocked).toContain('tutorial_badge');
     });
