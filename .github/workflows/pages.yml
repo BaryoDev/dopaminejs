@@ -1,0 +1,77 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['demo/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+# Each job asks for what it needs.
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Copy the demo and record the commit
+        run: |
+          mkdir _site
+          cp -R demo/. _site/
+          printf '%s' "$GITHUB_SHA" > _site/commit.txt
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions: {}
+    env:
+      URL: ${{ needs.deploy.outputs.page_url }}
+    steps:
+      - name: Wait for this commit to be served
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            served=$(curl -fsS "${URL}commit.txt?run=$GITHUB_RUN_ID-$i" || true)
+            [ "$served" = "$GITHUB_SHA" ] && exit 0
+            sleep 15
+          done
+          echo "commit.txt at ${URL} says '$served', expected $GITHUB_SHA" >&2
+          exit 1
+
+      - name: The page has the demo heading
+        run: curl -fsS "$URL" | grep -q '<h1>dopaminejs demo</h1>'
+
+      - name: The script ran in a browser
+        run: |
+          dom=$(google-chrome --headless=new --no-sandbox --virtual-time-budget=15000 --dump-dom "$URL")
+          echo "$dom" | grep -Eq 'data-ready="[0-9]+\.[0-9]+\.[0-9]+"' || {
+            echo "no ready marker, so window.Dopamine did not load or the host did not start" >&2
+            exit 1
+          }
